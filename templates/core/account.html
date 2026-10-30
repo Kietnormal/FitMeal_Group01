@@ -1,0 +1,37 @@
+{% extends "core/store_base.html" %}
+{% block title %}Tài khoản — FitMeal{% endblock %}
+{% block store_content %}
+<section class="account-layout">
+  <div class="account-intro">
+    <span class="store-kicker">CỘNG ĐỒNG FITMEAL</span><h1>Mỗi ngày tốt hơn,<br><span>theo cách của bạn.</span></h1>
+    <p>Đăng nhập để quản lý thông tin, đơn hàng và hành trình dinh dưỡng của mình.</p>
+    <div class="account-benefits"><span>✓ Theo dõi lịch sử đơn hàng</span><span>✓ Lưu thông tin nhận hàng</span><span>✓ Khám phá món phù hợp mục tiêu</span></div>
+    <div class="account-orbit"><span>FIT<br>MEAL</span><i></i><b></b></div>
+  </div>
+  <section class="account-form-panel">
+    <div class="account-tabs" role="tablist" aria-label="Chọn đăng nhập hoặc đăng ký">
+      <button class="account-tab is-active" type="button" role="tab" aria-selected="true" data-account-tab="login">Đăng nhập</button>
+      <button class="account-tab" type="button" role="tab" aria-selected="false" data-account-tab="register">Tạo tài khoản</button>
+    </div>
+    <form class="account-form" data-account-form="login">
+      <span class="store-kicker">CHÀO MỪNG TRỞ LẠI</span><h2>Đăng nhập FitMeal</h2><p>Tiếp tục hành trình khỏe mạnh của bạn.</p>
+      <label>Email hoặc số điện thoại<input type="text" autocomplete="username" placeholder="ban@email.com" required></label>
+      <label>Mật khẩu<input type="password" autocomplete="current-password" placeholder="Nhập mật khẩu" required></label>
+      <div class="account-form-row"><label class="remember-option"><input type="checkbox"> Ghi nhớ đăng nhập</label><button class="forgot-password" type="button" data-account-forgot>Quên mật khẩu?</button></div>
+      <button class="solid-button" type="submit">Đăng nhập <span>→</span></button>
+      <small class="prototype-caption">Prototype giao diện — xác thực chưa được kết nối.</small>
+      <div class="form-feedback" data-account-feedback role="status"></div>
+    </form>
+    <form class="account-form" data-account-form="register" hidden>
+      <span class="store-kicker">BẮT ĐẦU HÀNH TRÌNH</span><h2>Tạo tài khoản mới</h2><p>Đăng ký để lưu thông tin và theo dõi đơn hàng.</p>
+      <label>Họ và tên<input type="text" autocomplete="name" placeholder="Tên của bạn" required></label>
+      <label>Email<input type="email" autocomplete="email" placeholder="ban@email.com" required></label>
+      <label>Số điện thoại<input type="tel" autocomplete="tel" placeholder="09xx xxx xxx" required></label>
+      <label>Mật khẩu<input type="password" autocomplete="new-password" minlength="8" placeholder="Ít nhất 8 ký tự" required></label>
+      <button class="solid-button" type="submit">Tạo tài khoản <span>→</span></button>
+      <small class="prototype-caption">Prototype giao diện — tài khoản chưa được tạo trên hệ thống.</small>
+      <div class="form-feedback" data-account-feedback role="status"></div>
+    </form>
+  </section>
+</section>
+{% endblock %}

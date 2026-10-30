@@ -1,0 +1,48 @@
+{% extends "core/store_base.html" %}
+{% block title %}Hoàn tất đặt hàng — FitMeal{% endblock %}
+{% block store_content %}
+<section class="page-heading compact-heading"><span class="store-kicker">BƯỚC CUỐI CÙNG</span><h1>Hoàn tất đơn hàng.</h1><p>Giao diện minh họa — chưa gửi đơn hoặc thanh toán thật.</p></section>
+<div class="checkout-layout" data-checkout-page>
+  <form class="checkout-form" data-checkout-form>
+    <section class="form-panel">
+      <div class="form-section-heading"><span>01</span><div><h2>Thông tin nhận hàng</h2><p>Nhập thông tin liên hệ và địa chỉ giao.</p></div></div>
+      <div class="form-grid">
+        <label>Họ và tên<input name="name" autocomplete="name" placeholder="Nguyễn Văn A" required></label>
+        <label>Số điện thoại<input name="phone" autocomplete="tel" inputmode="tel" placeholder="09xx xxx xxx" required></label>
+        <label class="field-wide">Email<input name="email" type="email" autocomplete="email" placeholder="ban@email.com" required></label>
+        <label class="field-wide">Địa chỉ<input name="address" autocomplete="street-address" placeholder="Số nhà, đường, phường/xã..." required></label>
+        <label>Quận / Huyện<input name="district" placeholder="Quận / Huyện" required></label>
+        <label>Tỉnh / Thành phố<input name="city" placeholder="Tỉnh / Thành phố" required></label>
+        <label class="field-wide">Ghi chú cho đơn hàng<textarea name="note" rows="3" placeholder="Khung giờ nhận hàng hoặc lưu ý khác..."></textarea></label>
+      </div>
+    </section>
+    <section class="form-panel">
+      <div class="form-section-heading"><span>02</span><div><h2>Phương thức thanh toán</h2><p>Chọn phương thức hiển thị trong prototype.</p></div></div>
+      <div class="payment-options">
+        <label class="payment-option"><input type="radio" name="payment" value="cod" checked><span class="payment-icon">₫</span><span><strong>Thanh toán khi nhận hàng</strong><small>Thanh toán trực tiếp với đơn vị giao hàng</small></span></label>
+        <label class="payment-option"><input type="radio" name="payment" value="bank"><span class="payment-icon">↗</span><span><strong>Chuyển khoản ngân hàng</strong><small>Thông tin chuyển khoản sẽ hiển thị khi có tích hợp thật</small></span></label>
+      </div>
+    </section>
+    <p class="form-disclaimer">Đây là giao diện thử nghiệm. Nút đặt hàng chỉ tạo trạng thái minh họa trên trình duyệt, không gửi thông tin tới máy chủ.</p>
+    <button class="solid-button submit-order" type="submit">Xác nhận đơn minh họa <span>→</span></button>
+  </form>
+  <aside class="order-summary checkout-summary">
+    <span class="store-kicker">ĐƠN CỦA BẠN</span><h2>Tóm tắt giỏ hàng</h2>
+    <div class="checkout-items" data-checkout-items></div>
+    <div class="summary-row"><span>Tạm tính</span><strong data-cart-subtotal>0₫</strong></div>
+    <div class="summary-row"><span>Giao hàng</span><strong>Chưa xác định</strong></div>
+    <div class="summary-row summary-total"><span>Tổng cộng dự kiến</span><strong data-cart-total>0₫</strong></div>
+    <a class="back-to-cart" href="{% url 'core:cart' %}">← Quay lại giỏ hàng</a>
+  </aside>
+</div>
+<div class="modal-backdrop" data-order-modal hidden>
+  <section class="confirmation-modal" role="dialog" aria-modal="true" aria-labelledby="confirmation-title">
+    <button class="modal-close" type="button" aria-label="Đóng" data-close-modal>×</button>
+    <span class="confirmation-check">✓</span><span class="store-kicker">BẢN XEM TRƯỚC</span>
+    <h2 id="confirmation-title">Đơn minh họa đã sẵn sàng</h2>
+    <p>Mã tham khảo: <strong data-demo-order-id>FM-DEMO-0000</strong></p>
+    <p>Chưa có giao dịch thật được tạo. Bạn có thể xem màn hình theo dõi đơn mẫu.</p>
+    <a class="solid-button" href="{% url 'core:tracking' %}">Xem giao diện theo dõi →</a>
+  </section>
+</div>
+{% endblock %}

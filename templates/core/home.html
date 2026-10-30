@@ -1,8 +1,211 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="py-5 text-center">
-  <h1 class="display-5 fw-bold">FitMeal</h1>
-  <p class="lead">Protein tiện lợi mỗi ngày</p>
-  <p class="text-muted">Khung dự án đã chạy. Đây là trang tạm, các bạn thay bằng giao diện thật.</p>
+<div class="page-shell">
+  <header class="site-header">
+    <a class="brand" href="{% url 'core:home' %}" aria-label="FitMeal - Trang chủ">
+      <span class="brand-mark" aria-hidden="true">F</span>
+      <span class="brand-copy">
+        <strong>FITMEAL.VN</strong>
+        <small>ĂN KHỎE · SỐNG CHẤT</small>
+      </span>
+    </a>
+
+    <button class="menu-toggle" type="button" aria-label="Mở menu" aria-expanded="false" aria-controls="primary-navigation">
+      <span></span><span></span><span></span>
+    </button>
+
+    <nav class="primary-navigation" id="primary-navigation" aria-label="Điều hướng chính">
+      <a class="is-current" href="{% url 'core:home' %}">Trang chủ</a>
+      <a href="{% url 'core:shop' %}">Thực đơn</a>
+      <a href="#menu">Dinh dưỡng</a>
+      <a href="{% url 'core:tracking' %}">Theo dõi đơn</a>
+      <a href="#contact">FAQs</a>
+      <a class="mobile-account-link" href="{% url 'core:account' %}#register">Đăng ký</a>
+      <a class="mobile-account-link" href="{% url 'core:account' %}#login">Đăng nhập</a>
+      <div class="mobile-home-languages" aria-label="Ngôn ngữ giao diện">
+        <button type="button" aria-pressed="false" data-language="en">EN</button><span>/</span><button type="button" class="is-active" aria-pressed="true" data-language="vi">VI</button>
+        <span class="visually-hidden" role="status" data-language-status>Giao diện hiện hiển thị tiếng Việt.</span>
+      </div>
+    </nav>
+    <div class="header-actions">
+      <a class="header-account-link" href="{% url 'core:account' %}#register">Đăng ký</a>
+      <a class="header-account-link" href="{% url 'core:account' %}#login">Đăng nhập</a>
+      <a class="header-cart-link" href="{% url 'core:cart' %}" aria-label="Giỏ hàng">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l1 13H4L5 8Z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/></svg>
+        <span class="header-cart-count" data-cart-count>0</span>
+      </a>
+      <div class="header-languages" aria-label="Ngôn ngữ giao diện">
+        <button type="button" aria-pressed="false" data-language="en">EN</button><span>/</span><button type="button" class="is-active" aria-pressed="true" data-language="vi">VI</button>
+        <span class="visually-hidden" role="status" data-language-status>Giao diện hiện hiển thị tiếng Việt.</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="nutrition-hero" aria-labelledby="goal-title">
+      <div class="announcement-marquee" aria-label="Cuộc cách mạng dinh dưỡng chức năng">
+        <div class="announcement-track" aria-hidden="true">
+          <span>Cuộc cách mạng dinh dưỡng chức năng <b>★</b> Nạp năng lượng cho buổi tập <b>★</b> Ăn ngon, sống khỏe <b>★</b></span>
+          <span>Cuộc cách mạng dinh dưỡng chức năng <b>★</b> Nạp năng lượng cho buổi tập <b>★</b> Ăn ngon, sống khỏe <b>★</b></span>
+        </div>
+      </div>
+
+      <div class="outline-marquees" aria-hidden="true">
+        <div class="outline-marquee">
+          <div class="outline-track">
+            <span>DINH DƯỠNG THEO MỤC TIÊU · TẬP LUYỆN HẾT MÌNH · </span>
+            <span>DINH DƯỠNG THEO MỤC TIÊU · TẬP LUYỆN HẾT MÌNH · </span>
+          </div>
+        </div>
+        <div class="outline-marquee outline-marquee-reverse">
+          <div class="outline-track">
+            <span>NẠP NĂNG LƯỢNG CHO BUỔI TẬP · ĂN NGON SỐNG KHỎE · </span>
+            <span>NẠP NĂNG LƯỢNG CHO BUỔI TẬP · ĂN NGON SỐNG KHỎE · </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="goal-content">
+        <div class="goal-copy">
+          <span class="hero-eyebrow"><span></span> DINH DƯỠNG THEO CÁCH CỦA BẠN</span>
+          <h1 id="goal-title">Dinh dưỡng<br>theo <span>mục tiêu.</span></h1>
+          <p>Hành trình của bạn là duy nhất. Chọn nguồn dinh dưỡng phù hợp để tăng cơ, phục hồi sau vận động hay thêm năng lượng cho ngày dài.</p>
+          <a class="hero-button" href="{% url 'core:shop' %}">Tìm món dành cho bạn <span aria-hidden="true">↘</span></a>
+        </div>
+
+        <div class="goal-cards" aria-label="Lựa chọn theo mục tiêu">
+          <a class="goal-card goal-card-strength" href="#menu">
+            <span class="goal-card-symbol" aria-hidden="true">↗</span>
+            <span class="goal-card-index">01 / HIỆU SUẤT</span>
+            <strong>Tăng cơ</strong>
+          </a>
+          <a class="goal-card goal-card-recovery" href="#menu">
+            <span class="goal-card-symbol" aria-hidden="true">✳</span>
+            <span class="goal-card-index">02 / CÂN BẰNG</span>
+            <strong>Phục hồi</strong>
+          </a>
+          <a class="goal-card goal-card-energy" href="#menu">
+            <span class="goal-card-symbol" aria-hidden="true">ϟ</span>
+            <span class="goal-card-index">03 / MỖI NGÀY</span>
+            <strong>Năng lượng</strong>
+          </a>
+        </div>
+      </div>
+      <a class="scroll-cue" href="#menu"><span></span> CUỘN XUỐNG KHÁM PHÁ</a>
+    </section>
+
+    <section class="menu-section" id="menu" aria-labelledby="menu-title">
+      <div class="section-intro" id="about">
+        <span class="eyebrow"><span class="eyebrow-dot"></span> NGON LÀNH, ĐỦ CHẤT</span>
+        <h1 id="menu-title">Nạp năng lượng.<br><span>Sống hết mình.</span></h1>
+        <p class="intro-copy">Bữa ăn giàu protein, ngon miệng và tiện lợi — tiếp thêm năng lượng cho mọi mục tiêu mỗi ngày.</p>
+        <a class="primary-button" href="{% url 'core:shop' %}">Khám phá thực đơn <span aria-hidden="true">→</span></a>
+        <div class="intro-note">
+          <span class="note-icon" aria-hidden="true">✳</span>
+          <span>Chọn món ngon<br><strong>theo cách của bạn</strong></span>
+        </div>
+      </div>
+
+      <div class="product-showcase" id="menu-products">
+        <div class="showcase-topline">
+          <div>
+            <span class="eyebrow">MÓN ĐƯỢC YÊU THÍCH</span>
+            <p class="showcase-hint">Một chút ngon lành cho ngày năng động.</p>
+          </div>
+          <div class="carousel-controls" aria-label="Điều khiển danh sách món">
+            <button class="carousel-button" type="button" data-carousel-direction="-1" aria-label="Xem món trước">←</button>
+            <button class="carousel-button carousel-button-next" type="button" data-carousel-direction="1" aria-label="Xem món tiếp theo">→</button>
+          </div>
+        </div>
+
+        <div class="product-track" id="nutrition" tabindex="0" aria-label="Các món FitMeal">
+          <article class="product-card">
+            <div class="product-art product-art-banana" role="img" aria-label="Minh họa ly sinh tố chuối whey">
+              <span class="product-badge">ĐƯỢC YÊU THÍCH</span>
+              <span class="art-fruit art-banana" aria-hidden="true">🍌</span>
+              <div class="drink-cup">
+                <span class="cup-lid"></span><span class="cup-straw"></span>
+                <span class="cup-logo">fit<br><b>meal</b></span>
+                <span class="cup-shine"></span>
+              </div>
+              <span class="art-sparkle sparkle-one" aria-hidden="true">✳</span>
+              <span class="art-sparkle sparkle-two" aria-hidden="true">✦</span>
+            </div>
+            <div class="product-info">
+              <div class="product-heading">
+                <div><h2>Banana Whey</h2><p>Chuối · Sữa tươi · Whey</p></div>
+                <span class="product-arrow" aria-hidden="true">↗</span>
+              </div>
+              <div class="nutrition-grid">
+                <div><strong>194</strong><span>CALORIES</span></div>
+                <div><strong>34g</strong><span>CARB</span></div>
+                <div><strong>13g</strong><span>PROTEIN</span></div>
+                <div><strong>2g</strong><span>FAT</span></div>
+              </div>
+            </div>
+          </article>
+
+          <article class="product-card">
+            <div class="product-art product-art-mocha" role="img" aria-label="Minh họa ly mocha cafe whey">
+              <span class="product-badge badge-red">MUST TRY</span>
+              <span class="art-fruit art-coffee" aria-hidden="true">✳</span>
+              <div class="drink-cup">
+                <span class="cup-lid"></span><span class="cup-straw"></span>
+                <span class="cup-logo">fit<br><b>meal</b></span>
+                <span class="cup-shine"></span>
+              </div>
+              <span class="art-sparkle sparkle-one" aria-hidden="true">✦</span>
+              <span class="art-sparkle sparkle-two" aria-hidden="true">✳</span>
+            </div>
+            <div class="product-info">
+              <div class="product-heading">
+                <div><h2>Mocha Cafe Whey</h2><p>Cafe · Bột cacao · Chuối · Whey</p></div>
+                <span class="product-arrow" aria-hidden="true">↗</span>
+              </div>
+              <div class="nutrition-grid">
+                <div><strong>247</strong><span>CALORIES</span></div>
+                <div><strong>48.3g</strong><span>CARB</span></div>
+                <div><strong>13g</strong><span>PROTEIN</span></div>
+                <div><strong>1.4g</strong><span>FAT</span></div>
+              </div>
+            </div>
+          </article>
+
+          <article class="product-card">
+            <div class="product-art product-art-berry" role="img" aria-label="Minh họa ly sinh tố dâu protein">
+              <span class="product-badge badge-green">TƯƠI MỚI</span>
+              <span class="art-fruit art-berry-fruit" aria-hidden="true">✿</span>
+              <div class="drink-cup">
+                <span class="cup-lid"></span><span class="cup-straw"></span>
+                <span class="cup-logo">fit<br><b>meal</b></span>
+                <span class="cup-shine"></span>
+              </div>
+              <span class="art-sparkle sparkle-one" aria-hidden="true">✳</span>
+              <span class="art-sparkle sparkle-two" aria-hidden="true">✦</span>
+            </div>
+            <div class="product-info">
+              <div class="product-heading">
+                <div><h2>Berry Protein</h2><p>Dâu tây · Sữa chua · Whey</p></div>
+                <span class="product-arrow" aria-hidden="true">↗</span>
+              </div>
+              <div class="nutrition-grid">
+                <div><strong>216</strong><span>CALORIES</span></div>
+                <div><strong>29g</strong><span>CARB</span></div>
+                <div><strong>18g</strong><span>PROTEIN</span></div>
+                <div><strong>3g</strong><span>FAT</span></div>
+              </div>
+            </div>
+          </article>
+        </div>
+        <p class="nutrition-note">* Chỉ số dinh dưỡng minh họa, sẽ được cập nhật theo công thức sản phẩm.</p>
+      </div>
+    </section>
+
+    <footer class="site-footer" id="contact">
+      <a class="footer-brand" href="{% url 'core:home' %}">FitMeal<span>®</span></a>
+      <p>Ăn ngon, đủ chất, sống trọn từng ngày.</p>
+      <a href="{% url 'core:demo_admin' %}">Giao diện quản trị ↗</a>
+    </footer>
+  </main>
 </div>
 {% endblock %}

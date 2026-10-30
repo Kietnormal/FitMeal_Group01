@@ -1,0 +1,65 @@
+{% extends "core/store_base.html" %}
+{% block title %}Cửa hàng FitMeal — Thực phẩm giàu protein{% endblock %}
+{% block store_content %}
+<section class="shop-heading">
+  <div>
+    <span class="store-kicker">ĂN NGON · SỐNG KHỎE · TẬP HẾT MÌNH</span>
+    <h1>Chọn món hợp<br><span>với mục tiêu của bạn.</span></h1>
+    <p>Từ ly whey mát lạnh đến bữa ăn đủ chất — chọn món yêu thích cho ngày năng động.</p>
+  </div>
+  <div class="shop-heading-stamp"><span>FIT</span><strong>FOOD<br>FORWARD</strong><small>GOOD ENERGY, EVERY DAY</small></div>
+</section>
+
+<section class="catalog-section" aria-labelledby="catalog-title">
+  <div class="catalog-toolbar">
+    <div><span class="store-kicker">THỰC ĐƠN FITMEAL</span><h2 id="catalog-title">Món ngon mỗi ngày</h2></div>
+    <label class="catalog-search"><span aria-hidden="true">⌕</span><input type="search" placeholder="Tìm món bạn thích..." aria-label="Tìm sản phẩm" data-product-search></label>
+  </div>
+  <div class="catalog-filters" role="group" aria-label="Lọc theo danh mục">
+    <button class="filter-chip is-active" type="button" data-category="all">Tất cả món</button>
+    <button class="filter-chip" type="button" data-category="drink">Thức uống</button>
+    <button class="filter-chip" type="button" data-category="meal">Bữa ăn</button>
+    <button class="filter-chip" type="button" data-category="snack">Ăn nhẹ</button>
+    <label class="sort-select">Sắp xếp
+      <select aria-label="Sắp xếp sản phẩm" data-product-sort>
+        <option value="featured">Nổi bật</option>
+        <option value="price-asc">Giá tăng dần</option>
+        <option value="price-desc">Giá giảm dần</option>
+      </select>
+    </label>
+  </div>
+  <div class="catalog-grid" data-product-grid>
+    <article class="catalog-card" data-product data-id="banana-whey" data-name="Banana Whey" data-price="59000" data-category="drink" data-search="banana whey chuối sữa whey thức uống">
+      <div class="catalog-art catalog-art-banana"><span class="catalog-tag">BÁN CHẠY</span><span class="catalog-fruit">🍌</span><div class="catalog-cup cup-cream"><span>fit<br><b>meal</b></span></div><span class="art-caption">01 / DAILY BLEND</span></div>
+      <div class="catalog-details"><div><h3>Banana Whey</h3><p>Chuối · Sữa tươi · Whey</p></div><span class="catalog-protein">13g <small>PROTEIN</small></span></div>
+      <div class="catalog-buy"><strong>59.000₫</strong><button type="button" data-add-to-cart>Thêm vào giỏ <span>＋</span></button></div>
+    </article>
+    <article class="catalog-card" data-product data-id="mocha-whey" data-name="Mocha Cafe Whey" data-price="65000" data-category="drink" data-search="mocha cafe cacao chuối whey cà phê thức uống">
+      <div class="catalog-art catalog-art-mocha"><span class="catalog-tag tag-red">MUST TRY</span><span class="catalog-fruit">✳</span><div class="catalog-cup cup-coffee"><span>fit<br><b>meal</b></span></div><span class="art-caption">02 / COFFEE KICK</span></div>
+      <div class="catalog-details"><div><h3>Mocha Cafe Whey</h3><p>Cafe · Cacao · Chuối · Whey</p></div><span class="catalog-protein">13g <small>PROTEIN</small></span></div>
+      <div class="catalog-buy"><strong>65.000₫</strong><button type="button" data-add-to-cart>Thêm vào giỏ <span>＋</span></button></div>
+    </article>
+    <article class="catalog-card" data-product data-id="berry-protein" data-name="Berry Protein" data-price="62000" data-category="drink" data-search="berry dâu tây sữa chua whey thức uống">
+      <div class="catalog-art catalog-art-berry"><span class="catalog-tag tag-green">TƯƠI MỚI</span><span class="catalog-fruit">✿</span><div class="catalog-cup cup-berry"><span>fit<br><b>meal</b></span></div><span class="art-caption">03 / BERRY GLOW</span></div>
+      <div class="catalog-details"><div><h3>Berry Protein</h3><p>Dâu tây · Sữa chua · Whey</p></div><span class="catalog-protein">18g <small>PROTEIN</small></span></div>
+      <div class="catalog-buy"><strong>62.000₫</strong><button type="button" data-add-to-cart>Thêm vào giỏ <span>＋</span></button></div>
+    </article>
+    <article class="catalog-card" data-product data-id="chicken-sous-vide" data-name="Ức gà Sous-vide" data-price="89000" data-category="meal" data-search="ức gà sous vide tiêu đen bữa ăn protein">
+      <div class="catalog-art catalog-art-chicken"><span class="catalog-tag tag-green">GIÀU ĐẠM</span><span class="catalog-fruit">✳</span><div class="meal-illustration"><span>F</span></div><span class="art-caption">04 / POWER MEAL</span></div>
+      <div class="catalog-details"><div><h3>Ức gà Sous-vide</h3><p>Ức gà · Tiêu đen thảo mộc</p></div><span class="catalog-protein">32g <small>PROTEIN</small></span></div>
+      <div class="catalog-buy"><strong>89.000₫</strong><button type="button" data-add-to-cart>Thêm vào giỏ <span>＋</span></button></div>
+    </article>
+    <article class="catalog-card" data-product data-id="protein-brownie" data-name="Protein Brownie" data-price="39000" data-category="snack" data-search="protein brownie bánh cacao ăn nhẹ">
+      <div class="catalog-art catalog-art-brownie"><span class="catalog-tag">ĂN NHẸ</span><span class="catalog-fruit">✦</span><div class="brownie-illustration"><span>FM</span></div><span class="art-caption">05 / LITTLE TREAT</span></div>
+      <div class="catalog-details"><div><h3>Protein Brownie</h3><p>Cacao · Yến mạch · Whey</p></div><span class="catalog-protein">12g <small>PROTEIN</small></span></div>
+      <div class="catalog-buy"><strong>39.000₫</strong><button type="button" data-add-to-cart>Thêm vào giỏ <span>＋</span></button></div>
+    </article>
+    <article class="catalog-card" data-product data-id="granola-crunch" data-name="Granola Crunch" data-price="45000" data-category="snack" data-search="granola yến mạch hạt ăn nhẹ">
+      <div class="catalog-art catalog-art-granola"><span class="catalog-tag tag-red">GIÒN NGON</span><span class="catalog-fruit">✳</span><div class="granola-illustration"><span>FM</span></div><span class="art-caption">06 / CRUNCH TIME</span></div>
+      <div class="catalog-details"><div><h3>Granola Crunch</h3><p>Yến mạch · Hạt · Mật ong</p></div><span class="catalog-protein">8g <small>PROTEIN</small></span></div>
+      <div class="catalog-buy"><strong>45.000₫</strong><button type="button" data-add-to-cart>Thêm vào giỏ <span>＋</span></button></div>
+    </article>
+  </div>
+  <p class="catalog-empty" data-empty-results hidden>Không tìm thấy món phù hợp. Thử từ khóa hoặc danh mục khác nhé.</p>
+</section>
+{% endblock %}

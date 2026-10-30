@@ -1,0 +1,73 @@
+{% extends "core/store_base.html" %}
+{% block title %}Giao diện quản trị — FitMeal{% endblock %}
+{% block store_content %}
+<section class="admin-demo-banner"><span class="admin-demo-mark">i</span><p><strong>Giao diện quản trị minh họa</strong> — số liệu và thao tác bên dưới là dữ liệu mẫu, chưa kết nối cơ sở dữ liệu hoặc phân quyền.</p><a href="{% url 'core:shop' %}">Về cửa hàng ↗</a></section>
+<div class="admin-layout">
+  <aside class="admin-sidebar">
+    <a class="admin-side-brand" href="{% url 'core:demo_admin' %}"><span class="store-brand-icon">F</span><span><strong>FitMeal</strong><small>ADMIN PREVIEW</small></span></a>
+    <span class="admin-side-label">TỔNG QUAN</span>
+    <button class="admin-nav-item is-active" type="button" data-admin-tab="overview"><span>▦</span>Tổng quan</button>
+    <span class="admin-side-label">VẬN HÀNH</span>
+    <button class="admin-nav-item" type="button" data-admin-tab="orders"><span>▤</span>Đơn hàng <i>8</i></button>
+    <button class="admin-nav-item" type="button" data-admin-tab="products"><span>◇</span>Sản phẩm</button>
+    <button class="admin-nav-item" type="button" data-admin-tab="customers"><span>♙</span>Khách hàng</button>
+    <button class="admin-nav-item" type="button" data-admin-tab="payments"><span>＄</span>Thanh toán</button>
+    <button class="admin-nav-item" type="button" data-admin-tab="shipping"><span>↗</span>Vận chuyển</button>
+    <span class="admin-side-label">HỆ THỐNG</span>
+    <button class="admin-nav-item" type="button" data-admin-tab="security"><span>◇</span>Bảo mật</button>
+    <button class="admin-nav-item" type="button" data-admin-tab="operations"><span>◷</span>Vận hành hệ thống</button>
+    <div class="admin-sidebar-bottom"><span class="admin-avatar">FM</span><span><strong>Quản trị viên</strong><small>Bản xem trước</small></span></div>
+  </aside>
+  <div class="admin-main">
+    <div class="admin-topbar"><div><span class="store-kicker">THỨ BA, 27 THÁNG 10, 2026</span><h1>Bảng điều khiển</h1></div><button class="admin-notification" type="button" aria-label="Thông báo minh họa">♧ <i></i></button></div>
+    <section class="admin-view is-active" data-admin-view="overview">
+      <div class="admin-welcome"><div><span>FITMEAL OPERATIONS</span><h2>Một ngày thật nhiều năng lượng.</h2><p>Đây là bản xem trước giao diện quản lý cửa hàng.</p></div><span class="welcome-mark">FM<span>✳</span></span></div>
+      <div class="admin-metrics">
+        <article class="metric-card"><span>DOANH THU HÔM NAY <i>↗</i></span><strong>8.450.000₫</strong><small><b>+12,8%</b> so với hôm qua</small><div class="metric-sparkline spark-green">▁▃▂▅▄▆▅█</div></article>
+        <article class="metric-card"><span>ĐƠN HÀNG MỚI <i>↗</i></span><strong>28</strong><small><b>+6</b> đơn so với hôm qua</small><div class="metric-sparkline spark-red">▂▃▂▄▅▄▆█</div></article>
+        <article class="metric-card"><span>ĐANG XỬ LÝ <i>→</i></span><strong>8</strong><small>4 đơn cần xác nhận</small><div class="metric-sparkline spark-yellow">▁▂▄▃▅▃▅▆</div></article>
+        <article class="metric-card"><span>GIÁ TRỊ ĐƠN TB <i>↗</i></span><strong>302.000₫</strong><small><b>+4,2%</b> trong tuần này</small><div class="metric-sparkline spark-blue">▂▃▅▄▃▅▆█</div></article>
+      </div>
+      <div class="admin-content-grid">
+        <section class="admin-panel orders-panel"><div class="admin-panel-heading"><div><span class="store-kicker">VẬN HÀNH CỬA HÀNG</span><h2>Đơn hàng gần đây</h2></div><button class="text-action" type="button" data-open-tab="orders">Xem tất cả →</button></div><div class="table-scroll"><table class="admin-table"><thead><tr><th>MÃ ĐƠN</th><th>KHÁCH HÀNG</th><th>NGÀY ĐẶT</th><th>TỔNG TIỀN</th><th>TRẠNG THÁI</th></tr></thead><tbody>
+          <tr><td><strong>#FM-1028</strong></td><td>Minh Anh</td><td>10:42 · Hôm nay</td><td>358.000₫</td><td><span class="status-pill status-preparing">Đang chuẩn bị</span></td></tr>
+          <tr><td><strong>#FM-1027</strong></td><td>Hoàng Nam</td><td>10:18 · Hôm nay</td><td>219.000₫</td><td><span class="status-pill status-shipping">Đang giao</span></td></tr>
+          <tr><td><strong>#FM-1026</strong></td><td>Thảo Linh</td><td>09:56 · Hôm nay</td><td>427.000₫</td><td><span class="status-pill status-paid">Hoàn tất</span></td></tr>
+          <tr><td><strong>#FM-1025</strong></td><td>Quốc Bảo</td><td>09:32 · Hôm nay</td><td>178.000₫</td><td><span class="status-pill status-pending">Chờ xác nhận</span></td></tr>
+        </tbody></table></div></section>
+        <section class="admin-panel inventory-panel"><div class="admin-panel-heading"><div><span class="store-kicker">CẦN THEO DÕI</span><h2>Tình hình sản phẩm</h2></div><button class="text-action" type="button" data-open-tab="products">Quản lý →</button></div>
+          <div class="inventory-row"><span class="inventory-icon inventory-amber">BW</span><span><strong>Banana Whey</strong><small>Đồ uống · SKU FM-001</small></span><b>12 phần</b></div>
+          <div class="inventory-row"><span class="inventory-icon inventory-pink">MC</span><span><strong>Mocha Cafe Whey</strong><small>Đồ uống · SKU FM-002</small></span><b>8 phần</b></div>
+          <div class="inventory-row"><span class="inventory-icon inventory-red">GS</span><span><strong>Ức gà Sous-vide</strong><small>Bữa ăn · SKU FM-004</small></span><b class="low-stock">3 phần</b></div>
+          <div class="inventory-alert">⚠ 1 sản phẩm sắp hết hàng</div>
+        </section>
+      </div>
+      <p class="admin-footnote">Số liệu trên là dữ liệu hư cấu để trình bày giao diện; chưa đại diện cho hoạt động kinh doanh thật.</p>
+    </section>
+    <section class="admin-view" data-admin-view="orders" hidden><div class="admin-panel full-admin-panel"><div class="admin-panel-heading"><div><span class="store-kicker">QUẢN LÝ BÁN HÀNG</span><h2>Đơn hàng</h2></div><label class="admin-search">⌕ <input type="search" placeholder="Tìm mã đơn, khách hàng..." data-admin-search></label></div><div class="table-scroll"><table class="admin-table"><thead><tr><th>MÃ ĐƠN</th><th>KHÁCH HÀNG</th><th>NGÀY ĐẶT</th><th>THANH TOÁN</th><th>TỔNG TIỀN</th><th>TRẠNG THÁI</th></tr></thead><tbody>
+      <tr><td><strong>#FM-1028</strong></td><td>Minh Anh</td><td>27/10/2026</td><td>COD</td><td>358.000₫</td><td><select class="status-select"><option>Đang chuẩn bị</option><option>Đang giao</option><option>Hoàn tất</option></select></td></tr>
+      <tr><td><strong>#FM-1027</strong></td><td>Hoàng Nam</td><td>27/10/2026</td><td>Đã thanh toán</td><td>219.000₫</td><td><select class="status-select"><option>Đang giao</option><option>Đang chuẩn bị</option><option>Hoàn tất</option></select></td></tr>
+      <tr><td><strong>#FM-1026</strong></td><td>Thảo Linh</td><td>27/10/2026</td><td>Đã thanh toán</td><td>427.000₫</td><td><select class="status-select"><option>Hoàn tất</option><option>Đang chuẩn bị</option><option>Đang giao</option></select></td></tr>
+      <tr><td><strong>#FM-1025</strong></td><td>Quốc Bảo</td><td>27/10/2026</td><td>COD</td><td>178.000₫</td><td><select class="status-select"><option>Chờ xác nhận</option><option>Đang chuẩn bị</option><option>Đã hủy</option></select></td></tr>
+      <tr><td><strong>#FM-1024</strong></td><td>Mai Phương</td><td>26/10/2026</td><td>Đã thanh toán</td><td>315.000₫</td><td><select class="status-select"><option>Đang giao</option><option>Hoàn tất</option></select></td></tr>
+    </tbody></table></div><p class="admin-footnote">Thay đổi trạng thái chỉ hiển thị trên trình duyệt, chưa cập nhật dữ liệu đơn hàng.</p></div></section>
+    <section class="admin-view" data-admin-view="products" hidden><div class="admin-panel full-admin-panel"><div class="admin-panel-heading"><div><span class="store-kicker">DANH MỤC CỬA HÀNG</span><h2>Sản phẩm</h2></div><button class="admin-primary" type="button" data-demo-action>＋ Thêm sản phẩm</button></div><div class="table-scroll"><table class="admin-table"><thead><tr><th>SẢN PHẨM</th><th>SKU</th><th>DANH MỤC</th><th>GIÁ BÁN</th><th>TỒN KHO</th><th>TRẠNG THÁI</th></tr></thead><tbody>
+      <tr><td><strong>Banana Whey</strong></td><td>FM-001</td><td>Đồ uống</td><td>59.000₫</td><td>12</td><td><span class="status-pill status-paid">Đang bán</span></td></tr>
+      <tr><td><strong>Mocha Cafe Whey</strong></td><td>FM-002</td><td>Đồ uống</td><td>65.000₫</td><td>8</td><td><span class="status-pill status-paid">Đang bán</span></td></tr>
+      <tr><td><strong>Berry Protein</strong></td><td>FM-003</td><td>Đồ uống</td><td>62.000₫</td><td>21</td><td><span class="status-pill status-paid">Đang bán</span></td></tr>
+      <tr><td><strong>Ức gà Sous-vide</strong></td><td>FM-004</td><td>Bữa ăn</td><td>89.000₫</td><td>3</td><td><span class="status-pill status-pending">Sắp hết</span></td></tr>
+      <tr><td><strong>Protein Brownie</strong></td><td>FM-005</td><td>Ăn nhẹ</td><td>39.000₫</td><td>42</td><td><span class="status-pill status-paid">Đang bán</span></td></tr>
+    </tbody></table></div></div></section>
+    <section class="admin-view" data-admin-view="customers" hidden><div class="admin-panel full-admin-panel"><div class="admin-panel-heading"><div><span class="store-kicker">CỘNG ĐỒNG FITMEAL</span><h2>Khách hàng</h2></div><label class="admin-search">⌕ <input type="search" placeholder="Tìm khách hàng..." data-admin-search></label></div><div class="table-scroll"><table class="admin-table"><thead><tr><th>KHÁCH HÀNG</th><th>EMAIL</th><th>ĐIỆN THOẠI</th><th>SỐ ĐƠN</th><th>NGÀY THAM GIA</th></tr></thead><tbody>
+      <tr><td><strong>Minh Anh</strong></td><td>minhanh@example.com</td><td>09•• ••• 128</td><td>12</td><td>05/08/2026</td></tr>
+      <tr><td><strong>Hoàng Nam</strong></td><td>hoangnam@example.com</td><td>09•• ••• 245</td><td>8</td><td>14/08/2026</td></tr>
+      <tr><td><strong>Thảo Linh</strong></td><td>thaolinh@example.com</td><td>09•• ••• 309</td><td>6</td><td>23/08/2026</td></tr>
+    </tbody></table></div></div></section>
+    <section class="admin-view" data-admin-view="payments" hidden><div class="admin-panel full-admin-panel"><div class="admin-panel-heading"><div><span class="store-kicker">DOANH THU & ĐỐI SOÁT</span><h2>Thanh toán</h2></div><span class="status-pill status-preparing">CHẾ ĐỘ DEMO</span></div><div class="payment-summary-cards"><article><span>GIAO DỊCH HÔM NAY</span><strong>24</strong><small>Dữ liệu minh họa</small></article><article><span>ĐÃ THANH TOÁN</span><strong>6.280.000₫</strong><small>Dữ liệu minh họa</small></article><article><span>CHỜ ĐỐI SOÁT</span><strong>4</strong><small>Dữ liệu minh họa</small></article></div><div class="integration-placeholder"><span>↗</span><h3>Tích hợp thanh toán sẽ được thực hiện sau</h3><p>Giao diện hiện chỉ minh họa danh sách giao dịch. Cổng thanh toán và đối soát chưa được kết nối.</p></div></div></section>
+    <section class="admin-view" data-admin-view="shipping" hidden><div class="admin-panel full-admin-panel"><div class="admin-panel-heading"><div><span class="store-kicker">GIAO HÀNG & HẬU CẦN</span><h2>Vận chuyển</h2></div><span class="status-pill status-preparing">CHẾ ĐỘ DEMO</span></div><div class="shipping-board"><article><span class="shipping-count">8</span><strong>Chờ lấy hàng</strong><small>Đơn đã chuẩn bị</small></article><article><span class="shipping-count">12</span><strong>Đang giao</strong><small>Đơn vị vận chuyển</small></article><article><span class="shipping-count">34</span><strong>Đã giao</strong><small>Trong tuần này</small></article><article><span class="shipping-count">2</span><strong>Giao thất bại</strong><small>Cần kiểm tra lại</small></article></div><div class="integration-placeholder"><span>↗</span><h3>Theo dõi vận chuyển ở chế độ minh họa</h3><p>Đồng bộ hãng vận chuyển và cập nhật trạng thái tự động sẽ làm ở giai đoạn backend.</p><a class="text-action" href="{% url 'core:tracking' %}">Xem trang theo dõi đơn mẫu →</a></div></div></section>
+    <section class="admin-view" data-admin-view="security" hidden><div class="admin-panel full-admin-panel"><div class="admin-panel-heading"><div><span class="store-kicker">TRUY CẬP & BẢO VỆ TÀI KHOẢN</span><h2>Bảo mật hệ thống</h2></div><span class="status-pill status-preparing">GIAO DIỆN MINH HỌA</span></div><div class="security-overview"><article><span>◈</span><div><strong>Đăng nhập quản trị</strong><small>Vai trò, chính sách mật khẩu, xác thực nhiều lớp</small></div><b>CHƯA CẤU HÌNH</b></article><article><span>⌁</span><div><strong>Phiên đăng nhập</strong><small>Thiết bị và lịch sử đăng nhập gần đây</small></div><b>CHƯA KẾT NỐI</b></article><article><span>◇</span><div><strong>Nhật ký hoạt động</strong><small>Ghi nhận thao tác quản lý và thay đổi dữ liệu</small></div><b>CHƯA KẾT NỐI</b></article></div><div class="integration-placeholder"><span>◇</span><h3>Cấu hình bảo mật sẽ được triển khai cùng backend</h3><p>Màn hình hiện minh họa các khu vực quản trị bảo mật. Chưa có xác thực, phân quyền hoặc ghi nhật ký thật.</p></div></div></section>
+    <section class="admin-view" data-admin-view="operations" hidden><div class="admin-panel full-admin-panel"><div class="admin-panel-heading"><div><span class="store-kicker">SỨC KHỎE & VẬN HÀNH</span><h2>Tình trạng hệ thống</h2></div><span class="status-pill status-preparing">DỮ LIỆU MẪU</span></div><div class="ops-status-grid"><article><span class="ops-status-dot"></span><span><strong>Ứng dụng web</strong><small>Trạng thái giao diện</small></span><b>ĐANG HIỂN THỊ</b></article><article><span class="ops-status-dot ops-status-muted"></span><span><strong>Cơ sở dữ liệu</strong><small>Chưa kết nối trong prototype</small></span><b>CHƯA CẤU HÌNH</b></article><article><span class="ops-status-dot ops-status-muted"></span><span><strong>Sao lưu dữ liệu</strong><small>Lịch sao lưu sẽ thiết lập sau</small></span><b>CHƯA CẤU HÌNH</b></article><article><span class="ops-status-dot ops-status-muted"></span><span><strong>Giám sát hiệu năng</strong><small>Chưa thu thập số liệu vận hành</small></span><b>CHƯA KẾT NỐI</b></article></div><div class="integration-placeholder"><span>◷</span><h3>Triển khai, sao lưu và giám sát ở giai đoạn sau</h3><p>Đây là khung giao diện để trình bày các mục vận hành. Không có dữ liệu sức khỏe hệ thống thật, backup hoặc môi trường triển khai nào được tạo.</p></div></div></section>
+    <div class="admin-toast" role="status" aria-live="polite" data-admin-toast></div>
+  </div>
+</div>
+{% endblock %}

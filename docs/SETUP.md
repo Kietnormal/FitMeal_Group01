@@ -23,6 +23,18 @@ python manage.py runserver
 
 Mở http://127.0.0.1:8000 (trang chủ) và http://127.0.0.1:8000/admin (quản trị).
 
+## Giao diện prototype
+
+Các trang dưới đây là prototype frontend dùng dữ liệu minh họa, chưa kết nối nghiệp vụ backend:
+
+- `/products/`: danh mục, tìm kiếm, lọc và sắp xếp sản phẩm.
+- `/cart/`, `/checkout/`: luồng giỏ hàng và đặt hàng mô phỏng trên trình duyệt.
+- `/orders/track/`: giao diện tra cứu tiến trình đơn mẫu.
+- `/account/`: giao diện đăng nhập và đăng ký, chưa có xác thực.
+- `/demo-admin/`: dashboard minh họa sản phẩm, khách hàng, đơn hàng, thanh toán, vận chuyển, bảo mật và vận hành.
+
+Giỏ hàng prototype được lưu trong `localStorage` của trình duyệt. Không nhập dữ liệu thật hoặc thông tin thanh toán. `/demo-admin/` chỉ để xem giao diện, chưa có đăng nhập hay phân quyền và không dùng như trang quản trị triển khai thật. Các tích hợp database, thanh toán, bảo mật, backup và giám sát sẽ làm ở giai đoạn backend sau.
+
 ## Mỗi ngày trước khi code
 
 ```bash
