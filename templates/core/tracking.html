@@ -1,0 +1,26 @@
+{% extends "core/store_base.html" %}
+{% block title %}Theo dõi đơn hàng — FitMeal{% endblock %}
+{% block store_content %}
+<section class="page-heading compact-heading"><span class="store-kicker">ĐỒNG HÀNH CÙNG BẠN</span><h1>Theo dõi đơn hàng.</h1><p>Tra cứu trạng thái giao hàng qua màn hình minh họa.</p></section>
+<section class="tracking-layout">
+  <form class="tracking-search-panel" data-tracking-form>
+    <span class="tracking-icon">⌕</span><h2>Đơn hàng của bạn đang ở đâu?</h2>
+    <p>Nhập mã đơn hàng và số điện thoại để xem tiến trình giao.</p>
+    <label>Mã đơn hàng<input name="order" placeholder="Ví dụ: FM-2026-001" value="FM-2026-001"></label>
+    <label>Số điện thoại đặt hàng<input name="phone" inputmode="tel" placeholder="09xx xxx xxx"></label>
+    <button class="solid-button" type="submit">Tra cứu đơn hàng <span>→</span></button>
+    <small>Màn hình minh họa — chưa kết nối dữ liệu đơn hàng thực.</small>
+  </form>
+  <section class="tracking-result" data-tracking-result>
+    <div class="tracking-result-top"><div><span class="store-kicker">TRẠNG THÁI HIỆN TẠI</span><h2>Đơn hàng đang được chuẩn bị</h2></div><span class="status-pill status-preparing">ĐANG XỬ LÝ</span></div>
+    <div class="tracking-meta"><span>Mã đơn <strong data-tracking-order>FM-2026-001</strong></span><span>Ngày đặt <strong>27/10/2026</strong></span></div>
+    <ol class="tracking-timeline">
+      <li class="is-complete"><span class="timeline-dot">✓</span><div><strong>Đã tiếp nhận đơn</strong><small>Đơn hàng đã được ghi nhận</small></div><time>09:15</time></li>
+      <li class="is-current"><span class="timeline-dot">2</span><div><strong>Đang chuẩn bị</strong><small>FitMeal đang chuẩn bị sản phẩm của bạn</small></div><time>09:40</time></li>
+      <li><span class="timeline-dot">3</span><div><strong>Đang giao hàng</strong><small>Đơn hàng sẽ được bàn giao cho đơn vị vận chuyển</small></div></li>
+      <li><span class="timeline-dot">4</span><div><strong>Giao hàng thành công</strong><small>Thưởng thức bữa ăn ngon nhé!</small></div></li>
+    </ol>
+    <div class="tracking-help">Cần hỗ trợ? <a href="mailto:hello@fitmeal.vn">Liên hệ FitMeal ↗</a></div>
+  </section>
+</section>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "core/store_base.html" %}
+{% block title %}Giỏ hàng — FitMeal{% endblock %}
+{% block store_content %}
+<section class="page-heading compact-heading"><span class="store-kicker">GIỎ HÀNG CỦA BẠN</span><h1>Món ngon đã chọn.</h1><p>Kiểm tra lựa chọn trước khi tiếp tục.</p></section>
+<section class="cart-layout" data-cart-page>
+  <div class="cart-panel">
+    <div class="cart-panel-heading"><h2>Đơn hàng <span data-cart-line-count>0 món</span></h2><a href="{% url 'core:shop' %}">＋ Chọn thêm món</a></div>
+    <div class="cart-items" data-cart-items></div>
+    <div class="cart-empty" data-cart-empty hidden><span>🥣</span><h3>Giỏ hàng đang trống</h3><p>Thêm món ngon yêu thích để bắt đầu đơn hàng.</p><a class="solid-button" href="{% url 'core:shop' %}">Khám phá thực đơn →</a></div>
+  </div>
+  <aside class="order-summary">
+    <span class="store-kicker">TÓM TẮT ĐƠN</span><h2>Chi phí dự kiến</h2>
+    <div class="summary-row"><span>Tạm tính</span><strong data-cart-subtotal>0₫</strong></div>
+    <div class="summary-row"><span>Phí giao hàng</span><strong data-shipping-fee>—</strong></div>
+    <div class="summary-row summary-total"><span>Tổng cộng</span><strong data-cart-total>0₫</strong></div>
+    <p class="summary-caption">Phí giao hàng sẽ được xác nhận theo địa chỉ nhận hàng.</p>
+    <a class="solid-button checkout-link" href="{% url 'core:checkout' %}" data-checkout-link>Tiếp tục đặt hàng <span>→</span></a>
+    <div class="summary-trust"><span>✓</span> Thanh toán an toàn khi hoàn tất thiết lập</div>
+  </aside>
+</section>
+{% endblock %}
