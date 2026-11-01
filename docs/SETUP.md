@@ -27,13 +27,13 @@ Mở http://127.0.0.1:8000 (trang chủ) và http://127.0.0.1:8000/admin (quản
 
 Các trang dưới đây là prototype frontend dùng dữ liệu minh họa, chưa kết nối nghiệp vụ backend:
 
-- `/products/`: danh mục, tìm kiếm, lọc và sắp xếp sản phẩm.
-- `/cart/`, `/checkout/`: luồng giỏ hàng và đặt hàng mô phỏng trên trình duyệt.
-- `/orders/track/`: giao diện tra cứu tiến trình đơn mẫu.
-- `/account/`: giao diện đăng nhập và đăng ký, chưa có xác thực.
-- `/demo-admin/`: dashboard minh họa sản phẩm, khách hàng, đơn hàng, thanh toán, vận chuyển, bảo mật và vận hành.
+- `/products/`: danh mục cơm, salad, món ăn nhẹ, thức uống và combo; tìm kiếm, lọc theo giá/protein/calo, sắp xếp, xem thành phần và thông tin dinh dưỡng.
+- `/cart/`, `/checkout/`: luồng giỏ hàng và đặt hàng mô phỏng; chỉnh số lượng, chọn địa chỉ/ngày/khung giờ, xem phí giao, thử COD hoặc kết quả thanh toán online thành công/thất bại.
+- `/orders/track/`: lịch sử đơn demo, chi tiết trạng thái giao hàng và yêu cầu hủy khi đơn còn ở trạng thái cho phép.
+- `/account/`: đăng ký/đăng nhập demo, khôi phục mật khẩu minh họa, chỉnh hồ sơ và xem lịch sử đơn; mật khẩu không được lưu.
+- `/demo-admin/`: dashboard minh họa sản phẩm, khách hàng, đơn hàng, thanh toán, vận chuyển, bảo mật và vận hành. Mục Sản phẩm có thể thêm/xóa món, đổi giá và đánh dấu hết món; mục Bảo mật có biểu mẫu đăng ký admin demo.
 
-Giỏ hàng prototype được lưu trong `localStorage` của trình duyệt. Không nhập dữ liệu thật hoặc thông tin thanh toán. `/demo-admin/` chỉ để xem giao diện, chưa có đăng nhập hay phân quyền và không dùng như trang quản trị triển khai thật. Các tích hợp database, thanh toán, bảo mật, backup và giám sát sẽ làm ở giai đoạn backend sau.
+Hồ sơ demo, giỏ hàng, lịch sử đơn và danh sách món prototype được lưu trong `localStorage` của trình duyệt hiện tại; không đồng bộ giữa thiết bị hoặc người dùng. Dữ liệu dinh dưỡng là số liệu minh họa. Mọi bước thanh toán, đăng nhập, đặt hàng và hủy đơn đều là giả lập, không gọi dịch vụ thật. Biểu mẫu admin chỉ kiểm tra giao diện, không tạo tài khoản và không lưu mật khẩu. Không nhập dữ liệu thật hoặc thông tin thanh toán. `/demo-admin/` chưa có đăng nhập hay phân quyền và không dùng như trang quản trị triển khai thật. Database, xác thực, thanh toán, bảo mật, vận chuyển, backup và giám sát sẽ làm ở giai đoạn backend sau.
 
 ## Mỗi ngày trước khi code
 

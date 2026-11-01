@@ -7,20 +7,29 @@
     <section class="form-panel">
       <div class="form-section-heading"><span>01</span><div><h2>Thông tin nhận hàng</h2><p>Nhập thông tin liên hệ và địa chỉ giao.</p></div></div>
       <div class="form-grid">
+        <button class="checkout-profile-fill" type="button" data-fill-profile>Điền thông tin từ hồ sơ demo</button>
         <label>Họ và tên<input name="name" autocomplete="name" placeholder="Nguyễn Văn A" required></label>
         <label>Số điện thoại<input name="phone" autocomplete="tel" inputmode="tel" placeholder="09xx xxx xxx" required></label>
         <label class="field-wide">Email<input name="email" type="email" autocomplete="email" placeholder="ban@email.com" required></label>
         <label class="field-wide">Địa chỉ<input name="address" autocomplete="street-address" placeholder="Số nhà, đường, phường/xã..." required></label>
         <label>Quận / Huyện<input name="district" placeholder="Quận / Huyện" required></label>
         <label>Tỉnh / Thành phố<input name="city" placeholder="Tỉnh / Thành phố" required></label>
-        <label class="field-wide">Ghi chú cho đơn hàng<textarea name="note" rows="3" placeholder="Khung giờ nhận hàng hoặc lưu ý khác..."></textarea></label>
+        <label>Ngày giao dự kiến<input name="delivery-date" type="date" required></label>
+        <label>Khung giờ giao<select name="delivery-slot" required><option value="08:00–12:00">08:00–12:00</option><option value="12:00–17:00">12:00–17:00</option><option value="17:00–21:00">17:00–21:00</option></select></label>
+        <label class="field-wide">Ghi chú cho đơn hàng<textarea name="note" rows="3" placeholder="Lưu ý khi giao hàng, dị ứng hoặc yêu cầu khác..."></textarea></label>
       </div>
     </section>
     <section class="form-panel">
       <div class="form-section-heading"><span>02</span><div><h2>Phương thức thanh toán</h2><p>Chọn phương thức hiển thị trong prototype.</p></div></div>
       <div class="payment-options">
         <label class="payment-option"><input type="radio" name="payment" value="cod" checked><span class="payment-icon">₫</span><span><strong>Thanh toán khi nhận hàng</strong><small>Thanh toán trực tiếp với đơn vị giao hàng</small></span></label>
-        <label class="payment-option"><input type="radio" name="payment" value="bank"><span class="payment-icon">↗</span><span><strong>Chuyển khoản ngân hàng</strong><small>Thông tin chuyển khoản sẽ hiển thị khi có tích hợp thật</small></span></label>
+        <label class="payment-option"><input type="radio" name="payment" value="online"><span class="payment-icon">↗</span><span><strong>Thanh toán trực tuyến (demo)</strong><small>Chọn kết quả mô phỏng bên dưới; không phát sinh giao dịch thật</small></span></label>
+      </div>
+      <div class="payment-demo-options" data-payment-demo hidden>
+        <label>Kết quả thanh toán để thử
+          <select name="payment-result"><option value="success">Thành công</option><option value="failure">Thất bại</option></select>
+        </label>
+        <p>Đây chỉ là bộ chọn kiểm thử giao diện, không kết nối ngân hàng/cổng thanh toán.</p>
       </div>
     </section>
     <p class="form-disclaimer">Đây là giao diện thử nghiệm. Nút đặt hàng chỉ tạo trạng thái minh họa trên trình duyệt, không gửi thông tin tới máy chủ.</p>
@@ -30,7 +39,7 @@
     <span class="store-kicker">ĐƠN CỦA BẠN</span><h2>Tóm tắt giỏ hàng</h2>
     <div class="checkout-items" data-checkout-items></div>
     <div class="summary-row"><span>Tạm tính</span><strong data-cart-subtotal>0₫</strong></div>
-    <div class="summary-row"><span>Giao hàng</span><strong>Chưa xác định</strong></div>
+    <div class="summary-row"><span>Phí giao hàng demo</span><strong data-shipping-fee>—</strong></div>
     <div class="summary-row summary-total"><span>Tổng cộng dự kiến</span><strong data-cart-total>0₫</strong></div>
     <a class="back-to-cart" href="{% url 'core:cart' %}">← Quay lại giỏ hàng</a>
   </aside>
@@ -41,7 +50,7 @@
     <span class="confirmation-check">✓</span><span class="store-kicker">BẢN XEM TRƯỚC</span>
     <h2 id="confirmation-title">Đơn minh họa đã sẵn sàng</h2>
     <p>Mã tham khảo: <strong data-demo-order-id>FM-DEMO-0000</strong></p>
-    <p>Chưa có giao dịch thật được tạo. Bạn có thể xem màn hình theo dõi đơn mẫu.</p>
+    <p data-order-result-message>Chưa có giao dịch thật được tạo. Bạn có thể xem màn hình theo dõi đơn mẫu.</p>
     <a class="solid-button" href="{% url 'core:tracking' %}">Xem giao diện theo dõi →</a>
   </section>
 </div>

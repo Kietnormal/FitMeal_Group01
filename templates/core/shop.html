@@ -18,8 +18,33 @@
   <div class="catalog-filters" role="group" aria-label="Lọc theo danh mục">
     <button class="filter-chip is-active" type="button" data-category="all">Tất cả món</button>
     <button class="filter-chip" type="button" data-category="drink">Thức uống</button>
+    <button class="filter-chip" type="button" data-category="rice">Cơm</button>
+    <button class="filter-chip" type="button" data-category="salad">Salad</button>
     <button class="filter-chip" type="button" data-category="meal">Bữa ăn</button>
     <button class="filter-chip" type="button" data-category="snack">Ăn nhẹ</button>
+    <button class="filter-chip" type="button" data-category="combo">Combo</button>
+    <label class="catalog-price-filter">Giá từ
+      <input type="number" min="0" step="10000" placeholder="0₫" aria-label="Giá thấp nhất" data-price-min>
+    </label>
+    <label class="catalog-price-filter">đến
+      <input type="number" min="0" step="10000" placeholder="Không giới hạn" aria-label="Giá cao nhất" data-price-max>
+    </label>
+    <label class="catalog-nutrition-filter">Protein tối thiểu
+      <select aria-label="Lọc theo protein" data-protein-filter>
+        <option value="0">Tất cả</option>
+        <option value="10">10g+</option>
+        <option value="20">20g+</option>
+        <option value="30">30g+</option>
+      </select>
+    </label>
+    <label class="catalog-nutrition-filter">Calo tối đa
+      <select aria-label="Lọc theo calo" data-calorie-filter>
+        <option value="0">Tất cả</option>
+        <option value="300">300 kcal</option>
+        <option value="500">500 kcal</option>
+        <option value="700">700 kcal</option>
+      </select>
+    </label>
     <label class="sort-select">Sắp xếp
       <select aria-label="Sắp xếp sản phẩm" data-product-sort>
         <option value="featured">Nổi bật</option>
@@ -31,35 +56,50 @@
   <div class="catalog-grid" data-product-grid>
     <article class="catalog-card" data-product data-id="banana-whey" data-name="Banana Whey" data-price="59000" data-category="drink" data-search="banana whey chuối sữa whey thức uống">
       <div class="catalog-art catalog-art-banana"><span class="catalog-tag">BÁN CHẠY</span><span class="catalog-fruit">🍌</span><div class="catalog-cup cup-cream"><span>fit<br><b>meal</b></span></div><span class="art-caption">01 / DAILY BLEND</span></div>
-      <div class="catalog-details"><div><h3>Banana Whey</h3><p>Chuối · Sữa tươi · Whey</p></div><span class="catalog-protein">13g <small>PROTEIN</small></span></div>
+      <div class="catalog-details"><div><h3>Banana Whey</h3><p>Chuối · Sữa tươi · Whey</p><button class="product-detail-link" type="button" data-product-details="banana-whey">Xem dinh dưỡng</button></div><span class="catalog-protein">13g <small>PROTEIN</small></span></div>
       <div class="catalog-buy"><strong>59.000₫</strong><button type="button" data-add-to-cart>Thêm vào giỏ <span>＋</span></button></div>
     </article>
     <article class="catalog-card" data-product data-id="mocha-whey" data-name="Mocha Cafe Whey" data-price="65000" data-category="drink" data-search="mocha cafe cacao chuối whey cà phê thức uống">
       <div class="catalog-art catalog-art-mocha"><span class="catalog-tag tag-red">MUST TRY</span><span class="catalog-fruit">✳</span><div class="catalog-cup cup-coffee"><span>fit<br><b>meal</b></span></div><span class="art-caption">02 / COFFEE KICK</span></div>
-      <div class="catalog-details"><div><h3>Mocha Cafe Whey</h3><p>Cafe · Cacao · Chuối · Whey</p></div><span class="catalog-protein">13g <small>PROTEIN</small></span></div>
+      <div class="catalog-details"><div><h3>Mocha Cafe Whey</h3><p>Cafe · Cacao · Chuối · Whey</p><button class="product-detail-link" type="button" data-product-details="mocha-whey">Xem dinh dưỡng</button></div><span class="catalog-protein">13g <small>PROTEIN</small></span></div>
       <div class="catalog-buy"><strong>65.000₫</strong><button type="button" data-add-to-cart>Thêm vào giỏ <span>＋</span></button></div>
     </article>
     <article class="catalog-card" data-product data-id="berry-protein" data-name="Berry Protein" data-price="62000" data-category="drink" data-search="berry dâu tây sữa chua whey thức uống">
       <div class="catalog-art catalog-art-berry"><span class="catalog-tag tag-green">TƯƠI MỚI</span><span class="catalog-fruit">✿</span><div class="catalog-cup cup-berry"><span>fit<br><b>meal</b></span></div><span class="art-caption">03 / BERRY GLOW</span></div>
-      <div class="catalog-details"><div><h3>Berry Protein</h3><p>Dâu tây · Sữa chua · Whey</p></div><span class="catalog-protein">18g <small>PROTEIN</small></span></div>
+      <div class="catalog-details"><div><h3>Berry Protein</h3><p>Dâu tây · Sữa chua · Whey</p><button class="product-detail-link" type="button" data-product-details="berry-protein">Xem dinh dưỡng</button></div><span class="catalog-protein">18g <small>PROTEIN</small></span></div>
       <div class="catalog-buy"><strong>62.000₫</strong><button type="button" data-add-to-cart>Thêm vào giỏ <span>＋</span></button></div>
     </article>
     <article class="catalog-card" data-product data-id="chicken-sous-vide" data-name="Ức gà Sous-vide" data-price="89000" data-category="meal" data-search="ức gà sous vide tiêu đen bữa ăn protein">
       <div class="catalog-art catalog-art-chicken"><span class="catalog-tag tag-green">GIÀU ĐẠM</span><span class="catalog-fruit">✳</span><div class="meal-illustration"><span>F</span></div><span class="art-caption">04 / POWER MEAL</span></div>
-      <div class="catalog-details"><div><h3>Ức gà Sous-vide</h3><p>Ức gà · Tiêu đen thảo mộc</p></div><span class="catalog-protein">32g <small>PROTEIN</small></span></div>
+      <div class="catalog-details"><div><h3>Ức gà Sous-vide</h3><p>Ức gà · Tiêu đen thảo mộc</p><button class="product-detail-link" type="button" data-product-details="chicken-sous-vide">Xem dinh dưỡng</button></div><span class="catalog-protein">32g <small>PROTEIN</small></span></div>
       <div class="catalog-buy"><strong>89.000₫</strong><button type="button" data-add-to-cart>Thêm vào giỏ <span>＋</span></button></div>
     </article>
     <article class="catalog-card" data-product data-id="protein-brownie" data-name="Protein Brownie" data-price="39000" data-category="snack" data-search="protein brownie bánh cacao ăn nhẹ">
       <div class="catalog-art catalog-art-brownie"><span class="catalog-tag">ĂN NHẸ</span><span class="catalog-fruit">✦</span><div class="brownie-illustration"><span>FM</span></div><span class="art-caption">05 / LITTLE TREAT</span></div>
-      <div class="catalog-details"><div><h3>Protein Brownie</h3><p>Cacao · Yến mạch · Whey</p></div><span class="catalog-protein">12g <small>PROTEIN</small></span></div>
+      <div class="catalog-details"><div><h3>Protein Brownie</h3><p>Cacao · Yến mạch · Whey</p><button class="product-detail-link" type="button" data-product-details="protein-brownie">Xem dinh dưỡng</button></div><span class="catalog-protein">12g <small>PROTEIN</small></span></div>
       <div class="catalog-buy"><strong>39.000₫</strong><button type="button" data-add-to-cart>Thêm vào giỏ <span>＋</span></button></div>
     </article>
     <article class="catalog-card" data-product data-id="granola-crunch" data-name="Granola Crunch" data-price="45000" data-category="snack" data-search="granola yến mạch hạt ăn nhẹ">
       <div class="catalog-art catalog-art-granola"><span class="catalog-tag tag-red">GIÒN NGON</span><span class="catalog-fruit">✳</span><div class="granola-illustration"><span>FM</span></div><span class="art-caption">06 / CRUNCH TIME</span></div>
-      <div class="catalog-details"><div><h3>Granola Crunch</h3><p>Yến mạch · Hạt · Mật ong</p></div><span class="catalog-protein">8g <small>PROTEIN</small></span></div>
+      <div class="catalog-details"><div><h3>Granola Crunch</h3><p>Yến mạch · Hạt · Mật ong</p><button class="product-detail-link" type="button" data-product-details="granola-crunch">Xem dinh dưỡng</button></div><span class="catalog-protein">8g <small>PROTEIN</small></span></div>
       <div class="catalog-buy"><strong>45.000₫</strong><button type="button" data-add-to-cart>Thêm vào giỏ <span>＋</span></button></div>
     </article>
   </div>
   <p class="catalog-empty" data-empty-results hidden>Không tìm thấy món phù hợp. Thử từ khóa hoặc danh mục khác nhé.</p>
 </section>
+<div class="modal-backdrop" data-product-modal hidden>
+  <section class="confirmation-modal product-detail-modal" role="dialog" aria-modal="true" aria-labelledby="product-detail-title">
+    <button class="modal-close" type="button" aria-label="Đóng" data-close-product-modal>×</button>
+    <span class="store-kicker">THÔNG TIN DINH DƯỠNG</span>
+    <h2 id="product-detail-title" data-detail-name></h2>
+    <p data-detail-description></p>
+    <div class="nutrition-grid" data-detail-nutrition></div>
+    <dl class="product-detail-facts">
+      <div><dt>Thành phần</dt><dd data-detail-ingredients></dd></div>
+      <div><dt>Dị ứng</dt><dd data-detail-allergens></dd></div>
+      <div><dt>Khẩu phần</dt><dd data-detail-serving></dd></div>
+    </dl>
+    <button class="solid-button" type="button" data-detail-add>Thêm vào giỏ</button>
+  </section>
+</div>
 {% endblock %}
