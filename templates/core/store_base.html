@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% load static %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/storefront.css' %}">{% endblock %}
+{% block extra_scripts %}<script src="{% static 'js/storefront.js' %}" defer></script>{% endblock %}
+{% block content %}
+<div class="store-shell">
+  <header class="store-header">
+    <a class="store-brand" href="{% url 'core:home' %}">
+      <span class="store-brand-icon" aria-hidden="true">F</span>
+      <span><strong>FITMEAL.VN</strong><small>ĂN KHỎE · SỐNG CHẤT</small></span>
+    </a>
+    <nav class="store-nav" aria-label="Điều hướng cửa hàng">
+      <a href="{% url 'core:home' %}">Trang chủ</a>
+      <a href="{% url 'core:shop' %}" {% if active_page == "shop" %}aria-current="page"{% endif %}>Thực đơn</a>
+      <a href="{% url 'core:home' %}#about">Dinh dưỡng</a>
+      <a href="{% url 'core:tracking' %}" {% if active_page == "tracking" %}aria-current="page"{% endif %}>Theo dõi đơn</a>
+      <a href="{% url 'core:home' %}#contact">FAQs</a>
+    </nav>
+    <div class="store-header-actions">
+      <a class="store-account-register" href="{% url 'core:account' %}#register">Đăng ký</a>
+      <a class="store-account-login" href="{% url 'core:account' %}#login">Đăng nhập</a>
+      <a class="store-cart-link" href="{% url 'core:cart' %}" aria-label="Giỏ hàng">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l1 13H4L5 8Z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/></svg>
+        <span class="cart-count" data-cart-count>0</span>
+      </a>
+      <div class="store-languages" aria-label="Ngôn ngữ giao diện">
+        <button type="button" aria-pressed="false" data-language="en">EN</button><span>/</span><button type="button" class="is-active" aria-pressed="true" data-language="vi">VI</button>
+        <span class="visually-hidden" role="status" data-language-status>Giao diện hiện hiển thị tiếng Việt.</span>
+      </div>
+    </div>
+    <button class="store-menu-toggle" type="button" aria-label="Mở điều hướng" aria-expanded="false" aria-controls="store-nav"><span></span><span></span></button>
+  </header>
+  <nav class="store-mobile-nav" id="store-nav" aria-label="Điều hướng di động">
+    <a href="{% url 'core:home' %}">Trang chủ</a>
+    <a href="{% url 'core:shop' %}">Cửa hàng</a>
+    <a href="{% url 'core:tracking' %}">Theo dõi đơn</a>
+    <a href="{% url 'core:cart' %}">Giỏ hàng <span data-cart-count>0</span></a>
+    <a href="{% url 'core:account' %}#login">Đăng nhập</a>
+    <a href="{% url 'core:account' %}#register">Đăng ký</a>
+    <div class="mobile-languages" aria-label="Ngôn ngữ giao diện"><button type="button" aria-pressed="false" data-language="en">EN</button><span>/</span><button type="button" class="is-active" aria-pressed="true" data-language="vi">VI</button><span class="visually-hidden" role="status" data-language-status>Giao diện hiện hiển thị tiếng Việt.</span></div>
+  </nav>
+  <div class="demo-notice"><span>GIAO DIỆN MINH HỌA</span> Dữ liệu mẫu, chưa kết nối hệ thống xử lý đơn hàng thật.</div>
+
+  <main class="store-main">
+    {% block store_content %}{% endblock %}
+  </main>
+  <footer class="store-footer">
+    <a class="store-brand" href="{% url 'core:home' %}"><span class="store-brand-icon">F</span><span><strong>FitMeal</strong><small>ĂN KHỎE · SỐNG CHẤT</small></span></a>
+    <p>Giao diện prototype — các giao dịch và dữ liệu đều là minh họa.</p>
+    <a href="{% url 'core:demo_admin' %}">Xem giao diện quản trị ↗</a>
+  </footer>
+  <div class="store-toast" role="status" aria-live="polite" data-toast></div>
+</div>
+{% endblock %}

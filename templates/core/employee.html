@@ -1,0 +1,312 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<!-- Tích hợp Icon FontAwesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<style>
+    :root {
+
+        --primary: #1d37ae;
+        --primary: #4361ee;
+
+        --primary-hover: #3a56d4;
+        --bg-color: #f8f9fa;
+        --card-bg: #ffffff;
+        --border-color: #e9ecef;
+        --text-main: #2b2d42;
+        --text-muted: #8d99ae;
+    }
+
+    .pro-dashboard {
+        max-width: 1200px;
+        margin: 40px auto;
+        padding: 0 20px;
+        font-family: 'Inter', 'Segoe UI', sans-serif;
+    }
+
+    /* Tiêu đề & Header */
+    .dashboard-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+    }
+    .dashboard-title {
+        font-size: 26px;
+        font-weight: 700;
+        color: var(--text-main);
+        margin: 0;
+    }
+    .btn-primary {
+        background: var(--primary);
+        color: white !important;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-weight: 600;
+        text-decoration: none;
+        box-shadow: 0 4px 10px rgba(67, 97, 238, 0.3);
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .btn-primary:hover {
+        background: var(--primary-hover);
+        transform: translateY(-2px);
+    }
+
+    /* Container của Bảng (Card style) */
+    .employee-card {
+        background: var(--card-bg);
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+        border: 1px solid var(--border-color);
+        overflow: hidden;
+    }
+
+    /* Thanh công cụ Tìm kiếm & Lọc */
+    .toolbar {
+        padding: 20px;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        gap: 15px;
+        background: #fff;
+    }
+    .search-form {
+        display: flex;
+        gap: 15px;
+        flex: 1;
+    }
+    .input-group {
+        position: relative;
+        flex: 1;
+        max-width: 350px;
+    }
+    .input-group i {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+    }
+    .search-input {
+        width: 100%;
+        padding: 10px 10px 10px 40px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        font-size: 14px;
+        outline: none;
+        transition: border-color 0.3s;
+    }
+    .search-input:focus {
+        border-color: var(--primary);
+    }
+    .filter-select {
+        padding: 10px 15px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        outline: none;
+        color: var(--text-main);
+        cursor: pointer;
+    }
+    .btn-submit {
+        background: #f1f3f5;
+        border: none;
+        padding: 0 20px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        color: var(--text-main);
+        transition: 0.3s;
+    }
+    .btn-submit:hover { background: #e9ecef; }
+
+    /* Bảng Dữ liệu */
+    .table-responsive { overflow-x: auto; }
+    .pro-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .pro-table th {
+        background: #f8f9fa;
+        color: var(--text-muted);
+        font-weight: 600;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 18px 20px;
+        text-align: left;
+    }
+    .pro-table td {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border-color);
+        vertical-align: middle;
+    }
+    .pro-table tr:last-child td { border-bottom: none; }
+    .pro-table tr:hover td { background-color: #fafbfc; }
+
+    /* Thông tin NV & Avatar */
+    .user-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .avatar {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background: #edf2f7;
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 16px;
+    }
+    .user-details .name {
+        display: block;
+        font-weight: 600;
+        color: var(--text-main);
+        font-size: 15px;
+    }
+    .user-details .email {
+        display: block;
+        font-size: 13px;
+        color: var(--text-muted);
+        margin-top: 2px;
+    }
+
+    /* Badges */
+    .badge {
+        padding: 6px 12px;
+        border-radius: 30px;
+        font-size: 12px;
+        font-weight: 600;
+        display: inline-block;
+    }
+    .badge-success { background: #d1e7dd; color: #0f5132; }
+    .badge-danger { background: #f8d7da; color: #842029; }
+    .badge-role { background: #e2e3e5; color: #41464b; }
+
+    /* Nút thao tác */
+    .action-group { display: flex; gap: 8px; }
+    .btn-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: 0.3s;
+        text-decoration: none;
+    }
+    .btn-edit { background: #e6f2ff; color: #0d6efd; }
+    .btn-edit:hover { background: #0d6efd; color: white; }
+    .btn-delete { background: #fee2e2; color: #dc3545; }
+    .btn-delete:hover { background: #dc3545; color: white; }
+</style>
+
+<div class="pro-dashboard">
+    <!-- Header -->
+    <div class="dashboard-header">
+        <h2 class="dashboard-title">Quản lý Nhân sự</h2>
+        <a href="#" class="btn-primary">
+            <i class="fas fa-plus"></i> Thêm nhân viên mới
+        </a>
+    </div>
+
+    <!-- Main Card -->
+    <div class="employee-card">
+        <!-- Toolbar: Tìm kiếm & Lọc -->
+        <div class="toolbar">
+            <form method="GET" class="search-form">
+                <div class="input-group">
+                    <i class="fas fa-search"></i>
+                    <input type="text" name="search" class="search-input" placeholder="Tìm theo tên hoặc email..." value="{{ search_query }}">
+                </div>
+                
+                <select name="role" class="filter-select">
+                    <option value="">Tất cả vị trí</option>
+                    {% for role in roles %}
+                        <option value="{{ role }}" {% if role_filter == role %}selected{% endif %}>{{ role }}</option>
+                    {% endfor %}
+                </select>
+                
+                <button type="submit" class="btn-submit">Lọc</button>
+                {% if search_query or role_filter %}
+                    <a href="{% url 'core:employee_list' %}" class="btn-submit" style="display:flex; align-items:center; text-decoration:none; color:#dc3545;"><i class="fas fa-times" style="margin-right:5px;"></i> Xóa lọc</a>
+                {% endif %}
+            </form>
+        </div>
+
+        <!-- Table -->
+        <div class="table-responsive">
+            <table class="pro-table">
+                <thead>
+                    <tr>
+                        <th>Nhân viên</th>
+                        <th>Liên hệ</th>
+                        <th>Vị trí</th>
+                        <th>Ngày vào làm</th>
+                        <th>Trạng thái</th>
+                        <th style="text-align: right;">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for employee in employees %}
+                    <tr>
+                        <!-- Cột NV có Avatar cắt chữ cái đầu -->
+                        <td>
+                            <div class="user-info">
+                                <div class="avatar">{{ employee.name|make_list|first }}</div>
+                                <div class="user-details">
+                                    <span class="name">{{ employee.name }}</span>
+                                    <span class="email">{{ employee.email }}</span>
+                                </div>
+                            </div>
+                        </td>
+                        <!-- Cột SĐT -->
+                        <td style="color: var(--text-main); font-weight: 500;">
+                            {{ employee.phone }}
+                        </td>
+                        <!-- Cột Vị trí -->
+                        <td>
+                            <span class="badge badge-role">{{ employee.role }}</span>
+                        </td>
+                        <!-- Cột Ngày -->
+                        <td style="color: var(--text-muted);">{{ employee.join_date }}</td>
+                        <!-- Cột Trạng thái -->
+                        <td>
+                            {% if employee.is_active %}
+                                <span class="badge badge-success"><i class="fas fa-check-circle" style="margin-right: 4px;"></i> Đang làm</span>
+                            {% else %}
+                                <span class="badge badge-danger"><i class="fas fa-ban" style="margin-right: 4px;"></i> Đã nghỉ</span>
+                            {% endif %}
+                        </td>
+                        <!-- Cột Thao tác -->
+                        <td style="text-align: right;">
+                            <div class="action-group" style="justify-content: flex-end;">
+                                <a href="#" class="btn-icon btn-edit" title="Chỉnh sửa"><i class="fas fa-pen"></i></a>
+                                <a href="#" class="btn-icon btn-delete" title="Xóa"><i class="fas fa-trash"></i></a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 50px 20px; color: var(--text-muted);">
+                            <i class="fas fa-box-open" style="font-size: 40px; margin-bottom: 15px; color: #dee2e6;"></i><br>
+                            Không tìm thấy nhân viên nào phù hợp.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "core/store_base.html" %}
+{% block title %}Theo dõi đơn hàng — FitMeal{% endblock %}
+{% block store_content %}
+<section class="page-heading compact-heading"><span class="store-kicker">ĐỒNG HÀNH CÙNG BẠN</span><h1>Theo dõi đơn hàng.</h1><p>Tra cứu trạng thái giao hàng qua màn hình minh họa.</p></section>
+<section class="tracking-layout">
+  <form class="tracking-search-panel" data-tracking-form>
+    <span class="tracking-icon">⌕</span><h2>Đơn hàng của bạn đang ở đâu?</h2>
+    <p>Tra cứu đơn mẫu bằng mã đơn; dữ liệu trên trang này chỉ nằm trong trình duyệt.</p>
+    <label>Mã đơn hàng<input name="order" placeholder="Ví dụ: FM-2026-001" value="FM-2026-001"></label>
+    <button class="solid-button" type="submit">Tra cứu đơn hàng <span>→</span></button>
+    <small>Màn hình minh họa — chưa kết nối dữ liệu đơn hàng thực.</small>
+    <section class="tracking-history"><h3>Lịch sử mua hàng demo</h3><div data-tracking-history></div></section>
+  </form>
+  <section class="tracking-result" data-tracking-result>
+    <div class="tracking-result-top"><div><span class="store-kicker">TRẠNG THÁI HIỆN TẠI</span><h2 data-tracking-status-heading>Đơn hàng đang được chuẩn bị</h2></div><span class="status-pill status-preparing" data-tracking-status>ĐANG XỬ LÝ</span></div>
+    <div class="tracking-meta"><span>Mã đơn <strong data-tracking-order>Chọn một đơn trong lịch sử</strong></span><span>Ngày đặt <strong data-tracking-date>—</strong></span></div>
+    <div class="tracking-order-detail" data-tracking-detail hidden></div>
+    <ol class="tracking-timeline" data-tracking-timeline></ol>
+    <button class="cancel-order-button" type="button" data-cancel-order hidden>Yêu cầu hủy đơn</button>
+    <div class="tracking-help">Cần hỗ trợ? <a href="mailto:hello@fitmeal.vn">Liên hệ FitMeal ↗</a></div>
+  </section>
+</section>
+{% endblock %}
