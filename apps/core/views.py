@@ -26,6 +26,10 @@ def account(request):
     return render(request, "core/account.html", {"active_page": "account"})
 
 
+def policies(request):
+    return render(request, "core/policies.html", {"active_page": "policies"})
+
+
 def demo_admin(request):
     return render(request, "core/admin_dashboard.html", {"active_page": "admin"})
 

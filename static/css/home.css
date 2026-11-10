@@ -5,6 +5,7 @@
   --paper: #f7f4f0;
   --green: #b6d77c;
   --red: #db3f43;
+  --font-body: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
 }
 
 * {
@@ -21,7 +22,7 @@ body {
   background:
     radial-gradient(ellipse at 8% 86%, rgba(231, 177, 174, 0.3), transparent 28rem),
     var(--paper);
-  font-family: "Times New Roman", Times, serif;
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -30,7 +31,10 @@ a {
   text-decoration: none;
 }
 
-button {
+button,
+input,
+select,
+textarea {
   font: inherit;
 }
 
@@ -85,7 +89,7 @@ button {
 
 .brand-copy strong,
 .footer-brand {
-  font-family: "Times New Roman", Times, serif;
+  font-family: var(--font-body);
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 2px;
@@ -182,7 +186,7 @@ button {
   border-radius: 50%;
   background: #e42d3b;
   color: #fff;
-  font-family: Arial, sans-serif;
+  font-family: var(--font-body);
   font-size: 9px;
   line-height: 1;
 }
@@ -192,7 +196,7 @@ button {
   align-items: center;
   gap: 8px;
   color: #bbb;
-  font-family: Arial, sans-serif;
+  font-family: var(--font-body);
   font-size: 13px;
 }
 
@@ -315,7 +319,7 @@ button {
 .outline-track span {
   padding-right: 32px;
   color: transparent;
-  font-family: "Times New Roman", Times, serif;
+  font-family: var(--font-body);
   font-size: clamp(39px, 6.3vw, 92px);
   font-weight: 700;
   letter-spacing: 0.13em;
@@ -369,7 +373,7 @@ button {
 
 .goal-copy h1 {
   margin: 21px 0 17px;
-  font-family: "Times New Roman", Times, serif;
+  font-family: var(--font-body);
   font-size: clamp(44px, 5.2vw, 68px);
   font-weight: 700;
   letter-spacing: -2px;
@@ -594,7 +598,7 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: #657166;
+  color: #243a56;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 1.7px;
@@ -604,27 +608,28 @@ button {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #79a64a;
-  box-shadow: 0 0 0 4px rgba(121, 166, 74, 0.13);
+  background: #243a56;
+  box-shadow: 0 0 0 4px rgba(36, 58, 86, 0.1);
 }
 
 .section-intro h1 {
   margin: 22px 0 17px;
-  font-family: "Times New Roman", Times, serif;
+  font-family: var(--font-body);
   font-size: clamp(40px, 4.1vw, 57px);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -3.3px;
   line-height: 1.08;
+  color: #14171b;
 }
 
 .section-intro h1 span {
-  color: #6e8a4d;
+  color: inherit;
 }
 
 .intro-copy {
   max-width: 330px;
   margin: 0;
-  color: #59645e;
+  color: #182b43;
   font-size: 15px;
   line-height: 1.75;
 }
@@ -689,7 +694,7 @@ button {
 
 .showcase-hint {
   margin: 5px 0 0;
-  color: var(--muted);
+  color: #243a56;
   font-size: 12px;
 }
 
@@ -748,6 +753,9 @@ button {
   border-radius: 22px;
   isolation: isolate;
 }
+
+.product-art.has-product-image > :not(.product-photo) { visibility: hidden; }
+.product-photo { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; object-fit: cover; }
 
 .product-art::before {
   position: absolute;
@@ -866,7 +874,7 @@ button {
   top: 58px;
   left: 50%;
   color: rgba(255, 255, 255, 0.94);
-  font-family: "Times New Roman", Times, serif;
+  font-family: var(--font-body);
   font-size: 17px;
   font-weight: 500;
   line-height: 0.85;
@@ -959,16 +967,18 @@ button {
 
 .product-heading h2 {
   margin: 0;
-  font-family: "Times New Roman", Times, serif;
+  font-family: var(--font-body);
   font-size: 17px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.55px;
+  color: #101820;
 }
 
 .product-heading p {
   margin: 4px 0 0;
-  color: #657168;
-  font-size: 11px;
+  color: #1a304b;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .product-arrow {
@@ -993,18 +1003,21 @@ button {
 .nutrition-grid div {
   display: grid;
   gap: 4px;
-  color: #273b45;
+  color: #172d48;
   font-size: 10px;
 }
 
 .nutrition-grid strong {
-  font-size: 12px;
-  font-weight: 500;
+  color: #172d48;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .nutrition-grid span {
-  color: #57645f;
-  font-size: 9px;
+  color: #172d48;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .3px;
 }
 
 .nutrition-note {
@@ -1046,6 +1059,15 @@ button {
   color: #334832;
   font-weight: 600;
 }
+
+.site-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+}
+
+.site-footer-links a { color: #334832; font-weight: 600; }
 
 @media (min-width: 1400px) {
   .menu-section {
@@ -1101,7 +1123,7 @@ button {
     gap: 10px;
     padding: 12px 3px 4px;
     color: #999;
-    font-family: Arial, sans-serif;
+    font-family: var(--font-body);
     font-size: 12px;
   }
 

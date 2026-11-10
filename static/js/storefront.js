@@ -25,6 +25,7 @@ const defaultInventory = [
   { id: "combo-energy", sku: "FM-009", name: "Combo Energy", price: 119000, category: "combo", description: "Cơm gà · Banana Whey", icon: "FM", available: true, calories: 650, protein: 43, carbs: 75, fat: 16, ingredients: "Cơm gà Power Bowl, Banana Whey", allergens: "Sữa", serving: "1 combo" },
 ];
 let demoInventory = readInventory();
+let productModalController = null;
 
 function readInventory() {
   try {
@@ -63,13 +64,60 @@ function applyInventory(products) {
 
 applyInventory(demoInventory);
 
+async function prepareProductImage(file) {
+  const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+  if (!allowedTypes.includes(file.type)) {
+    throw new TypeError("Ảnh phải có định dạng JPG, PNG hoặc WebP.");
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    throw new RangeError("Ảnh gốc không được vượt quá 10 MB.");
+  }
+
+  const bitmap = await createImageBitmap(file);
+  try {
+    const canvas = document.createElement("canvas");
+    const maxDimension = 1000;
+    const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Không thể chuẩn bị ảnh trong trình duyệt này.");
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+    for (const dimension of [1000, 800, 600]) {
+      const resize = Math.min(1, dimension / Math.max(canvas.width, canvas.height));
+      const output = document.createElement("canvas");
+      output.width = Math.max(1, Math.round(canvas.width * resize));
+      output.height = Math.max(1, Math.round(canvas.height * resize));
+      const outputContext = output.getContext("2d");
+      if (!outputContext) throw new Error("Không thể xử lý ảnh trong trình duyệt này.");
+      outputContext.drawImage(canvas, 0, 0, output.width, output.height);
+      for (const quality of [0.82, 0.68, 0.54, 0.4]) {
+        const dataUrl = output.toDataURL("image/webp", quality);
+        if (dataUrl.startsWith("data:image/webp") && dataUrl.length <= 700 * 1024) return dataUrl;
+      }
+    }
+  } finally {
+    bitmap.close();
+  }
+  throw new RangeError("Ảnh vẫn quá lớn sau khi nén. Hãy chọn ảnh khác có dung lượng thấp hơn.");
+}
+
 function saveInventory(products) {
-  localStorage.setItem(inventoryStorageKey, JSON.stringify(products));
+  try {
+    localStorage.setItem(inventoryStorageKey, JSON.stringify(products));
+  } catch (error) {
+    console.error("Không thể lưu danh sách món demo trong trình duyệt.", error);
+    showToast("Không đủ dung lượng trình duyệt để lưu món hoặc ảnh. Hãy chọn ảnh nhỏ hơn hoặc gỡ bớt ảnh demo.");
+    return false;
+  }
   applyInventory(products);
   renderCatalogInventory();
+  renderFeaturedProductImages();
   renderAdminProducts();
   writeCart(readCart());
   renderCart();
+  return true;
 }
 
 function categoryName(category) {
@@ -169,6 +217,24 @@ function renderCart() {
 
   const emptyState = document.querySelector("[data-cart-empty]");
   if (emptyState) emptyState.hidden = cart.length > 0;
+  const orderHistory = document.querySelector("[data-cart-order-history]");
+  const orderList = document.querySelector("[data-cart-order-list]");
+  if (orderHistory && orderList) {
+    const orders = getOrders();
+    orderList.replaceChildren();
+    orderHistory.hidden = orders.length === 0;
+    orders.forEach((order) => {
+      const link = document.createElement("a");
+      link.className = "cart-order-history-link";
+      link.href = `/orders/track/?order=${encodeURIComponent(order.id)}`;
+      const label = document.createElement("span");
+      label.textContent = `Ấn vào đây để theo dõi đơn ${order.id}`;
+      const status = document.createElement("strong");
+      status.textContent = order.cancelRequested ? "Đang chờ hủy" : order.status;
+      link.append(label, status);
+      orderList.append(link);
+    });
+  }
   if (cartItems) {
     cartItems.replaceChildren();
     cartItems.hidden = cart.length === 0;
@@ -298,6 +364,20 @@ function renderCatalogInventory() {
     card.querySelector(".catalog-details h3").textContent = product.name;
     card.querySelector(".catalog-details p").textContent = product.description;
     card.querySelector(".catalog-buy > strong").textContent = currency.format(product.price);
+    let photo = card.querySelector(".catalog-product-photo");
+    if (product.image) {
+      if (!photo) {
+        photo = document.createElement("img");
+        photo.className = "catalog-product-photo";
+        photo.alt = "";
+        card.querySelector(".catalog-art").prepend(photo);
+      }
+      photo.src = product.image;
+      card.querySelector(".catalog-art").classList.add("has-product-image");
+    } else {
+      photo?.remove();
+      card.querySelector(".catalog-art").classList.remove("has-product-image");
+    }
     const detailButton = card.querySelector("[data-product-details]");
     if (detailButton) detailButton.dataset.productDetails = product.id;
     const protein = card.querySelector(".catalog-protein");
@@ -323,6 +403,28 @@ function renderCatalogInventory() {
   });
 }
 
+function renderFeaturedProductImages() {
+  document.querySelectorAll("[data-featured-product]").forEach((card) => {
+    const product = demoProducts[card.dataset.featuredProduct];
+    const art = card.querySelector(".product-art");
+    if (!art) return;
+    let photo = art.querySelector(".product-photo");
+    if (product?.image) {
+      if (!photo) {
+        photo = document.createElement("img");
+        photo.className = "product-photo";
+        photo.alt = product.name;
+        art.prepend(photo);
+      }
+      photo.src = product.image;
+      art.classList.add("has-product-image");
+    } else {
+      photo?.remove();
+      art.classList.remove("has-product-image");
+    }
+  });
+}
+
 function renderAdminProducts() {
   const list = document.querySelector("[data-admin-product-list]");
   if (!list) return;
@@ -331,9 +433,24 @@ function renderAdminProducts() {
   demoInventory.forEach((product) => {
     const row = document.createElement("tr");
     const nameCell = document.createElement("td");
+    const productIdentity = document.createElement("div");
+    productIdentity.className = "admin-product-identity";
+    if (product.image) {
+      const thumbnail = document.createElement("img");
+      thumbnail.className = "admin-product-thumbnail";
+      thumbnail.src = product.image;
+      thumbnail.alt = "";
+      productIdentity.append(thumbnail);
+    } else {
+      const placeholder = document.createElement("span");
+      placeholder.className = "admin-product-thumbnail admin-product-thumbnail-empty";
+      placeholder.textContent = "FM";
+      productIdentity.append(placeholder);
+    }
     const name = document.createElement("strong");
     name.textContent = product.name;
-    nameCell.append(name);
+    productIdentity.append(name);
+    nameCell.append(productIdentity);
 
     const sku = document.createElement("td");
     sku.textContent = product.sku;
@@ -364,6 +481,15 @@ function renderAdminProducts() {
     const actionsCell = document.createElement("td");
     const actions = document.createElement("div");
     actions.className = "admin-product-row-actions";
+    const imagePicker = document.createElement("button");
+    imagePicker.type = "button";
+    imagePicker.dataset.productImagePicker = product.id;
+    imagePicker.textContent = product.image ? "Đổi ảnh" : "Tải ảnh";
+    const imageInput = document.createElement("input");
+    imageInput.type = "file";
+    imageInput.accept = "image/jpeg,image/png,image/webp";
+    imageInput.hidden = true;
+    imageInput.dataset.productImageUpload = product.id;
     const availability = document.createElement("button");
     availability.type = "button";
     availability.dataset.productAvailability = product.id;
@@ -372,8 +498,8 @@ function renderAdminProducts() {
     remove.type = "button";
     remove.dataset.productDelete = product.id;
     remove.textContent = "Xóa";
-    actions.append(availability, remove);
-    actionsCell.append(actions);
+    actions.append(imagePicker, availability, remove);
+    actionsCell.append(actions, imageInput);
     row.append(nameCell, sku, category, priceCell, statusCell, actionsCell);
     list.append(row);
   });
@@ -435,6 +561,7 @@ function initializeCatalog() {
       selectedCategory = button.dataset.category;
       document.querySelectorAll(".filter-chip").forEach((chip) => {
         chip.classList.toggle("is-active", chip === button);
+        chip.setAttribute("aria-pressed", String(chip === button));
       });
       filterProducts();
     });
@@ -473,6 +600,12 @@ function showProductDetails(productId) {
   const product = demoProducts[productId];
   const modal = document.querySelector("[data-product-modal]");
   if (!product || !modal) return;
+  const photo = modal.querySelector("[data-detail-image]");
+  if (photo) {
+    photo.src = product.image || "";
+    photo.hidden = !product.image;
+    photo.alt = product.image ? product.name : "";
+  }
   modal.querySelector("[data-detail-name]").textContent = product.name;
   modal.querySelector("[data-detail-description]").textContent = `${categoryName(product.category)} · ${product.description}`;
   modal.querySelector("[data-detail-ingredients]").textContent = product.ingredients || product.description;
@@ -495,16 +628,54 @@ function showProductDetails(productId) {
     nutrition.append(item);
   });
   modal.querySelector("[data-detail-add]").dataset.productId = product.id;
-  modal.hidden = false;
-  modal.querySelector("[data-close-product-modal]").focus();
+  productModalController.open();
+}
+
+function createDialogController(modal, initialFocusSelector) {
+  let returnFocus = null;
+  const open = () => {
+    returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    modal.hidden = false;
+    modal.querySelector(initialFocusSelector).focus();
+  };
+  const close = () => {
+    modal.hidden = true;
+    if (returnFocus?.isConnected) returnFocus.focus();
+    returnFocus = null;
+  };
+
+  modal.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      close();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const focusable = [...modal.querySelectorAll(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    )].filter((element) => !element.hidden && element.getAttribute("aria-hidden") !== "true" && element.getClientRects().length);
+    if (!focusable.length) {
+      event.preventDefault();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && (document.activeElement === first || !modal.contains(document.activeElement))) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && (document.activeElement === last || !modal.contains(document.activeElement))) {
+      event.preventDefault();
+      first.focus();
+    }
+  });
+  return { open, close };
 }
 
 function initializeProductModal() {
   const modal = document.querySelector("[data-product-modal]");
   if (!modal) return;
-  const close = () => {
-    modal.hidden = true;
-  };
+  productModalController = createDialogController(modal, "[data-close-product-modal]");
+  const { close } = productModalController;
   modal.querySelector("[data-close-product-modal]").addEventListener("click", close);
   modal.addEventListener("click", (event) => {
     if (event.target === modal) close();
@@ -523,9 +694,6 @@ function initializeProductModal() {
     writeCart(cart);
     close();
     showToast(`${product.name} đã được thêm vào giỏ.`);
-  });
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !modal.hidden) close();
   });
 }
 
@@ -557,6 +725,10 @@ function initializeCart() {
       showToast("Thêm ít nhất một món vào giỏ trước nhé.");
     }
   });
+
+  window.addEventListener("storage", (event) => {
+    if (event.key === orderStorageKey) renderCart();
+  });
 }
 
 function initializeCheckout() {
@@ -564,6 +736,7 @@ function initializeCheckout() {
   if (!form) return;
 
   const modal = document.querySelector("[data-order-modal]");
+  const dialog = createDialogController(modal, "[data-close-modal]");
   const dateInput = form.elements["delivery-date"];
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -589,10 +762,7 @@ function initializeCheckout() {
     showToast("Đã điền thông tin từ hồ sơ demo.");
   });
 
-  const closeModal = () => {
-    modal.hidden = true;
-    document.querySelector("[data-checkout-form] input")?.focus();
-  };
+  const closeModal = dialog.close;
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -613,8 +783,8 @@ function initializeCheckout() {
       confirmationIcon.textContent = "!";
       confirmationIcon.classList.add("is-payment-failed");
       document.querySelector("[data-demo-order-id]").textContent = "Chưa tạo đơn";
-      modal.hidden = false;
-      document.querySelector("[data-close-modal]").focus();
+      document.querySelector("[data-order-cart-link]").hidden = true;
+      dialog.open();
       return;
     }
 
@@ -634,6 +804,7 @@ function initializeCheckout() {
       shipping: shippingFeeFor(subtotal),
       total: subtotal + shippingFeeFor(subtotal),
       name: values.get("name").toString(),
+      email: values.get("email").toString(),
       phone: values.get("phone").toString(),
       address: `${values.get("address")}, ${values.get("district")}, ${values.get("city")}`,
       deliveryDate: values.get("delivery-date").toString(),
@@ -641,7 +812,7 @@ function initializeCheckout() {
       note: values.get("note").toString(),
       payment,
       paymentStatus: payment === "online" ? "Đã thanh toán demo" : "Thanh toán khi nhận hàng",
-      status: "Đang chuẩn bị",
+      status: "Chờ xác nhận",
       cancelRequested: false,
     };
     const orders = getOrders();
@@ -651,22 +822,19 @@ function initializeCheckout() {
     document.querySelector("[data-demo-order-id]").textContent = orderId;
     modalTitle.textContent = "Đơn minh họa đã sẵn sàng";
     resultMessage.textContent = payment === "online"
-      ? "Thanh toán demo thành công. Không có giao dịch thật được thực hiện."
-      : "Đơn COD demo đã được ghi nhận. Chưa có đơn hàng thật được gửi.";
+      ? "Thanh toán demo thành công. Vào giỏ hàng để theo dõi đơn; không có giao dịch thật được thực hiện."
+      : "Đơn COD demo đã được ghi nhận. Vào giỏ hàng để theo dõi đơn.";
+    document.querySelector("[data-order-cart-link]").hidden = false;
     confirmationIcon.textContent = "✓";
     confirmationIcon.classList.remove("is-payment-failed");
-    modal.hidden = false;
+    dialog.open();
     writeCart([]);
     renderCart();
-    document.querySelector("[data-close-modal]").focus();
   });
 
   document.querySelector("[data-close-modal]").addEventListener("click", closeModal);
   modal.addEventListener("click", (event) => {
     if (event.target === modal) closeModal();
-  });
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !modal.hidden) closeModal();
   });
 }
 
@@ -724,11 +892,13 @@ function initializeTracking() {
     details.replaceChildren();
     [
       ["Người nhận", order.name],
+      ["Email", order.email || "—"],
       ["Điện thoại", order.phone],
       ["Địa chỉ", order.address],
       ["Lịch giao", `${order.deliveryDate} · ${order.deliverySlot}`],
       ["Thanh toán", order.paymentStatus || (order.payment === "online" ? "Trực tuyến (demo)" : "COD")],
       ["Tổng tiền", currency.format(order.total)],
+      ["Món đã đặt", order.items.map((item) => `${item.name} × ${item.quantity}`).join(", ")],
       ["Ghi chú", order.note || "Không có"],
     ].forEach(([label, value]) => {
       const line = document.createElement("div");
@@ -743,8 +913,24 @@ function initializeTracking() {
     cancelButton.hidden = !canCancel;
     const timeline = document.querySelector("[data-tracking-timeline]");
     timeline.replaceChildren();
+    if (order.status === "Đã hủy") {
+      const item = document.createElement("li");
+      item.className = "is-current";
+      const dot = document.createElement("span");
+      dot.className = "timeline-dot";
+      dot.textContent = "×";
+      const content = document.createElement("div");
+      const heading = document.createElement("strong");
+      heading.textContent = "Đơn hàng đã hủy";
+      const text = document.createElement("small");
+      text.textContent = "Trạng thái demo đã được quản trị viên cập nhật";
+      content.append(heading, text);
+      item.append(dot, content);
+      timeline.append(item);
+      return;
+    }
     const steps = ["Đã tiếp nhận đơn", "Đang chuẩn bị", "Đang giao hàng", "Giao hàng thành công"];
-    const currentStep = order.cancelRequested ? 0 : order.status === "Đang giao" ? 2 : order.status === "Hoàn tất" ? 3 : 1;
+    const currentStep = order.cancelRequested ? 0 : order.status === "Chờ xác nhận" ? 0 : order.status === "Đang giao" ? 2 : order.status === "Hoàn tất" ? 3 : 1;
     steps.forEach((title, index) => {
       const item = document.createElement("li");
       if (index < currentStep) item.className = "is-complete";
@@ -804,6 +990,24 @@ function initializeTracking() {
     renderOrder(orders.find((item) => item.id === order.id));
     showToast("Đã ghi nhận yêu cầu hủy trong dữ liệu demo.");
   });
+
+  window.addEventListener("storage", (event) => {
+    if (event.key !== orderStorageKey) return;
+    renderHistory();
+    if (selectedOrderId) renderOrder(getOrders().find((order) => order.id === selectedOrderId));
+  });
+}
+
+function initializeInventorySync() {
+  window.addEventListener("storage", (event) => {
+    if (event.key !== inventoryStorageKey) return;
+    applyInventory(readInventory());
+    renderCatalogInventory();
+    renderFeaturedProductImages();
+    renderAdminProducts();
+    writeCart(readCart());
+    renderCart();
+  });
 }
 
 function initializeAccount() {
@@ -857,7 +1061,9 @@ function initializeAccount() {
 
   function showAccountProfile() {
     const profile = getProfile();
-    if (!profile || (localStorage.getItem(sessionStorageKey) !== "1" && sessionStorage.getItem(sessionStorageKey) !== "1")) {
+    const isSignedIn = localStorage.getItem(sessionStorageKey) === "1"
+      || sessionStorage.getItem(sessionStorageKey) === "1";
+    if (!profile || !isSignedIn) {
       authView.hidden = false;
       profileView.hidden = true;
       return;
@@ -958,6 +1164,11 @@ function initializeAccount() {
     activateAccountTab("login");
     showToast("Đã đăng xuất khỏi tài khoản demo.");
   });
+
+  window.addEventListener("storage", (event) => {
+    if (event.key === orderStorageKey && !profileView.hidden) renderAccountOrders();
+    if (event.key === profileStorageKey && !profileView.hidden) showAccountProfile();
+  });
 }
 
 function initializeAdmin() {
@@ -974,6 +1185,108 @@ function initializeAdmin() {
     window.clearTimeout(notify.timeoutId);
     notify.timeoutId = window.setTimeout(() => toast.classList.remove("is-visible"), 2400);
   }
+
+  const orderList = document.querySelector("[data-admin-order-list]");
+  const recentOrderList = document.querySelector("[data-admin-recent-orders]");
+  const emptyOrders = document.querySelector("[data-admin-orders-empty]");
+  const emptyRecentOrders = document.querySelector("[data-admin-recent-empty]");
+  const orderStatuses = ["Chờ xác nhận", "Đang chuẩn bị", "Đang giao", "Hoàn tất", "Đã hủy"];
+
+  function statusClass(status) {
+    if (status === "Đang giao") return "status-shipping";
+    if (status === "Hoàn tất") return "status-paid";
+    if (status === "Đã hủy") return "status-pending";
+    return "status-preparing";
+  }
+
+  function renderAdminOrders() {
+    const orders = getOrders().sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt));
+    const orderCount = document.querySelector("[data-admin-order-count]");
+    if (orderCount) orderCount.textContent = String(orders.length);
+    if (emptyOrders) emptyOrders.hidden = orders.length > 0;
+    if (emptyRecentOrders) emptyRecentOrders.hidden = orders.length > 0;
+    if (orderList) orderList.replaceChildren();
+    if (recentOrderList) recentOrderList.replaceChildren();
+
+    orders.forEach((order) => {
+      if (orderList) {
+        const row = document.createElement("tr");
+        const nameCell = document.createElement("td");
+        const customer = document.createElement("strong");
+        customer.textContent = order.name;
+        const phone = document.createElement("small");
+        phone.className = "admin-order-secondary";
+        phone.textContent = order.phone;
+        nameCell.append(customer, phone);
+
+        const orderId = document.createElement("td");
+        const id = document.createElement("strong");
+        id.textContent = `#${order.id}`;
+        orderId.append(id);
+        const date = document.createElement("td");
+        date.textContent = new Date(order.createdAt).toLocaleString("vi-VN");
+        const items = document.createElement("td");
+        items.className = "admin-order-items";
+        items.textContent = order.items.map((item) => `${item.name} × ${item.quantity}`).join(", ");
+        const payment = document.createElement("td");
+        payment.textContent = order.payment === "online" ? "Online (demo)" : "COD";
+        const total = document.createElement("td");
+        total.textContent = currency.format(order.total);
+        const statusCell = document.createElement("td");
+        const select = document.createElement("select");
+        select.className = "status-select";
+        select.dataset.demoOrderStatus = order.id;
+        select.setAttribute("aria-label", `Trạng thái đơn ${order.id}`);
+        orderStatuses.forEach((statusValue) => {
+          const option = document.createElement("option");
+          option.value = statusValue;
+          option.textContent = statusValue;
+          select.append(option);
+        });
+        select.value = orderStatuses.includes(order.status) ? order.status : "Chờ xác nhận";
+        statusCell.append(select);
+        const notes = document.createElement("td");
+        if (order.cancelRequested) {
+          const request = document.createElement("span");
+          request.className = "admin-order-cancel-request";
+          request.textContent = "Khách yêu cầu hủy";
+          const hint = document.createElement("small");
+          hint.textContent = "Cập nhật trạng thái để xử lý";
+          notes.append(request, hint);
+        } else {
+          const request = document.createElement("span");
+          request.className = "admin-order-cancel-request is-clear";
+          request.textContent = "—";
+          notes.append(request);
+        }
+        row.append(orderId, nameCell, date, items, payment, total, statusCell, notes);
+        orderList.append(row);
+      }
+
+      if (recentOrderList && recentOrderList.children.length < 4) {
+        const row = document.createElement("tr");
+        const idCell = document.createElement("td");
+        const id = document.createElement("strong");
+        id.textContent = `#${order.id}`;
+        idCell.append(id);
+        const customer = document.createElement("td");
+        customer.textContent = order.name;
+        const date = document.createElement("td");
+        date.textContent = new Date(order.createdAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+        const total = document.createElement("td");
+        total.textContent = currency.format(order.total);
+        const state = document.createElement("td");
+        const badge = document.createElement("span");
+        badge.className = `status-pill ${statusClass(order.cancelRequested ? "Chờ xác nhận" : order.status)}`;
+        badge.textContent = order.cancelRequested ? "Khách yêu cầu hủy" : order.status;
+        state.append(badge);
+        row.append(idCell, customer, date, total, state);
+        recentOrderList.append(row);
+      }
+    });
+  }
+
+  renderAdminOrders();
 
   function activateTab(name) {
     tabs.forEach((tab) => tab.classList.toggle("is-active", tab.dataset.adminTab === name));
@@ -1010,9 +1323,35 @@ function initializeAdmin() {
   document.querySelectorAll(".status-select").forEach((select) => {
     select.addEventListener("change", () => notify(`Trạng thái minh họa: ${select.value}. Chưa lưu vào hệ thống.`));
   });
+  orderList?.addEventListener("change", (event) => {
+    const select = event.target.closest("[data-demo-order-status]");
+    if (!select) return;
+    const order = getOrders().find((item) => item.id === select.dataset.demoOrderStatus);
+    if (!order) {
+      notify("Không tìm thấy đơn demo cần cập nhật.");
+      renderAdminOrders();
+      return;
+    }
+    const updatedOrders = getOrders().map((item) => item.id === order.id
+      ? { ...item, status: select.value, cancelRequested: false }
+      : item);
+    saveOrders(updatedOrders);
+    renderAdminOrders();
+    notify(order.cancelRequested
+      ? `Đã xử lý yêu cầu hủy đơn ${order.id}: ${select.value}.`
+      : `Đã cập nhật đơn ${order.id}: ${select.value}.`);
+  });
+
+  window.addEventListener("storage", (event) => {
+    if (event.key === orderStorageKey) renderAdminOrders();
+  });
 
   const productForm = document.querySelector("[data-product-form]");
   const productFormToggle = document.querySelector("[data-product-form-toggle]");
+  const productImageInput = productForm?.elements.image;
+  const productImagePreview = document.querySelector("[data-product-image-preview]");
+  const productImagePreviewImage = document.querySelector("[data-product-image-preview-img]");
+  let productImagePreviewUrl = "";
   productFormToggle?.addEventListener("click", () => {
     const isOpening = productForm.hidden;
     productForm.hidden = !isOpening;
@@ -1020,7 +1359,37 @@ function initializeAdmin() {
     if (isOpening) productForm.elements.name.focus();
   });
 
-  productForm?.addEventListener("submit", (event) => {
+  productImageInput?.addEventListener("change", () => {
+    const file = productImageInput.files[0];
+    productImageInput.setCustomValidity("");
+    if (productImagePreviewUrl) URL.revokeObjectURL(productImagePreviewUrl);
+    productImagePreviewUrl = "";
+    if (!file) {
+      productImagePreview.hidden = true;
+      return;
+    }
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 10 * 1024 * 1024) {
+      productImageInput.setCustomValidity("Chọn ảnh JPG, PNG hoặc WebP không quá 10 MB.");
+      productImageInput.reportValidity();
+      productImageInput.setCustomValidity("");
+      productImageInput.value = "";
+      productImagePreview.hidden = true;
+      return;
+    }
+    productImagePreviewUrl = URL.createObjectURL(file);
+    productImagePreviewImage.src = productImagePreviewUrl;
+    productImagePreview.hidden = false;
+  });
+
+  document.querySelector("[data-clear-product-image]")?.addEventListener("click", () => {
+    if (productImagePreviewUrl) URL.revokeObjectURL(productImagePreviewUrl);
+    productImagePreviewUrl = "";
+    productImageInput.value = "";
+    productImagePreview.hidden = true;
+    productImageInput.focus();
+  });
+
+  productForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const values = new FormData(productForm);
     const name = values.get("name").toString().trim();
@@ -1041,6 +1410,17 @@ function initializeAdmin() {
     }
     const nextSku = Math.max(0, ...demoInventory.map((product) => Number(product.sku.slice(3)) || 0)) + 1;
     const category = values.get("category").toString();
+    const imageFile = values.get("image");
+    let image = "";
+    if (imageFile instanceof File && imageFile.size) {
+      try {
+        image = await prepareProductImage(imageFile);
+      } catch (error) {
+        console.error("Không thể xử lý ảnh sản phẩm.", error);
+        notify(error instanceof Error ? error.message : "Không thể xử lý ảnh đã chọn.");
+        return;
+      }
+    }
     const product = {
       id,
       sku: `FM-${String(nextSku).padStart(3, "0")}`,
@@ -1048,17 +1428,27 @@ function initializeAdmin() {
       price,
       category,
       description,
+      ...(image ? { image } : {}),
       icon: category === "drink" ? "✳" : category === "meal" ? "F" : "FM",
       available: true,
     };
-    saveInventory([...demoInventory, product]);
+    if (!saveInventory([...demoInventory, product])) return;
     productForm.reset();
+    if (productImagePreviewUrl) URL.revokeObjectURL(productImagePreviewUrl);
+    productImagePreviewUrl = "";
+    productImagePreview.hidden = true;
     productForm.hidden = true;
     productFormToggle.setAttribute("aria-expanded", "false");
     notify(`${name} đã được thêm vào danh sách demo.`);
   });
 
-  document.querySelector("[data-admin-product-list]")?.addEventListener("click", (event) => {
+  const productList = document.querySelector("[data-admin-product-list]");
+  productList?.addEventListener("click", (event) => {
+    const imagePicker = event.target.closest("[data-product-image-picker]");
+    if (imagePicker) {
+      imagePicker.closest("tr").querySelector("[data-product-image-upload]").click();
+      return;
+    }
     const saveButton = event.target.closest("[data-product-save]");
     const availabilityButton = event.target.closest("[data-product-availability]");
     const deleteButton = event.target.closest("[data-product-delete]");
@@ -1076,17 +1466,38 @@ function initializeAdmin() {
         input.reportValidity();
         return;
       }
-      saveInventory(demoInventory.map((item) => item.id === product.id ? { ...item, price } : item));
+      if (!saveInventory(demoInventory.map((item) => item.id === product.id ? { ...item, price } : item))) return;
       notify(`Đã cập nhật giá demo của ${product.name}.`);
     } else if (availabilityButton) {
       const available = !product.available;
-      saveInventory(demoInventory.map((item) => item.id === product.id ? { ...item, available } : item));
+      if (!saveInventory(demoInventory.map((item) => item.id === product.id ? { ...item, available } : item))) return;
       notify(available
         ? `${product.name} đã được mở bán lại trong bản demo.`
         : `Đã thông báo ${product.name} hết món trên cửa hàng demo.`);
     } else if (window.confirm(`Bạn có chắc muốn xóa "${product.name}" khỏi danh sách demo?`)) {
-      saveInventory(demoInventory.filter((item) => item.id !== product.id));
+      if (!saveInventory(demoInventory.filter((item) => item.id !== product.id))) return;
       notify(`${product.name} đã được xóa khỏi danh sách demo.`);
+    }
+  });
+
+  productList?.addEventListener("change", async (event) => {
+    const input = event.target.closest("[data-product-image-upload]");
+    const file = input?.files[0];
+    if (!input || !file) return;
+    const product = demoInventory.find((item) => item.id === input.dataset.productImageUpload);
+    if (!product) {
+      notify("Không tìm thấy món cần cập nhật ảnh.");
+      return;
+    }
+    try {
+      const image = await prepareProductImage(file);
+      if (!saveInventory(demoInventory.map((item) => item.id === product.id ? { ...item, image } : item))) return;
+      notify(`Đã cập nhật ảnh cho ${product.name}.`);
+    } catch (error) {
+      console.error("Không thể cập nhật ảnh sản phẩm.", error);
+      notify(error instanceof Error ? error.message : "Không thể xử lý ảnh đã chọn.");
+    } finally {
+      input.value = "";
     }
   });
 
@@ -1142,6 +1553,7 @@ function initializeLanguages() {
 
 updateCartCounts();
 renderCart();
+renderFeaturedProductImages();
 initializeProductModal();
 initializeCatalog();
 initializeCart();
@@ -1149,5 +1561,6 @@ initializeCheckout();
 initializeTracking();
 initializeAccount();
 initializeAdmin();
+initializeInventorySync();
 initializeMobileNavigation();
 initializeLanguages();

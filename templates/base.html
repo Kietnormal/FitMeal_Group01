@@ -6,12 +6,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f7f4f0">
   <title>{% block title %}FitMeal — Protein tiện lợi mỗi ngày{% endblock %}</title>
-  <link rel="stylesheet" href="{% static 'css/home.css' %}">
+  <link rel="stylesheet" href="{% static 'css/home.css' %}?v=20261110-mobile-flow-1">
   {% block extra_css %}{% endblock %}
 </head>
 <body>
   {% block content %}{% endblock %}
   <script src="{% static 'js/home.js' %}" defer></script>
+  <script src="{% static 'js/storefront.js' %}?v=20261110-mobile-flow-3" defer></script>
   {% block extra_scripts %}{% endblock %}
 </body>
 </html>

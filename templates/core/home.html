@@ -18,8 +18,8 @@
       <a class="is-current" href="{% url 'core:home' %}">Trang chủ</a>
       <a href="{% url 'core:shop' %}">Thực đơn</a>
       <a href="#menu">Dinh dưỡng</a>
-      <a href="{% url 'core:tracking' %}">Theo dõi đơn</a>
-      <a href="#contact">FAQs</a>
+      <a href="#contact">Liên hệ</a>
+      <a class="mobile-account-link" href="{% url 'core:policies' %}">Chính sách & hỗ trợ</a>
       <a class="mobile-account-link" href="{% url 'core:account' %}#register">Đăng ký</a>
       <a class="mobile-account-link" href="{% url 'core:account' %}#login">Đăng nhập</a>
       <div class="mobile-home-languages" aria-label="Ngôn ngữ giao diện">
@@ -119,7 +119,7 @@
         </div>
 
         <div class="product-track" id="nutrition" tabindex="0" aria-label="Các món FitMeal">
-          <article class="product-card">
+          <article class="product-card" data-featured-product="banana-whey">
             <div class="product-art product-art-banana" role="img" aria-label="Minh họa ly sinh tố chuối whey">
               <span class="product-badge">ĐƯỢC YÊU THÍCH</span>
               <span class="art-fruit art-banana" aria-hidden="true">🍌</span>
@@ -145,7 +145,7 @@
             </div>
           </article>
 
-          <article class="product-card">
+          <article class="product-card" data-featured-product="mocha-whey">
             <div class="product-art product-art-mocha" role="img" aria-label="Minh họa ly mocha cafe whey">
               <span class="product-badge badge-red">MUST TRY</span>
               <span class="art-fruit art-coffee" aria-hidden="true">✳</span>
@@ -171,7 +171,7 @@
             </div>
           </article>
 
-          <article class="product-card">
+          <article class="product-card" data-featured-product="berry-protein">
             <div class="product-art product-art-berry" role="img" aria-label="Minh họa ly sinh tố dâu protein">
               <span class="product-badge badge-green">TƯƠI MỚI</span>
               <span class="art-fruit art-berry-fruit" aria-hidden="true">✿</span>
@@ -204,7 +204,11 @@
     <footer class="site-footer" id="contact">
       <a class="footer-brand" href="{% url 'core:home' %}">FitMeal<span>®</span></a>
       <p>Ăn ngon, đủ chất, sống trọn từng ngày.</p>
-      <a href="{% url 'core:demo_admin' %}">Giao diện quản trị ↗</a>
+      <nav class="site-footer-links" aria-label="Thông tin và hỗ trợ">
+        <a href="{% url 'core:policies' %}">Chính sách & hỗ trợ</a>
+        <a href="mailto:hello@fitmeal.vn">hello@fitmeal.vn</a>
+        <a href="{% url 'core:demo_admin' %}">Giao diện quản trị ↗</a>
+      </nav>
     </footer>
   </main>
 </div>

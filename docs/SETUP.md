@@ -28,12 +28,15 @@ Mở http://127.0.0.1:8000 (trang chủ) và http://127.0.0.1:8000/admin (quản
 Các trang dưới đây là prototype frontend dùng dữ liệu minh họa, chưa kết nối nghiệp vụ backend:
 
 - `/products/`: danh mục cơm, salad, món ăn nhẹ, thức uống và combo; tìm kiếm, lọc theo giá/protein/calo, sắp xếp, xem thành phần và thông tin dinh dưỡng.
-- `/cart/`, `/checkout/`: luồng giỏ hàng và đặt hàng mô phỏng; chỉnh số lượng, chọn địa chỉ/ngày/khung giờ, xem phí giao, thử COD hoặc kết quả thanh toán online thành công/thất bại.
-- `/orders/track/`: lịch sử đơn demo, chi tiết trạng thái giao hàng và yêu cầu hủy khi đơn còn ở trạng thái cho phép.
+- `/cart/`, `/checkout/`: luồng giỏ hàng và đặt hàng mô phỏng; chỉnh số lượng, chọn địa chỉ/ngày/khung giờ, xem phí giao, thử COD hoặc kết quả thanh toán online thành công/thất bại. Sau khi đặt hàng, giỏ hàng hiển thị liên kết theo dõi các đơn đã tạo.
+- `/orders/track/`: chi tiết trạng thái giao hàng và yêu cầu hủy khi đơn còn ở trạng thái cho phép; khách truy cập từ liên kết của đơn trong giỏ hàng hoặc lịch sử tài khoản. Đơn demo tạo từ checkout xuất hiện trong dashboard admin; cập nhật trạng thái/yêu cầu hủy được đồng bộ giữa các tab cùng trình duyệt.
 - `/account/`: đăng ký/đăng nhập demo, khôi phục mật khẩu minh họa, chỉnh hồ sơ và xem lịch sử đơn; mật khẩu không được lưu.
-- `/demo-admin/`: dashboard minh họa sản phẩm, khách hàng, đơn hàng, thanh toán, vận chuyển, bảo mật và vận hành. Mục Sản phẩm có thể thêm/xóa món, đổi giá và đánh dấu hết món; mục Bảo mật có biểu mẫu đăng ký admin demo.
+- `/policies/`: trang liên hệ, giao hàng, đổi trả, quyền riêng tư và điều khoản ở dạng nội dung mẫu. Các chính sách thực tế và thông tin liên hệ cần được cửa hàng xác nhận trước khi mở bán.
+- `/demo-admin/`: dashboard minh họa sản phẩm, khách hàng, đơn hàng, thanh toán, vận chuyển, bảo mật và vận hành. Mục Sản phẩm có thể thêm/xóa món, đổi giá, đánh dấu hết món, tải ảnh mới và thay ảnh món có sẵn; ảnh JPG/PNG/WebP được nén rồi lưu trong trình duyệt này để hiển thị trên trang chủ và thực đơn, chưa tải lên máy chủ.
 
-Hồ sơ demo, giỏ hàng, lịch sử đơn và danh sách món prototype được lưu trong `localStorage` của trình duyệt hiện tại; không đồng bộ giữa thiết bị hoặc người dùng. Dữ liệu dinh dưỡng là số liệu minh họa. Mọi bước thanh toán, đăng nhập, đặt hàng và hủy đơn đều là giả lập, không gọi dịch vụ thật. Biểu mẫu admin chỉ kiểm tra giao diện, không tạo tài khoản và không lưu mật khẩu. Không nhập dữ liệu thật hoặc thông tin thanh toán. `/demo-admin/` chưa có đăng nhập hay phân quyền và không dùng như trang quản trị triển khai thật. Database, xác thực, thanh toán, bảo mật, vận chuyển, backup và giám sát sẽ làm ở giai đoạn backend sau.
+Hồ sơ demo, giỏ hàng, lịch sử đơn và danh sách món prototype được lưu trong `localStorage` của trình duyệt hiện tại; không đồng bộ giữa thiết bị hoặc người dùng. Dữ liệu dinh dưỡng là số liệu minh họa. Mọi bước thanh toán, đăng nhập, đặt hàng, đổi trạng thái và hủy đơn đều là giả lập, không gọi dịch vụ thật. Biểu mẫu admin chỉ kiểm tra giao diện, không tạo tài khoản và không lưu mật khẩu. Không nhập dữ liệu thật hoặc thông tin thanh toán. `/demo-admin/` chưa có đăng nhập hay phân quyền và không dùng như trang quản trị triển khai thật. Database, xác thực, thanh toán, bảo mật, vận chuyển, backup và giám sát sẽ làm ở giai đoạn backend sau.
+
+Các trang prototype đã có bố cục responsive và hộp thoại hỗ trợ bàn phím cơ bản (giữ tiêu điểm trong hộp thoại, đóng bằng Escape, trả tiêu điểm về nút đã mở). Cần kiểm thử lại trên thiết bị và trình đọc màn hình thực tế trước khi triển khai.
 
 ## Mỗi ngày trước khi code
 

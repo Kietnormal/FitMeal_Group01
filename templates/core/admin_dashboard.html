@@ -8,7 +8,7 @@
     <span class="admin-side-label">TỔNG QUAN</span>
     <button class="admin-nav-item is-active" type="button" data-admin-tab="overview"><span>▦</span>Tổng quan</button>
     <span class="admin-side-label">VẬN HÀNH</span>
-    <button class="admin-nav-item" type="button" data-admin-tab="orders"><span>▤</span>Đơn hàng <i>8</i></button>
+    <button class="admin-nav-item" type="button" data-admin-tab="orders"><span>▤</span>Đơn hàng <i data-admin-order-count>0</i></button>
     <button class="admin-nav-item" type="button" data-admin-tab="products"><span>◇</span>Sản phẩm</button>
     <button class="admin-nav-item" type="button" data-admin-tab="customers"><span>♙</span>Khách hàng</button>
     <button class="admin-nav-item" type="button" data-admin-tab="payments"><span>＄</span>Thanh toán</button>
@@ -29,12 +29,7 @@
         <article class="metric-card"><span>GIÁ TRỊ ĐƠN TB <i>↗</i></span><strong>302.000₫</strong><small><b>+4,2%</b> trong tuần này</small><div class="metric-sparkline spark-blue">▂▃▅▄▃▅▆█</div></article>
       </div>
       <div class="admin-content-grid">
-        <section class="admin-panel orders-panel"><div class="admin-panel-heading"><div><span class="store-kicker">VẬN HÀNH CỬA HÀNG</span><h2>Đơn hàng gần đây</h2></div><button class="text-action" type="button" data-open-tab="orders">Xem tất cả →</button></div><div class="table-scroll"><table class="admin-table"><thead><tr><th>MÃ ĐƠN</th><th>KHÁCH HÀNG</th><th>NGÀY ĐẶT</th><th>TỔNG TIỀN</th><th>TRẠNG THÁI</th></tr></thead><tbody>
-          <tr><td><strong>#FM-1028</strong></td><td>Minh Anh</td><td>10:42 · Hôm nay</td><td>358.000₫</td><td><span class="status-pill status-preparing">Đang chuẩn bị</span></td></tr>
-          <tr><td><strong>#FM-1027</strong></td><td>Hoàng Nam</td><td>10:18 · Hôm nay</td><td>219.000₫</td><td><span class="status-pill status-shipping">Đang giao</span></td></tr>
-          <tr><td><strong>#FM-1026</strong></td><td>Thảo Linh</td><td>09:56 · Hôm nay</td><td>427.000₫</td><td><span class="status-pill status-paid">Hoàn tất</span></td></tr>
-          <tr><td><strong>#FM-1025</strong></td><td>Quốc Bảo</td><td>09:32 · Hôm nay</td><td>178.000₫</td><td><span class="status-pill status-pending">Chờ xác nhận</span></td></tr>
-        </tbody></table></div></section>
+        <section class="admin-panel orders-panel"><div class="admin-panel-heading"><div><span class="store-kicker">VẬN HÀNH CỬA HÀNG</span><h2>Đơn demo mới nhất</h2></div><button class="text-action" type="button" data-open-tab="orders">Xem tất cả →</button></div><div class="table-scroll"><table class="admin-table"><thead><tr><th>MÃ ĐƠN</th><th>KHÁCH HÀNG</th><th>NGÀY ĐẶT</th><th>TỔNG TIỀN</th><th>TRẠNG THÁI</th></tr></thead><tbody data-admin-recent-orders></tbody></table></div><p class="admin-empty-orders" data-admin-recent-empty>Chưa có đơn demo. Hãy thử đặt món từ trang cửa hàng.</p></section>
         <section class="admin-panel inventory-panel"><div class="admin-panel-heading"><div><span class="store-kicker">CẦN THEO DÕI</span><h2>Tình hình sản phẩm</h2></div><button class="text-action" type="button" data-open-tab="products">Quản lý →</button></div>
           <div class="inventory-row"><span class="inventory-icon inventory-amber">BW</span><span><strong>Banana Whey</strong><small>Đồ uống · SKU FM-001</small></span><b>12 phần</b></div>
           <div class="inventory-row"><span class="inventory-icon inventory-pink">MC</span><span><strong>Mocha Cafe Whey</strong><small>Đồ uống · SKU FM-002</small></span><b>8 phần</b></div>
@@ -44,13 +39,7 @@
       </div>
       <p class="admin-footnote">Số liệu trên là dữ liệu hư cấu để trình bày giao diện; chưa đại diện cho hoạt động kinh doanh thật.</p>
     </section>
-    <section class="admin-view" data-admin-view="orders" hidden><div class="admin-panel full-admin-panel"><div class="admin-panel-heading"><div><span class="store-kicker">QUẢN LÝ BÁN HÀNG</span><h2>Đơn hàng</h2></div><label class="admin-search">⌕ <input type="search" placeholder="Tìm mã đơn, khách hàng..." data-admin-search></label></div><div class="table-scroll"><table class="admin-table"><thead><tr><th>MÃ ĐƠN</th><th>KHÁCH HÀNG</th><th>NGÀY ĐẶT</th><th>THANH TOÁN</th><th>TỔNG TIỀN</th><th>TRẠNG THÁI</th></tr></thead><tbody>
-      <tr><td><strong>#FM-1028</strong></td><td>Minh Anh</td><td>27/10/2026</td><td>COD</td><td>358.000₫</td><td><select class="status-select"><option>Đang chuẩn bị</option><option>Đang giao</option><option>Hoàn tất</option></select></td></tr>
-      <tr><td><strong>#FM-1027</strong></td><td>Hoàng Nam</td><td>27/10/2026</td><td>Đã thanh toán</td><td>219.000₫</td><td><select class="status-select"><option>Đang giao</option><option>Đang chuẩn bị</option><option>Hoàn tất</option></select></td></tr>
-      <tr><td><strong>#FM-1026</strong></td><td>Thảo Linh</td><td>27/10/2026</td><td>Đã thanh toán</td><td>427.000₫</td><td><select class="status-select"><option>Hoàn tất</option><option>Đang chuẩn bị</option><option>Đang giao</option></select></td></tr>
-      <tr><td><strong>#FM-1025</strong></td><td>Quốc Bảo</td><td>27/10/2026</td><td>COD</td><td>178.000₫</td><td><select class="status-select"><option>Chờ xác nhận</option><option>Đang chuẩn bị</option><option>Đã hủy</option></select></td></tr>
-      <tr><td><strong>#FM-1024</strong></td><td>Mai Phương</td><td>26/10/2026</td><td>Đã thanh toán</td><td>315.000₫</td><td><select class="status-select"><option>Đang giao</option><option>Hoàn tất</option></select></td></tr>
-    </tbody></table></div><p class="admin-footnote">Thay đổi trạng thái chỉ hiển thị trên trình duyệt, chưa cập nhật dữ liệu đơn hàng.</p></div></section>
+    <section class="admin-view" data-admin-view="orders" hidden><div class="admin-panel full-admin-panel"><div class="admin-panel-heading"><div><span class="store-kicker">QUẢN LÝ BÁN HÀNG</span><h2>Đơn hàng</h2></div><label class="admin-search">⌕ <input type="search" placeholder="Tìm mã đơn, khách hàng..." data-admin-search></label></div><div class="table-scroll"><table class="admin-table"><thead><tr><th>MÃ ĐƠN</th><th>KHÁCH HÀNG</th><th>NGÀY ĐẶT</th><th>SẢN PHẨM</th><th>THANH TOÁN</th><th>TỔNG TIỀN</th><th>TRẠNG THÁI</th><th>GHI CHÚ</th></tr></thead><tbody data-admin-order-list></tbody></table></div><p class="admin-empty-orders" data-admin-orders-empty>Chưa có đơn demo. Hãy đặt món ở cửa hàng rồi tải lại mục này.</p><p class="admin-footnote">Đơn và trạng thái được chia sẻ giữa các trang trong trình duyệt này; chưa gửi hoặc lưu trên máy chủ.</p></div></section>
     <section class="admin-view" data-admin-view="products" hidden><div class="admin-panel full-admin-panel">
       <div class="admin-panel-heading"><div><span class="store-kicker">DANH MỤC CỬA HÀNG</span><h2>Quản lý món ăn</h2></div><button class="admin-primary" type="button" data-product-form-toggle aria-expanded="false">＋ Thêm món</button></div>
       <form class="admin-product-form" data-product-form hidden>
@@ -58,6 +47,8 @@
         <label>Giá bán (₫)<input name="price" type="number" min="1000" step="1000" placeholder="69000" required></label>
         <label>Danh mục<select name="category" required><option value="meal">Bữa ăn</option><option value="rice">Cơm</option><option value="salad">Salad</option><option value="drink">Thức uống</option><option value="snack">Ăn nhẹ</option><option value="combo">Combo</option></select></label>
         <label>Mô tả<input name="description" type="text" maxlength="120" placeholder="Thành phần hoặc mô tả ngắn" required></label>
+        <label class="field-wide">Ảnh sản phẩm<input name="image" type="file" accept="image/jpeg,image/png,image/webp" data-product-image><small>JPG, PNG hoặc WebP; ảnh sẽ được nén và lưu trong trình duyệt này.</small></label>
+        <div class="admin-product-image-preview" data-product-image-preview hidden><img alt="Xem trước ảnh sản phẩm" data-product-image-preview-img><button class="admin-clear-product-image" type="button" data-clear-product-image>Gỡ ảnh đã chọn</button></div>
         <button class="admin-primary" type="submit">Lưu món demo</button>
       </form>
       <div class="inventory-alert" data-out-of-stock-notice hidden></div>
