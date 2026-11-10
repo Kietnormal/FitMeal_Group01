@@ -91,5 +91,3 @@ def demo_admin(request):
 def healthz(request):
     """Endpoint kiểm tra sống cho giám sát (UptimeRobot, Docker healthcheck...)."""
     return JsonResponse({"status": "ok"})
-# def employee(request):
-#     return render(request, "core/employee.html")
