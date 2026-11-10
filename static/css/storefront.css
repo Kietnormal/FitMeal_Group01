@@ -671,6 +671,76 @@ body {
 .catalog-buy > strong {
   font-size: 15px;
 }
+<<<<<<< HEAD
+/* Employee Dashboard Styles */
+.employee-dashboard-container {
+    max-width: 1200px;
+    margin: 30px auto;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.employee-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.btn-add-employee {
+    background-color: #28a745;
+    color: white;
+    padding: 10px 20px;
+    text-decoration: none;
+    border-radius: 5px;
+    font-weight: bold;
+}
+
+.employee-table-wrapper {
+    overflow-x: auto;
+}
+
+.employee-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.employee-table th {
+    background-color: #f8f9fa;
+    padding: 15px;
+    text-align: left;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.employee-table td {
+    padding: 15px;
+    border-bottom: 1px solid #eee;
+    vertical-align: middle;
+}
+
+.status-badge {
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 0.85em;
+    font-weight: bold;
+}
+
+.status-active { background-color: #d4edda; color: #155724; }
+.status-inactive { background-color: #f8d7da; color: #721c24; }
+
+.action-btn {
+    text-decoration: none;
+    margin: 0 5px;
+    font-weight: bold;
+}
+
+.btn-edit { color: #007bff; }
+.btn-delete { color: #dc3545; }
+.text-center { text-align: center; }
+=======
+>>>>>>> 7cb3a3d624346f16c1173c5d42a2a40b1258bf50
 .product-detail-link,
 .account-back-link { padding: 5px 0 0; border: 0; background: transparent; color: #557344; cursor: pointer; font: inherit; font-size: 10px; font-weight: 700; text-align: left; }
 .catalog-nutrition-filter,
