@@ -1,7 +1,6 @@
 from django.http import JsonResponse
 from django.shortcuts import render
 
-<<<<<<< HEAD
 def home(request):
     return render(request, "core/home.html")
 
@@ -28,7 +27,7 @@ def healthz(request):
     return JsonResponse({"status": "ok"})
 
 
-def employee_list(request):
+def employee(request):
     # Dữ liệu mẫu (Đã thêm email, sđt, ngày vào làm)
     employees = [
         {'id': 1, 'name': 'Nguyễn Văn A', 'email': 'nva@fitmeal.vn', 'phone': '0901234567', 'role': 'Quản lý', 'is_active': True, 'join_date': '15/01/2023'},
@@ -38,7 +37,7 @@ def employee_list(request):
         {'id': 5, 'name': 'Hoàng Văn E', 'email': 'hve@fitmeal.vn', 'phone': '0945678901', 'role': 'Giao hàng', 'is_active': True, 'join_date': '12/12/2023'},
     ]
 
-    # Lấy từ khóa tìm kiếm và bộ lọc từ URL (ví dụ: ?search=Nguyễn&role=Giao hàng)
+    
     search_query = request.GET.get('search', '').lower()
     role_filter = request.GET.get('role', '')
 
@@ -60,7 +59,6 @@ def employee_list(request):
         'active_page': 'employees'
     }
     return render(request, 'core/employee.html', context)
-=======
 
 def home(request):
     return render(request, "core/home.html")
@@ -93,4 +91,5 @@ def demo_admin(request):
 def healthz(request):
     """Endpoint kiểm tra sống cho giám sát (UptimeRobot, Docker healthcheck...)."""
     return JsonResponse({"status": "ok"})
->>>>>>> 7cb3a3d624346f16c1173c5d42a2a40b1258bf50
+# def employee(request):
+#     return render(request, "core/employee.html")

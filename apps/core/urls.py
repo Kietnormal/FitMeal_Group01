@@ -13,8 +13,5 @@ urlpatterns = [
     path("account/", views.account, name="account"),
     path("demo-admin/", views.demo_admin, name="demo_admin"),
     path("healthz/", views.healthz, name="healthz"),
-<<<<<<< HEAD
-    path('employees/', views.employee_list, name='employee_list'),
-=======
->>>>>>> 7cb3a3d624346f16c1173c5d42a2a40b1258bf50
+    path("employee/", views.employee, name="employee"),
 ]
