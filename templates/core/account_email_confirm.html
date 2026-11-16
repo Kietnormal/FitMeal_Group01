@@ -1,0 +1,13 @@
+{% extends "core/store_base.html" %}
+{% block title %}Xác nhận email — FitMeal{% endblock %}
+{% block store_content %}
+<section class="customer-email-confirm">
+  <span class="store-kicker">BẢO MẬT TÀI KHOẢN</span>
+  <h1>Xác nhận email mới</h1>
+  <p>Bấm xác nhận để đổi email tài khoản FitMeal sang <strong>{{ pending_email.email }}</strong>.</p>
+  <form method="post">
+    {% csrf_token %}
+    <button class="solid-button" type="submit">Xác nhận đổi email</button>
+  </form>
+</section>
+{% endblock %}

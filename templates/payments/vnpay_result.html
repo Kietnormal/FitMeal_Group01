@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Kết quả thanh toán — FitMeal{% endblock %}
+{% block content %}
+<main class="store-main">
+  <section class="page-heading compact-heading">
+    <span class="store-kicker">THANH TOÁN VNPAY</span>
+    {% if not signature_valid %}
+      <h1>Không thể xác thực kết quả.</h1>
+      <p>Chữ ký phản hồi không hợp lệ. Đơn hàng chưa được xác nhận đã thanh toán.</p>
+    {% elif not payment %}
+      <h1>Không tìm thấy giao dịch.</h1>
+      <p>Thông tin giao dịch không khớp với đơn hàng FitMeal.</p>
+    {% elif payment.status == "paid" %}
+      <h1>Thanh toán thành công.</h1>
+      <p>Đơn {{ payment.order.order_number }} đã được thanh toán. Cửa hàng sẽ xác nhận và xử lý đơn.</p>
+    {% elif gateway_succeeded and payment.status == "pending" %}
+      <h1>Đang xác nhận thanh toán.</h1>
+      <p>VNPay đã nhận kết quả; hệ thống đang chờ thông báo đối soát. Vui lòng kiểm tra lại sau ít phút.</p>
+    {% else %}
+      <h1>Thanh toán chưa hoàn tất.</h1>
+      <p>Đơn {{ payment.order.order_number }} chưa được ghi nhận là đã thanh toán. Nếu tiền đã bị trừ, vui lòng liên hệ cửa hàng.</p>
+    {% endif %}
+    {% if payment %}
+      <p>Mã giao dịch: <strong>{{ payment.transaction_ref }}</strong></p>
+      <p>Trạng thái hiện tại: <strong>{{ payment.get_status_display }}</strong></p>
+    {% endif %}
+    <a class="solid-button" href="{% url 'core:home' %}">Quay về cửa hàng →</a>
+  </section>
+</main>
+{% endblock %}

@@ -43,6 +43,20 @@ textarea {
   overflow: hidden;
 }
 
+.catalog-delivery-note,
+.delivery-area-notice {
+  display: block;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.delivery-area-warning {
+  margin: 0;
+  color: #a52c2c;
+  font-weight: 600;
+}
+
 .site-header {
   position: relative;
   z-index: 20;
@@ -1384,5 +1398,31 @@ textarea {
   .outline-track,
   .scroll-cue span::after {
     animation: none;
+  }
+}
+
+body :is(
+  p, a, button, label, input, select, textarea, li, small, th, td, time, summary,
+  .store-kicker, .admin-side-label, .admin-nav-item i, .metric-card > span,
+  .dashboard-metric > span, .dashboard-attention-item b, .dashboard-attention-item small,
+  .dashboard-order-status, .dashboard-status-row > div, .dashboard-chart-column > span,
+  .dashboard-chart-column small, .dashboard-system-panel li, .dashboard-activity-panel li,
+  .employee-workspace-nav-label, .employee-workspace-stats article span,
+  .admin-period-tabs a, .admin-live-indicator, .admin-sidebar-bottom small
+) {
+  font-size: max(13px, .9em) !important;
+}
+
+@media (max-width: 620px) {
+  body :is(
+    p, a, button, label, input, select, textarea, li, small, th, td, time, summary,
+    .store-kicker, .admin-side-label, .admin-nav-item i, .metric-card > span,
+    .dashboard-metric > span, .dashboard-attention-item b, .dashboard-attention-item small,
+    .dashboard-order-status, .dashboard-status-row > div, .dashboard-chart-column > span,
+    .dashboard-chart-column small, .dashboard-system-panel li, .dashboard-activity-panel li,
+    .employee-workspace-nav-label, .employee-workspace-stats article span,
+    .admin-period-tabs a, .admin-live-indicator, .admin-sidebar-bottom small
+  ) {
+    font-size: max(12px, .88em) !important;
   }
 }

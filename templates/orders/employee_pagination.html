@@ -1,0 +1,7 @@
+{% if page_obj and page_obj.paginator.num_pages > 1 %}
+  <nav class="employee-workspace-pagination" aria-label="Phân trang">
+    {% if page_obj.has_previous %}<a href="?workspace={{ active_workspace }}&q={{ query|urlencode }}&filter={{ product_filter|urlencode }}{% if orders_view %}&view={{ orders_view }}{% endif %}&page={{ page_obj.previous_page_number }}{% if selected_product %}&product={{ selected_product.pk }}{% endif %}">← Trước</a>{% endif %}
+    <span>Trang {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}<a href="?workspace={{ active_workspace }}&q={{ query|urlencode }}&filter={{ product_filter|urlencode }}{% if orders_view %}&view={{ orders_view }}{% endif %}&page={{ page_obj.next_page_number }}{% if selected_product %}&product={{ selected_product.pk }}{% endif %}">Sau →</a>{% endif %}
+  </nav>
+{% endif %}

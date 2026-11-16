@@ -1,0 +1,25 @@
+{% if contact_cancellation_requests %}
+  <section class="employee-cancellation-contact" aria-labelledby="cancellation-contact-title">
+    <div class="employee-cancellation-heading"><div><span class="store-kicker">CHĂM SÓC KHÁCH HÀNG</span><h2 id="cancellation-contact-title">Yêu cầu hủy cần gọi lại</h2></div><b>{{ contact_cancellation_count }}</b></div>
+    <div class="employee-cancellation-contact-list">
+      {% for cancellation in contact_cancellation_requests %}
+        <article class="employee-cancellation-contact-card">
+          <header><strong>{{ cancellation.order.order_number }}</strong><span>Đơn {{ cancellation.order.get_status_display|lower }} · lần gọi {{ cancellation.contact_attempts }}/2</span></header>
+          <p><strong>{{ cancellation.order.customer_name }}</strong> · <a href="tel:{{ cancellation.order.customer_phone }}">{{ cancellation.order.customer_phone }}</a></p>
+          <p class="employee-cancellation-reason"><strong>Lý do khách:</strong> {{ cancellation.reason }}</p>
+          {% if cancellation.contact_notes %}<p class="employee-cancellation-log">{{ cancellation.contact_notes|linebreaksbr }}</p>{% endif %}
+          <a class="employee-call-customer" href="tel:{{ cancellation.order.customer_phone }}">☎ Gọi khách</a>
+          <form action="{% url 'staff_orders:record_cancellation_contact' cancellation.pk %}" method="post">
+            {% csrf_token %}
+            <label>Ghi chú cuộc gọi<textarea name="note" rows="2" maxlength="1000" required placeholder="Ghi lại trao đổi với khách"></textarea></label>
+            <div>
+              <button type="submit" name="outcome" value="agreed_to_continue">Khách nhận tiếp</button>
+              <button type="submit" name="outcome" value="still_wants_cancel">Chuyển Quản lý duyệt</button>
+              <button type="submit" name="outcome" value="no_answer">Không liên lạc được</button>
+            </div>
+          </form>
+        </article>
+      {% endfor %}
+    </div>
+  </section>
+{% endif %}

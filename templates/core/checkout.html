@@ -1,57 +1,100 @@
 {% extends "core/store_base.html" %}
-{% block title %}Hoàn tất đặt hàng — FitMeal{% endblock %}
+{% block title %}Thanh toán — FitMeal{% endblock %}
 {% block store_content %}
-<section class="page-heading compact-heading"><span class="store-kicker">BƯỚC CUỐI CÙNG</span><h1>Hoàn tất đơn hàng.</h1><p>Giao diện minh họa — chưa gửi đơn hoặc thanh toán thật.</p></section>
+<section class="page-heading compact-heading">
+  <span class="store-kicker">THANH TOÁN</span>
+  <h1>Hoàn tất đơn hàng.</h1>
+  <p>Giá, tình trạng bán và phí giao hàng sẽ được kiểm tra lại trước khi ghi nhận đơn.</p>
+</section>
 <div class="checkout-layout" data-checkout-page>
   <form class="checkout-form" data-checkout-form>
+    {% csrf_token %}
     <section class="form-panel">
-      <div class="form-section-heading"><span>01</span><div><h2>Thông tin nhận hàng</h2><p>Nhập thông tin liên hệ và địa chỉ giao.</p></div></div>
+      <div class="form-section-heading"><span>01</span><div><h2>Người nhận và địa chỉ</h2><p>Chọn địa chỉ đã lưu hoặc nhập địa chỉ giao hàng mới.</p></div></div>
       <div class="form-grid">
-        <button class="checkout-profile-fill" type="button" data-fill-profile>Điền thông tin từ hồ sơ demo</button>
-        <label>Họ và tên<input name="name" autocomplete="name" placeholder="Nguyễn Văn A" required></label>
-        <label>Số điện thoại<input name="phone" autocomplete="tel" inputmode="tel" placeholder="09xx xxx xxx" required></label>
-        <label class="field-wide">Email<input name="email" type="email" autocomplete="email" placeholder="ban@email.com" required></label>
-        <label class="field-wide">Địa chỉ<input name="address" autocomplete="street-address" placeholder="Số nhà, đường, phường/xã..." required></label>
-        <label>Quận / Huyện<input name="district" placeholder="Quận / Huyện" required></label>
-        <label>Tỉnh / Thành phố<input name="city" placeholder="Tỉnh / Thành phố" required></label>
-        <label>Ngày giao dự kiến<input name="delivery-date" type="date" required></label>
-        <label>Khung giờ giao<select name="delivery-slot" required><option value="08:00–12:00">08:00–12:00</option><option value="12:00–17:00">12:00–17:00</option><option value="17:00–21:00">17:00–21:00</option></select></label>
-        <label class="field-wide">Ghi chú cho đơn hàng<textarea name="note" rows="3" placeholder="Lưu ý khi giao hàng, dị ứng hoặc yêu cầu khác..."></textarea></label>
+        {% if saved_addresses %}
+          <label class="field-wide">Địa chỉ đã lưu
+            <select data-checkout-saved-address>
+              <option value="">+ Nhập địa chỉ khác</option>
+              {% for saved_address in saved_addresses %}
+                <option value="{{ saved_address.id }}" data-address="{{ saved_address.address }}" data-district="{{ saved_address.district }}" data-city="{{ saved_address.city }}" {% if saved_address.is_default %}selected{% endif %}>{{ saved_address.label }} — {{ saved_address.address }}, {{ saved_address.district }}, {{ saved_address.city }}</option>
+              {% endfor %}
+            </select>
+          </label>
+        {% endif %}
+        <label>Họ và tên
+          <input name="name" autocomplete="name" value="{% if user.is_authenticated %}{{ user.get_full_name }}{% endif %}" placeholder="Nguyễn Văn A" required>
+        </label>
+        <label>Số điện thoại
+          <input name="phone" autocomplete="tel" inputmode="tel" value="{% if user.is_authenticated %}{{ user.phone }}{% endif %}" placeholder="09xx xxx xxx" required>
+        </label>
+        <label class="field-wide">Email
+          <input name="email" type="email" autocomplete="email" value="{% if user.is_authenticated %}{{ user.email }}{% endif %}" placeholder="ban@email.com" required>
+        </label>
+        <label>Tỉnh / Thành phố
+          <input name="city" value="{% if default_address %}{{ default_address.city }}{% endif %}" placeholder="Tỉnh / Thành phố" required>
+        </label>
+        <label>Phường / Xã
+          <input name="district" value="{% if default_address %}{{ default_address.district }}{% endif %}" placeholder="Phường / Xã" required>
+        </label>
+        <label class="field-wide">Số nhà, tên đường
+          <input name="address" autocomplete="street-address" value="{% if default_address %}{{ default_address.address }}{% endif %}" placeholder="Số nhà, tên đường..." required>
+        </label>
+        <p class="delivery-area-notice field-wide" data-delivery-mode>Đồ ăn và thức uống tươi chỉ giao trong TP. Hồ Chí Minh theo khung giờ.</p>
+        <p class="delivery-area-warning field-wide" data-delivery-area-warning role="alert" hidden>Đồ ăn và thức uống tươi chỉ giao trong khu vực TP. Hồ Chí Minh.</p>
       </div>
     </section>
     <section class="form-panel">
-      <div class="form-section-heading"><span>02</span><div><h2>Phương thức thanh toán</h2><p>Chọn phương thức hiển thị trong prototype.</p></div></div>
-      <div class="payment-options">
-        <label class="payment-option"><input type="radio" name="payment" value="cod" checked><span class="payment-icon">₫</span><span><strong>Thanh toán khi nhận hàng</strong><small>Thanh toán trực tiếp với đơn vị giao hàng</small></span></label>
-        <label class="payment-option"><input type="radio" name="payment" value="online"><span class="payment-icon">↗</span><span><strong>Thanh toán trực tuyến (demo)</strong><small>Chọn kết quả mô phỏng bên dưới; không phát sinh giao dịch thật</small></span></label>
-      </div>
-      <div class="payment-demo-options" data-payment-demo hidden>
-        <label>Kết quả thanh toán để thử
-          <select name="payment-result"><option value="success">Thành công</option><option value="failure">Thất bại</option></select>
+      <div class="form-section-heading"><span>02</span><div><h2>Giao hàng</h2><p>Chọn ngày và khung giờ. Đồ khô giao theo lịch của đơn vị vận chuyển.</p></div></div>
+      <div class="form-grid">
+        <label>Ngày giao dự kiến
+          <input name="delivery-date" type="date" required>
         </label>
-        <p>Đây chỉ là bộ chọn kiểm thử giao diện, không kết nối ngân hàng/cổng thanh toán.</p>
+        <label>Khung giờ giao
+          <select name="delivery-slot" required>
+            <option value="08:00–10:00" data-local-slot>08:00–10:00</option>
+            <option value="10:00–12:00" data-local-slot>10:00–12:00</option>
+            <option value="12:00–14:00" data-local-slot>12:00–14:00</option>
+            <option value="14:00–16:00" data-local-slot>14:00–16:00</option>
+            <option value="16:00–18:00" data-local-slot>16:00–18:00</option>
+            <option value="18:00–20:00" data-local-slot>18:00–20:00</option>
+            <option value="courier" hidden disabled>Đơn vị vận chuyển tự sắp xếp</option>
+          </select>
+        </label>
+        <label class="field-wide">Ghi chú cho đơn hàng
+          <textarea name="note" rows="3" placeholder="Lưu ý khi giao hàng, dị ứng hoặc yêu cầu khác..."></textarea>
+        </label>
       </div>
     </section>
-    <p class="form-disclaimer">Đây là giao diện thử nghiệm. Nút đặt hàng chỉ tạo trạng thái minh họa trên trình duyệt, không gửi thông tin tới máy chủ.</p>
-    <button class="solid-button submit-order" type="submit">Xác nhận đơn minh họa <span>→</span></button>
+    <section class="form-panel">
+      <div class="form-section-heading"><span>03</span><div><h2>Thanh toán</h2><p>Chọn cách thanh toán cho đơn hàng.</p></div></div>
+      <div class="payment-options">
+        <label class="payment-option"><input type="radio" name="payment" value="cod" checked><span class="payment-icon">₫</span><span><strong>Thanh toán khi nhận hàng (COD)</strong><small>Trả tiền mặt cho người giao hàng</small></span></label>
+        <label class="payment-option"><input type="radio" name="payment" value="vnpay" {% if not vnpay_enabled %}disabled{% endif %}><span class="payment-icon">↗</span><span><strong>VNPay (thẻ ATM, QR ngân hàng)</strong><small>{% if vnpay_enabled %}Chuyển sang cổng VNPay; giao dịch phải hoàn tất trong 15 phút{% else %}Chưa cấu hình kết nối VNPay{% endif %}</small></span></label>
+      </div>
+    </section>
+    <label class="checkout-policy-consent"><input type="checkbox" name="accept_policy" required><span>Tôi đồng ý với <a href="{% url 'core:policies' %}" target="_blank" rel="noopener">chính sách giao hàng và đổi trả</a>. Đồ tươi không áp dụng đổi trả.</span></label>
+    <p class="form-disclaimer" data-checkout-error role="alert" hidden></p>
+    <button class="solid-button submit-order" type="submit">Đặt hàng <span>→</span></button>
   </form>
   <aside class="order-summary checkout-summary">
     <span class="store-kicker">ĐƠN CỦA BẠN</span><h2>Tóm tắt giỏ hàng</h2>
     <div class="checkout-items" data-checkout-items></div>
     <div class="summary-row"><span>Tạm tính</span><strong data-cart-subtotal>0₫</strong></div>
-    <div class="summary-row"><span>Phí giao hàng demo</span><strong data-shipping-fee>—</strong></div>
-    <div class="summary-row summary-total"><span>Tổng cộng dự kiến</span><strong data-cart-total>0₫</strong></div>
+    <div class="summary-row"><span>Phí giao hàng</span><strong data-shipping-fee>—</strong></div>
+    <div class="summary-row summary-total"><span>Tổng cộng</span><strong data-cart-total>0₫</strong></div>
+    <p class="checkout-price-note">Giá, tình trạng bán và phí giao được kiểm tra lại khi đặt hàng.</p>
     <a class="back-to-cart" href="{% url 'core:cart' %}">← Quay lại giỏ hàng</a>
   </aside>
 </div>
 <div class="modal-backdrop" data-order-modal hidden>
   <section class="confirmation-modal" role="dialog" aria-modal="true" aria-labelledby="confirmation-title">
     <button class="modal-close" type="button" aria-label="Đóng" data-close-modal>×</button>
-    <span class="confirmation-check">✓</span><span class="store-kicker">BẢN XEM TRƯỚC</span>
-    <h2 id="confirmation-title">Đơn minh họa đã sẵn sàng</h2>
-    <p>Mã tham khảo: <strong data-demo-order-id>FM-DEMO-0000</strong></p>
-    <p data-order-result-message>Chưa có giao dịch thật được tạo. Bạn có thể xem màn hình theo dõi đơn mẫu.</p>
-    <a class="solid-button" href="{% url 'core:tracking' %}">Xem giao diện theo dõi →</a>
+    <span class="confirmation-check">✓</span><span class="store-kicker">XÁC NHẬN ĐƠN HÀNG</span>
+    <h2 id="confirmation-title">Đơn hàng đã được ghi nhận</h2>
+    <p>Mã đơn hàng: <strong data-demo-order-id>FM-0000</strong></p>
+    <p data-order-result-message>Đơn hàng đã được lưu.</p>
+    <a class="solid-button" data-order-cart-link href="{% url 'core:tracking' %}">Theo dõi đơn hàng →</a>
   </section>
 </div>
 {% endblock %}

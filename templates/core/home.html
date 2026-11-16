@@ -20,16 +20,26 @@
       <a href="#menu">Dinh dưỡng</a>
       <a href="#contact">Liên hệ</a>
       <a class="mobile-account-link" href="{% url 'core:policies' %}">Chính sách & hỗ trợ</a>
-      <a class="mobile-account-link" href="{% url 'core:account' %}#register">Đăng ký</a>
-      <a class="mobile-account-link" href="{% url 'core:account' %}#login">Đăng nhập</a>
+      {% if user.is_authenticated %}
+        <a class="mobile-account-link" href="{% url 'core:account' %}">Tài khoản ({{ user.first_name|default:user.username }})</a>
+        {% if user.is_staff %}<a class="mobile-account-link" href="{% url 'staff_orders:dashboard' %}">Quản trị đơn hàng</a>{% endif %}
+      {% else %}
+        <a class="mobile-account-link" href="{% url 'core:account' %}#register">Đăng ký</a>
+        <a class="mobile-account-link" href="{% url 'core:account' %}#login">Đăng nhập</a>
+      {% endif %}
       <div class="mobile-home-languages" aria-label="Ngôn ngữ giao diện">
         <button type="button" aria-pressed="false" data-language="en">EN</button><span>/</span><button type="button" class="is-active" aria-pressed="true" data-language="vi">VI</button>
         <span class="visually-hidden" role="status" data-language-status>Giao diện hiện hiển thị tiếng Việt.</span>
       </div>
     </nav>
     <div class="header-actions">
-      <a class="header-account-link" href="{% url 'core:account' %}#register">Đăng ký</a>
-      <a class="header-account-link" href="{% url 'core:account' %}#login">Đăng nhập</a>
+      {% if user.is_authenticated %}
+        <a class="header-account-link" href="{% url 'core:account' %}">Xin chào, {{ user.first_name|default:user.username }}</a>
+        {% if user.is_staff %}<a class="header-account-link" href="{% url 'staff_orders:dashboard' %}">Quản trị đơn hàng</a>{% endif %}
+      {% else %}
+        <a class="header-account-link" href="{% url 'core:account' %}#register">Đăng ký</a>
+        <a class="header-account-link" href="{% url 'core:account' %}#login">Đăng nhập</a>
+      {% endif %}
       <a class="header-cart-link" href="{% url 'core:cart' %}" aria-label="Giỏ hàng">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l1 13H4L5 8Z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/></svg>
         <span class="header-cart-count" data-cart-count>0</span>
@@ -119,85 +129,40 @@
         </div>
 
         <div class="product-track" id="nutrition" tabindex="0" aria-label="Các món FitMeal">
-          <article class="product-card" data-featured-product="banana-whey">
-            <div class="product-art product-art-banana" role="img" aria-label="Minh họa ly sinh tố chuối whey">
-              <span class="product-badge">ĐƯỢC YÊU THÍCH</span>
-              <span class="art-fruit art-banana" aria-hidden="true">🍌</span>
-              <div class="drink-cup">
-                <span class="cup-lid"></span><span class="cup-straw"></span>
-                <span class="cup-logo">fit<br><b>meal</b></span>
-                <span class="cup-shine"></span>
+          {% for product in featured_products %}
+            <article class="product-card">
+              <div class="product-art product-art-banana{% if product.image %} has-product-image{% endif %}" role="img" aria-label="{{ product.name }}">
+                {% if product.image %}<img class="product-photo" src="{{ product.image.url }}" alt="{{ product.name }}">{% endif %}
+                <span class="product-badge{% if not product.is_available %} badge-red{% endif %}">
+                  {% if product.is_available %}MÓN NỔI BẬT{% else %}TẠM HẾT MÓN{% endif %}
+                </span>
+                <span class="art-fruit" aria-hidden="true">✳</span>
+                <div class="drink-cup">
+                  <span class="cup-lid"></span><span class="cup-straw"></span>
+                  <span class="cup-logo">fit<br><b>meal</b></span>
+                  <span class="cup-shine"></span>
+                </div>
+                <span class="art-sparkle sparkle-one" aria-hidden="true">✳</span>
+                <span class="art-sparkle sparkle-two" aria-hidden="true">✦</span>
               </div>
-              <span class="art-sparkle sparkle-one" aria-hidden="true">✳</span>
-              <span class="art-sparkle sparkle-two" aria-hidden="true">✦</span>
-            </div>
-            <div class="product-info">
-              <div class="product-heading">
-                <div><h2>Banana Whey</h2><p>Chuối · Sữa tươi · Whey</p></div>
-                <span class="product-arrow" aria-hidden="true">↗</span>
+              <div class="product-info">
+                <div class="product-heading">
+                  <div><h2>{{ product.name }}</h2><p>{{ product.description }}</p></div>
+                  <span class="product-arrow" aria-hidden="true">↗</span>
+                </div>
+                <div class="nutrition-grid">
+                  <div><strong>{{ product.calories }}</strong><span>CALORIES</span></div>
+                  <div><strong>{{ product.carbs|floatformat:"-2" }}g</strong><span>CARB</span></div>
+                  <div><strong>{{ product.protein|floatformat:"-2" }}g</strong><span>PROTEIN</span></div>
+                  <div><strong>{{ product.fat|floatformat:"-2" }}g</strong><span>FAT</span></div>
+                </div>
               </div>
-              <div class="nutrition-grid">
-                <div><strong>194</strong><span>CALORIES</span></div>
-                <div><strong>34g</strong><span>CARB</span></div>
-                <div><strong>13g</strong><span>PROTEIN</span></div>
-                <div><strong>2g</strong><span>FAT</span></div>
-              </div>
-            </div>
-          </article>
-
-          <article class="product-card" data-featured-product="mocha-whey">
-            <div class="product-art product-art-mocha" role="img" aria-label="Minh họa ly mocha cafe whey">
-              <span class="product-badge badge-red">MUST TRY</span>
-              <span class="art-fruit art-coffee" aria-hidden="true">✳</span>
-              <div class="drink-cup">
-                <span class="cup-lid"></span><span class="cup-straw"></span>
-                <span class="cup-logo">fit<br><b>meal</b></span>
-                <span class="cup-shine"></span>
-              </div>
-              <span class="art-sparkle sparkle-one" aria-hidden="true">✦</span>
-              <span class="art-sparkle sparkle-two" aria-hidden="true">✳</span>
-            </div>
-            <div class="product-info">
-              <div class="product-heading">
-                <div><h2>Mocha Cafe Whey</h2><p>Cafe · Bột cacao · Chuối · Whey</p></div>
-                <span class="product-arrow" aria-hidden="true">↗</span>
-              </div>
-              <div class="nutrition-grid">
-                <div><strong>247</strong><span>CALORIES</span></div>
-                <div><strong>48.3g</strong><span>CARB</span></div>
-                <div><strong>13g</strong><span>PROTEIN</span></div>
-                <div><strong>1.4g</strong><span>FAT</span></div>
-              </div>
-            </div>
-          </article>
-
-          <article class="product-card" data-featured-product="berry-protein">
-            <div class="product-art product-art-berry" role="img" aria-label="Minh họa ly sinh tố dâu protein">
-              <span class="product-badge badge-green">TƯƠI MỚI</span>
-              <span class="art-fruit art-berry-fruit" aria-hidden="true">✿</span>
-              <div class="drink-cup">
-                <span class="cup-lid"></span><span class="cup-straw"></span>
-                <span class="cup-logo">fit<br><b>meal</b></span>
-                <span class="cup-shine"></span>
-              </div>
-              <span class="art-sparkle sparkle-one" aria-hidden="true">✳</span>
-              <span class="art-sparkle sparkle-two" aria-hidden="true">✦</span>
-            </div>
-            <div class="product-info">
-              <div class="product-heading">
-                <div><h2>Berry Protein</h2><p>Dâu tây · Sữa chua · Whey</p></div>
-                <span class="product-arrow" aria-hidden="true">↗</span>
-              </div>
-              <div class="nutrition-grid">
-                <div><strong>216</strong><span>CALORIES</span></div>
-                <div><strong>29g</strong><span>CARB</span></div>
-                <div><strong>18g</strong><span>PROTEIN</span></div>
-                <div><strong>3g</strong><span>FAT</span></div>
-              </div>
-            </div>
-          </article>
+            </article>
+          {% empty %}
+            <p class="nutrition-note">Chưa có sản phẩm nổi bật từ thực đơn.</p>
+          {% endfor %}
         </div>
-        <p class="nutrition-note">* Chỉ số dinh dưỡng minh họa, sẽ được cập nhật theo công thức sản phẩm.</p>
+        <p class="nutrition-note">Thông tin dinh dưỡng được lấy từ dữ liệu sản phẩm trong hệ thống.</p>
       </div>
     </section>
 
@@ -207,7 +172,7 @@
       <nav class="site-footer-links" aria-label="Thông tin và hỗ trợ">
         <a href="{% url 'core:policies' %}">Chính sách & hỗ trợ</a>
         <a href="mailto:hello@fitmeal.vn">hello@fitmeal.vn</a>
-        <a href="{% url 'core:demo_admin' %}">Giao diện quản trị ↗</a>
+        <a href="{% url 'staff_orders:dashboard' %}">Quản trị demo ↗</a>
       </nav>
     </footer>
   </main>

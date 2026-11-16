@@ -1,0 +1,79 @@
+<section class="orders-page employee-management-page" id="employees">
+  {% if employee_credentials %}
+    <section class="employee-credentials" aria-live="polite">
+      <div class="employee-credentials-heading">
+        <span>TÀI KHOẢN ĐÃ ĐƯỢC TẠO</span>
+        <strong>{{ employee_credentials.email }}</strong>
+      </div>
+      <p>Mật khẩu được tạo ngẫu nhiên và chỉ hiện lần này; hãy gửi riêng cho nhân viên. Nhân viên cần đổi mật khẩu khi đăng nhập lần đầu.</p>
+      <div class="employee-credentials-password"><strong>Mật khẩu tạm</strong><code>{{ employee_credentials.password }}</code></div>
+    </section>
+  {% endif %}
+
+  <section class="admin-panel live-admin-panel employee-create-panel" id="employee-create">
+    <div class="admin-panel-heading">
+      <div>
+        <span class="store-kicker">CẤP TÀI KHOẢN</span>
+        <h2>Thêm nhân viên</h2>
+        <p>Chọn một trong ba vai trò: Quản trị viên, Quản lý hoặc NV bán hàng.</p>
+      </div>
+    </div>
+    <form action="?section=employees" method="post" class="admin-product-form admin-employee-form">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="create_employee">
+      {{ employee_form.as_p }}
+      <button type="submit" class="admin-primary">Tạo tài khoản nhân viên</button>
+    </form>
+  </section>
+
+  <section class="admin-panel full-admin-panel live-admin-panel">
+    <div class="admin-panel-heading">
+      <div><span class="store-kicker">TÀI KHOẢN ĐƯỢC CẤP</span><h2>Danh sách nhân viên</h2></div>
+      <span class="admin-order-total">{{ employee_rows|length }} nhân viên</span>
+    </div>
+    {% if employee_rows %}
+      <div class="table-scroll">
+        <table class="admin-table">
+          <thead><tr><th>HỌ TÊN</th><th>EMAIL ĐĂNG NHẬP</th><th>VAI TRÒ</th><th>ĐIỆN THOẠI</th><th>CCCD</th><th>TÀI KHOẢN</th><th>MẬT KHẨU</th><th>THAO TÁC</th></tr></thead>
+          <tbody>
+            {% for employee in employee_rows %}
+              <tr>
+                <td><strong>{{ employee.get_full_name|default:employee.username }}</strong></td>
+                <td>{{ employee.email }}</td>
+                <td>
+                  <form action="{% url 'staff_orders:update_employee_role' employee.pk %}" method="post" class="employee-role-form">
+                    {% csrf_token %}
+                    <select name="role" aria-label="Vai trò của {{ employee.get_full_name|default:employee.username }}">
+                      {% for value, label in staff_role_choices %}
+                        <option value="{{ value }}" {% if employee.staff_role == value %}selected{% endif %}>{{ label }}</option>
+                      {% endfor %}
+                    </select>
+                    <button type="submit">Lưu</button>
+                  </form>
+                </td>
+                <td>{{ employee.phone|default:"—" }}</td>
+                <td>{% if employee.cccd %}••••••••{{ employee.cccd|slice:"-4:" }}{% else %}—{% endif %}</td>
+                <td>{% if employee.is_active %}Đang hoạt động{% else %}Đã nghỉ việc · khóa đăng nhập{% endif %}</td>
+                <td>{% if employee.must_change_password %}Chờ đổi lần đầu{% else %}Đã đổi{% endif %}</td>
+                <td>
+                  {% if employee.is_active and not employee.is_superuser %}
+                    <form action="{% url 'staff_orders:terminate_employee' employee.pk %}" method="post" class="employee-terminate-form" onsubmit="return confirm('Xác nhận cho nhân viên này nghỉ việc? Tài khoản sẽ bị khóa đăng nhập.')">
+                      {% csrf_token %}
+                      <button type="submit">Cho nghỉ việc</button>
+                    </form>
+                  {% elif employee.is_superuser %}
+                    <span class="employee-admin-account">Tài khoản quản trị</span>
+                  {% else %}
+                    <span class="employee-terminated-account">Đã nghỉ việc</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="admin-empty-orders">Chưa có tài khoản nhân viên.</p>
+    {% endif %}
+  </section>
+</section>

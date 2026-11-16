@@ -1,62 +1,302 @@
 {% extends "core/store_base.html" %}
+{% load socialaccount %}
 {% block title %}Tài khoản — FitMeal{% endblock %}
 {% block store_content %}
-<section class="account-layout">
-  <div class="account-intro">
-    <span class="store-kicker">CỘNG ĐỒNG FITMEAL</span><h1>Mỗi ngày tốt hơn,<br><span>theo cách của bạn.</span></h1>
-    <p>Đăng nhập để quản lý thông tin, đơn hàng và hành trình dinh dưỡng của mình.</p>
-    <div class="account-benefits"><span>✓ Theo dõi lịch sử đơn hàng</span><span>✓ Lưu thông tin nhận hàng</span><span>✓ Khám phá món phù hợp mục tiêu</span></div>
-    <div class="account-orbit"><span>FIT<br>MEAL</span><i></i><b></b></div>
-  </div>
-  <section class="account-form-panel">
-    <div data-account-auth-view>
-    <div class="account-tabs" role="tablist" aria-label="Chọn đăng nhập hoặc đăng ký">
-      <button class="account-tab is-active" type="button" role="tab" aria-selected="true" data-account-tab="login">Đăng nhập</button>
-      <button class="account-tab" type="button" role="tab" aria-selected="false" data-account-tab="register">Tạo tài khoản</button>
+{% if user.is_authenticated %}
+  <section class="customer-account-shell">
+    {% if messages %}
+      <div class="account-messages customer-dashboard-messages" role="status" aria-live="polite">
+        {% for message in messages %}<p class="form-feedback {{ message.tags }}">{{ message }}</p>{% endfor %}
+      </div>
+    {% endif %}
+    <div class="customer-dashboard" data-account-profile>
+      <aside class="customer-sidebar">
+        <div class="customer-sidebar-user">
+          {% if user.avatar %}
+            <img src="{{ user.avatar.url }}" alt="Ảnh đại diện {{ user.get_full_name }}" class="customer-avatar">
+          {% else %}
+            <span class="customer-avatar customer-avatar-placeholder" aria-hidden="true">{{ user.first_name|default:user.username|first|upper }}</span>
+          {% endif %}
+          <div><strong>{{ user.get_full_name|default:user.username }}</strong><small>Khách hàng FitMeal</small></div>
+        </div>
+        <nav class="customer-account-nav" aria-label="Danh mục tài khoản">
+          <a href="{% url 'core:account' %}?tab=profile#profile" {% if active_tab == "profile" %}aria-current="page"{% endif %}>
+            <svg class="customer-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="9" r="3"></circle><path d="M6.8 18.2c.8-2.5 2.6-3.7 5.2-3.7s4.4 1.2 5.2 3.7"></path></svg>
+            <span>Thông tin tài khoản</span>
+          </a>
+          <a href="{% url 'core:account' %}?tab=points#points" {% if active_tab == "points" %}aria-current="page"{% endif %}>
+            <svg class="customer-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10h16v10H4zM3 7h18v3H3zM12 7v13"></path><path d="M12 7H8.5a2 2 0 1 1 2-2c0 1.2 1.5 2 1.5 2Zm0 0h3.5a2 2 0 1 0-2-2c0 1.2-1.5 2-1.5 2Z"></path></svg>
+            <span>Điểm thưởng</span><b>{{ points }}</b>
+          </a>
+          <a href="{% url 'core:account' %}?tab=addresses#addresses" {% if active_tab == "addresses" %}aria-current="page"{% endif %}>
+            <svg class="customer-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"></path><circle cx="12" cy="10" r="2.5"></circle></svg>
+            <span>Địa chỉ giao hàng</span>
+          </a>
+          <a href="{% url 'core:account' %}?tab=orders#orders" {% if active_tab == "orders" %}aria-current="page"{% endif %}>
+            <svg class="customer-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 7h12v10H2zM14 10h4l4 4v3h-8z"></path><circle cx="6" cy="19" r="2"></circle><circle cx="18" cy="19" r="2"></circle><path d="M4 10h5M4 13h7"></path></svg>
+            <span>Đơn hàng của tôi</span>
+          </a>
+          <a href="{% url 'core:account' %}?tab=reviews#reviews" {% if active_tab == "reviews" %}aria-current="page"{% endif %}>
+            <svg class="customer-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v13H9l-5 4z"></path><path d="m12 7 1.2 2.4 2.8.4-2 2 .5 2.8-2.5-1.3-2.5 1.3.5-2.8-2-2 2.8-.4z"></path></svg>
+            <span>Đánh giá đơn hàng</span>
+          </a>
+          <a class="customer-contact-link" href="mailto:hello@fitmeal.vn">
+            <svg class="customer-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="1"></rect><path d="m4 7 8 6 8-6"></path></svg>
+            <span>Email liên hệ</span><small>hello@fitmeal.vn</small>
+          </a>
+        </nav>
+        <a href="{% url 'core:home' %}" class="customer-sidebar-home">Trở về trang chủ</a>
+        {% if user.is_superuser %}<a class="customer-admin-link" href="{% url 'staff_orders:dashboard' %}">Quản trị đơn hàng →</a>{% endif %}
+      </aside>
+      <main class="customer-account-panel">
+        {% if active_tab == "profile" %}
+          <section id="profile">
+            <header class="customer-panel-heading"><span class="store-kicker">HỒ SƠ CỦA BẠN</span><h1>Thông tin tài khoản</h1><p>Quản lý thông tin cá nhân và cách cửa hàng liên hệ với bạn.</p></header>
+            <div class="customer-contact-summary">
+              <div><span>Email</span><strong>{{ user.email|default:"Chưa thêm email" }}</strong><small>{% if email_verified %}Đã xác minh{% else %}Chưa xác minh{% endif %}</small></div>
+              <div><span>Số điện thoại</span><strong>{{ user.phone|default:"Chưa thêm số điện thoại" }}</strong><small>{% if user.phone_verified %}Đã xác minh{% elif user.phone %}Chưa xác minh{% else %}Chưa thêm{% endif %}</small></div>
+            </div>
+            {% if pending_email %}
+              <p class="customer-pending-email" role="status">Đang chờ xác nhận email {{ pending_email.email }}. Liên kết có hiệu lực đến {{ pending_email.expires_at|date:"H:i d/m/Y" }}. Email đăng nhập hiện tại chưa thay đổi.</p>
+            {% endif %}
+            <form class="customer-profile-form" action="{% url 'accounts:profile_update' %}" method="post" enctype="multipart/form-data">
+              {% csrf_token %}
+              <label class="customer-field"><span>Họ và tên</span><input name="name" autocomplete="name" value="{{ user.get_full_name }}" maxlength="120" required></label>
+              <label class="customer-field"><span>Email</span><input name="email" type="email" autocomplete="email" value="{{ user.email }}" maxlength="254" required><small>Thay đổi chỉ có hiệu lực sau khi xác nhận email.</small></label>
+              <label class="customer-field"><span>Số điện thoại</span><input name="phone" type="tel" autocomplete="tel" value="{{ user.phone }}" maxlength="30"><small>Chưa tích hợp SMS; số mới sẽ được lưu ở trạng thái chưa xác minh.</small></label>
+              <fieldset class="customer-field customer-gender"><legend>Giới tính</legend><div>
+                {% for value, label in gender_choices %}
+                  <label><input type="radio" name="gender" value="{{ value }}" {% if user.gender == value %}checked{% endif %}> {{ label }}</label>
+                {% endfor %}
+              </div></fieldset>
+              <label class="customer-field"><span>Ngày sinh</span><input name="birth_date" type="date" value="{{ user.birth_date|date:'Y-m-d'|default:'' }}"></label>
+              <div class="customer-field customer-avatar-field">
+                <span>Ảnh đại diện</span>
+                <div>
+                  {% if user.avatar %}<img src="{{ user.avatar.url }}" alt="Ảnh đại diện hiện tại" class="customer-avatar-preview">{% else %}<span class="customer-avatar-preview customer-avatar-placeholder" aria-hidden="true">F</span>{% endif %}
+                  <label class="customer-file-button">Chọn ảnh<input name="avatar" type="file" accept="image/jpeg,image/png"></label>
+                  <small>JPG hoặc PNG, tối đa 1 MB.</small>
+                </div>
+              </div>
+              <button class="solid-button customer-save-profile" type="submit">Lưu thông tin</button>
+            </form>
+            <form action="{% url 'accounts:logout' %}" method="post" class="customer-profile-logout">
+              {% csrf_token %}<button type="submit">Đăng xuất</button>
+            </form>
+          </section>
+        {% elif active_tab == "points" %}
+          <section id="points">
+            <header class="customer-panel-heading"><span class="store-kicker">FITMEAL REWARDS</span><h1>Điểm thưởng của bạn</h1><p>Nhận 1 điểm cho mỗi 10.000đ tiền món trong đơn đã hoàn tất.</p></header>
+            <div class="customer-points-balance"><span>Điểm hiện có</span><strong>{{ points }}</strong><small>Đơn bị hủy không được tích điểm; điểm đã nhận sẽ được hoàn lại nếu đơn bị hủy.</small></div>
+            <h2 class="customer-section-title">Lịch sử điểm</h2>
+            {% if point_transactions %}
+              <div class="customer-ledger">
+                {% for transaction in point_transactions %}
+                  <article><span><strong>{{ transaction.description }}</strong><small>{{ transaction.created_at|date:"d/m/Y H:i" }}</small></span><b class="{% if transaction.points < 0 %}is-negative{% endif %}">{% if transaction.points > 0 %}+{% endif %}{{ transaction.points }}</b></article>
+                {% endfor %}
+              </div>
+            {% else %}<p class="customer-empty-state">Điểm sẽ được cộng sau khi đơn hàng của bạn hoàn tất.</p>{% endif %}
+          </section>
+        {% elif active_tab == "addresses" %}
+          <section id="addresses">
+            <header class="customer-panel-heading"><span class="store-kicker">THÔNG TIN GIAO HÀNG</span><h1>Địa chỉ giao hàng</h1><p>Lưu địa chỉ thường dùng để chọn nhanh khi đặt hàng.</p></header>
+            {% for address in addresses %}
+              <article class="customer-address-card">
+                <form action="{% url 'accounts:address_update' address.id %}" method="post" class="customer-address-form">
+                  {% csrf_token %}
+                  <div class="customer-address-title"><strong>{{ address.label }}</strong>{% if address.is_default %}<span>Mặc định</span>{% endif %}<label><input type="checkbox" name="is_default" {% if address.is_default %}checked{% endif %}> Dùng mặc định</label></div>
+                  <label>Tên địa chỉ<input name="label" maxlength="50" value="{{ address.label }}" required></label>
+                  <label>Địa chỉ<input name="address" maxlength="250" value="{{ address.address }}" required></label>
+                  <label>Quận / Huyện<input name="district" maxlength="100" value="{{ address.district }}" required></label>
+                  <label>Tỉnh / Thành phố<input name="city" maxlength="100" value="{{ address.city }}" required></label>
+                  <button type="submit" class="customer-secondary-button">Lưu địa chỉ</button>
+                </form>
+                <form action="{% url 'accounts:address_delete' address.id %}" method="post" class="customer-address-delete">
+                  {% csrf_token %}<button type="submit" class="customer-delete-button">Xóa địa chỉ</button>
+                </form>
+              </article>
+            {% empty %}<p class="customer-empty-state">Bạn chưa lưu địa chỉ nào.</p>{% endfor %}
+            <form action="{% url 'accounts:address_create' %}" method="post" class="customer-address-create">
+              {% csrf_token %}<h2>Thêm địa chỉ mới</h2>
+              <label>Tên địa chỉ<input name="label" maxlength="50" value="Nhà" required></label>
+              <label>Địa chỉ<input name="address" maxlength="250" placeholder="Số nhà, đường, phường/xã" required></label>
+              <label>Quận / Huyện<input name="district" maxlength="100" required></label>
+              <label>Tỉnh / Thành phố<input name="city" maxlength="100" required></label>
+              <label class="customer-checkbox"><input type="checkbox" name="is_default" {% if not addresses %}checked{% endif %}> Đặt làm địa chỉ mặc định</label>
+              <button class="solid-button" type="submit">Thêm địa chỉ</button>
+            </form>
+          </section>
+        {% elif active_tab == "reviews" %}
+          <section id="reviews">
+            <header class="customer-panel-heading"><span class="store-kicker">CHIA SẺ TRẢI NGHIỆM</span><h1>Đánh giá đơn hàng</h1><p>Chỉ những đơn đã hoàn tất và chưa được đánh giá mới hiển thị tại đây.</p></header>
+            {% if review_orders %}
+              <div class="customer-review-list">
+                {% for item in review_orders %}
+                  <article class="customer-review-card">
+                    <div class="customer-review-order">
+                      <div><strong>{{ item.order.order_number }}</strong><small>{{ item.order.created_at|date:"d/m/Y" }} · {{ item.order.total|floatformat:0 }}₫</small></div>
+                      <a href="{% url 'core:tracking' %}?token={{ item.order.tracking_token|urlencode }}">Xem đơn hàng</a>
+                    </div>
+                    <form class="customer-review-form" action="{% url 'accounts:review_order' item.order.id %}" method="post">
+                      {% csrf_token %}
+                      <div class="customer-field">
+                        <span id="review-rating-label-{{ item.order.pk }}">Đánh giá của bạn</span>
+                        <div class="customer-review-stars" role="radiogroup" aria-labelledby="review-rating-label-{{ item.order.pk }}">{{ item.form.rating }}</div>
+                      </div>
+                      <label class="customer-field"><span>Nhận xét (không bắt buộc)</span>{{ item.form.comment }}</label>
+                      <button class="solid-button" type="submit">Gửi đánh giá</button>
+                    </form>
+                  </article>
+                {% endfor %}
+              </div>
+            {% else %}
+              <p class="customer-empty-state">Bạn không có đơn hàng nào đang chờ đánh giá.</p>
+              <a class="customer-shop-link" href="{% url 'core:account' %}?tab=orders#orders">Xem đơn hàng của tôi →</a>
+            {% endif %}
+          </section>
+        {% else %}
+          <section id="orders">
+            <header class="customer-panel-heading"><span class="store-kicker">LỊCH SỬ MUA SẮM</span><h1>Đơn hàng của tôi</h1><p>Theo dõi trạng thái các đơn hàng đã đặt.</p></header>
+            {% if customer_order_rows %}
+              <div class="customer-order-list">
+                {% for row in customer_order_rows %}
+                  {% with order=row.order cancellation=row.cancellation_request %}
+                    <article class="customer-order-card">
+                      <a class="customer-order-main" href="{% url 'core:tracking' %}?token={{ order.tracking_token|urlencode }}">
+                        <span><strong>{{ order.order_number }}</strong><small>{{ order.created_at|date:"d/m/Y" }} · {{ order.items.count }} món</small></span>
+                        <span><strong>{{ order.get_status_display }}</strong><small>{{ order.total|floatformat:0 }}₫</small></span>
+                      </a>
+
+                      {% if order.status == "cancelled" %}
+                        <div class="customer-order-cancellation">
+                          <p><strong>Người hủy:</strong> {{ row.cancelled_by_name }}</p>
+                          {% if order.cancellation_reason %}<p><strong>Lý do:</strong> {{ order.cancellation_reason }}</p>{% endif %}
+                          {% if order.refund_status != "not_required" %}<p><strong>Hoàn tiền:</strong> {{ order.get_refund_status_display }}</p>{% endif %}
+                        </div>
+                      {% elif cancellation.status == "contact_pending" %}
+                        <p class="customer-cancellation-notice">Nhân viên sẽ gọi để xác nhận yêu cầu hủy của bạn.</p>
+                      {% elif cancellation.status == "manager_review" %}
+                        <p class="customer-cancellation-notice">Yêu cầu hủy đang chờ Quản lý xử lý.</p>
+                      {% elif cancellation.status == "rejected" %}
+                        <p class="customer-cancellation-notice">Yêu cầu hủy trước đó bị từ chối: {{ cancellation.manager_resolution_reason }}</p>
+                      {% elif cancellation.status == "withdrawn" %}
+                        <p class="customer-cancellation-notice">Bạn đã xác nhận tiếp tục nhận đơn.</p>
+                      {% endif %}
+
+                      {% if order.status == "awaiting_confirmation" %}
+                        <section class="customer-delivery-confirmation" aria-label="Xác nhận đã nhận hàng">
+                          <p>Vui lòng xác nhận trong 3 phút. Nếu bạn chưa phản hồi, đơn sẽ tự động được xác nhận đã nhận.</p>
+                          <form action="{% url 'orders:customer_confirm_delivery' order.pk %}" method="post">
+                            {% csrf_token %}<button type="submit">Tôi đã nhận được hàng</button>
+                          </form>
+                          <form action="{% url 'orders:customer_report_delivery_issue' order.pk %}" method="post">
+                            {% csrf_token %}
+                            <label for="delivery-issue-{{ order.pk }}">Nếu chưa nhận được, mô tả tình trạng để báo Quản lý</label>
+                            <textarea id="delivery-issue-{{ order.pk }}" name="details" minlength="3" maxlength="1000" required></textarea>
+                            <button type="submit">Tôi chưa nhận được hàng</button>
+                          </form>
+                        </section>
+                      {% elif order.status == "delivery_issue" %}
+                        <p class="customer-cancellation-notice">Khiếu nại giao hàng đã được chuyển đến Quản lý để xử lý.</p>
+                      {% endif %}
+
+                      <div class="customer-order-actions">
+                        <a href="{% url 'core:tracking' %}?token={{ order.tracking_token|urlencode }}">Theo dõi đơn</a>
+                        {% if row.can_cancel %}
+                          <button class="customer-cancel-trigger" type="button" data-open-cancel-dialog="cancel-order-{{ order.pk }}">
+                            {% if row.uses_cancellation_review %}Yêu cầu hủy{% else %}Hủy đơn{% endif %}
+                          </button>
+                        {% elif order.status == "delivering" %}
+                          <span class="customer-order-delivering">Đơn đang trên đường, không thể hủy. <a href="mailto:hello@fitmeal.vn">Liên hệ cửa hàng</a></span>
+                        {% elif order.status == "delivered" %}
+                          <a href="{% url 'core:account' %}?tab=reviews#reviews">Đánh giá</a>
+                        {% endif %}
+                        {% if order.status == "delivered" or order.status == "cancelled" %}
+                          <form class="customer-reorder-form" action="{% url 'orders:reorder' order.pk %}" method="post" data-reorder-form>
+                            {% csrf_token %}<button type="submit">Mua lại</button>
+                          </form>
+                        {% endif %}
+                      </div>
+
+                      {% if row.can_cancel %}
+                        <dialog class="customer-cancel-dialog" id="cancel-order-{{ order.pk }}">
+                          <form action="{% url 'orders:customer_cancel' order.pk %}" method="post">
+                            {% csrf_token %}
+                            <button class="customer-cancel-dialog-close" type="button" aria-label="Đóng" data-close-cancel-dialog>×</button>
+                            <span class="store-kicker">XÁC NHẬN YÊU CẦU</span>
+                            <h2>{% if row.uses_cancellation_review %}Yêu cầu hủy đơn hàng?{% else %}Hủy đơn hàng?{% endif %}</h2>
+                            {% if row.uses_cancellation_review %}
+                              <p class="customer-cancel-warning">Món có thể đã được làm. Cửa hàng sẽ liên hệ bạn trong khoảng 10 phút để xác nhận.</p>
+                            {% else %}
+                              <p>Đơn {{ order.order_number }} sẽ được hủy sau khi bạn xác nhận.</p>
+                            {% endif %}
+                            <label for="cancel-reason-{{ order.pk }}">Lý do hủy</label>
+                            <textarea id="cancel-reason-{{ order.pk }}" name="reason" minlength="3" maxlength="1000" required></textarea>
+                            <div class="customer-cancel-dialog-actions">
+                              <button type="button" data-close-cancel-dialog>Quay lại</button>
+                              <button type="submit">{% if row.uses_cancellation_review %}Gửi yêu cầu hủy{% else %}Xác nhận hủy{% endif %}</button>
+                            </div>
+                          </form>
+                        </dialog>
+                      {% endif %}
+                    </article>
+                  {% endwith %}
+                {% endfor %}
+              </div>
+            {% else %}<p class="customer-empty-state">Bạn chưa có đơn hàng nào.</p>{% endif %}
+            <a class="customer-shop-link" href="{% url 'core:shop' %}">Tiếp tục mua sắm →</a>
+          </section>
+        {% endif %}
+      </main>
     </div>
-    <form class="account-form" data-account-form="login">
-      <span class="store-kicker">CHÀO MỪNG TRỞ LẠI</span><h2>Đăng nhập FitMeal</h2><p>Tiếp tục hành trình khỏe mạnh của bạn.</p>
-      <label>Email hoặc số điện thoại<input name="login" type="text" autocomplete="username" placeholder="ban@email.com" required></label>
-      <label>Mật khẩu<input name="password" type="password" autocomplete="current-password" placeholder="Nhập mật khẩu" required></label>
-      <div class="account-form-row"><label class="remember-option"><input type="checkbox"> Ghi nhớ đăng nhập</label><button class="forgot-password" type="button" data-account-forgot>Quên mật khẩu?</button></div>
-      <button class="solid-button" type="submit">Đăng nhập <span>→</span></button>
-      <small class="prototype-caption">Tài khoản demo chỉ dùng trên trình duyệt này; chưa có xác thực máy chủ.</small>
-      <div class="form-feedback" data-account-feedback role="status"></div>
-    </form>
-    <form class="account-form" data-account-form="register" hidden>
-      <span class="store-kicker">BẮT ĐẦU HÀNH TRÌNH</span><h2>Tạo tài khoản mới</h2><p>Đăng ký để lưu thông tin và theo dõi đơn hàng.</p>
-      <label>Họ và tên<input name="name" type="text" autocomplete="name" placeholder="Tên của bạn" required></label>
-      <label>Email<input name="email" type="email" autocomplete="email" placeholder="ban@email.com" required></label>
-      <label>Số điện thoại<input name="phone" type="tel" autocomplete="tel" placeholder="09xx xxx xxx" required></label>
-      <label>Địa chỉ giao hàng<input name="address" type="text" autocomplete="street-address" placeholder="Địa chỉ của bạn"></label>
-      <label>Mật khẩu<input name="password" type="password" autocomplete="new-password" minlength="8" placeholder="Ít nhất 8 ký tự" required></label>
-      <label>Nhập lại mật khẩu<input name="password-confirm" type="password" autocomplete="new-password" minlength="8" placeholder="Nhập lại mật khẩu" required></label>
-      <button class="solid-button" type="submit">Tạo tài khoản <span>→</span></button>
-      <small class="prototype-caption">Tạo hồ sơ demo trên trình duyệt này; mật khẩu không được lưu.</small>
-      <div class="form-feedback" data-account-feedback role="status"></div>
-    </form>
-    <form class="account-form" data-account-form="reset" hidden>
-      <span class="store-kicker">KHÔI PHỤC TRUY CẬP</span><h2>Đặt lại mật khẩu</h2><p>Nhập email để xem trước bước khôi phục tài khoản.</p>
-      <label>Email đăng ký<input name="email" type="email" autocomplete="email" placeholder="ban@email.com" required></label>
-      <button class="solid-button" type="submit">Gửi yêu cầu demo <span>→</span></button>
-      <button class="account-back-link" type="button" data-back-to-login>← Quay lại đăng nhập</button>
-      <small class="prototype-caption">Chưa gửi email thật hoặc thay đổi mật khẩu.</small>
-      <div class="form-feedback" data-account-feedback role="status"></div>
-    </form>
+  </section>
+{% else %}
+  <section class="account-layout">
+    <div class="account-intro">
+      <span class="store-kicker">CỘNG ĐỒNG FITMEAL</span><h1>Mỗi ngày tốt hơn,<br><span>theo cách của bạn.</span></h1>
+      <p>Đăng nhập để quản lý thông tin, đơn hàng và hành trình dinh dưỡng của mình.</p>
+      <div class="account-benefits"><span>✓ Theo dõi lịch sử đơn hàng</span><span>✓ Lưu thông tin nhận hàng</span><span>✓ Khám phá món phù hợp mục tiêu</span></div>
+      <div class="account-orbit"><span>FIT<br>MEAL</span><i></i><b></b></div>
     </div>
-    <section class="account-profile" data-account-profile hidden>
-      <div class="account-profile-heading"><div><span class="store-kicker">TÀI KHOẢN DEMO</span><h2>Xin chào, <span data-profile-greeting></span></h2></div><button class="account-logout" type="button" data-account-logout>Đăng xuất</button></div>
-      <form class="account-form" data-profile-form>
-        <label>Họ và tên<input name="name" autocomplete="name" required></label>
-        <label>Email<input name="email" type="email" autocomplete="email" required></label>
-        <label>Số điện thoại<input name="phone" type="tel" autocomplete="tel"></label>
-        <label>Địa chỉ giao hàng<input name="address" autocomplete="street-address"></label>
-        <button class="solid-button" type="submit">Lưu thông tin demo</button>
-        <div class="form-feedback" data-profile-feedback role="status"></div>
-      </form>
-      <div class="account-order-history"><h3>Lịch sử mua hàng demo</h3><div data-account-orders></div><a href="{% url 'core:tracking' %}">Theo dõi đơn hàng →</a></div>
-      <small class="prototype-caption">Thông tin chỉ lưu trong trình duyệt này, chưa đồng bộ với máy chủ.</small>
+    <section class="account-form-panel">
+      {% if messages %}
+        <div class="account-messages" role="status" aria-live="polite">{% for message in messages %}<p class="form-feedback {{ message.tags }}">{{ message }}</p>{% endfor %}</div>
+      {% endif %}
+      <div data-account-auth-view>
+        <div class="account-tabs" role="tablist" aria-label="Chọn đăng nhập hoặc đăng ký">
+          <button class="account-tab is-active" type="button" role="tab" aria-selected="true" data-account-tab="login">Đăng nhập</button>
+          <button class="account-tab" type="button" role="tab" aria-selected="false" data-account-tab="register">Tạo tài khoản</button>
+        </div>
+        {% if google_oauth_enabled %}
+          <div class="account-social-login">
+            <form method="post" action="{% provider_login_url 'google' %}">
+              {% csrf_token %}<button class="google-signin-button" type="submit"><span aria-hidden="true">G</span> Tiếp tục với Google</button>
+            </form>
+            <p>Hoặc dùng email và mật khẩu</p>
+          </div>
+        {% endif %}
+        <form class="account-form" data-account-form="login" action="{% url 'accounts:login' %}" method="post">
+          {% csrf_token %}
+          <span class="store-kicker">CHÀO MỪNG TRỞ LẠI</span><h2>Đăng nhập FitMeal</h2><p>Tiếp tục hành trình khỏe mạnh của bạn.</p>
+          <label>Email hoặc số điện thoại<input name="login" type="text" autocomplete="username" maxlength="254" placeholder="ban@email.com" required></label>
+          <label>Mật khẩu<input name="password" type="password" autocomplete="current-password" placeholder="Nhập mật khẩu" required></label>
+          <div class="account-form-row"><label class="remember-option"><input name="remember" type="checkbox"> Ghi nhớ đăng nhập</label></div>
+          <button class="solid-button" type="submit">Đăng nhập <span>→</span></button>
+          <small class="prototype-caption">Quên mật khẩu? Vui lòng liên hệ quản trị viên để được hỗ trợ đặt lại.</small>
+        </form>
+        <form class="account-form" data-account-form="register" action="{% url 'accounts:register' %}" method="post" hidden>
+          {% csrf_token %}
+          <span class="store-kicker">BẮT ĐẦU HÀNH TRÌNH</span><h2>Tạo tài khoản khách hàng</h2><p>Đăng ký để lưu thông tin và theo dõi đơn hàng.</p>
+          <label>Họ và tên<input name="name" type="text" autocomplete="name" maxlength="120" placeholder="Tên của bạn" required></label>
+          <label>Email<input name="email" type="email" autocomplete="email" maxlength="254" placeholder="ban@email.com" required></label>
+          <label>Số điện thoại<input name="phone" type="tel" autocomplete="tel" maxlength="30" placeholder="09xx xxx xxx" required></label>
+          <label>Mật khẩu<input name="password" type="password" autocomplete="new-password" minlength="8" placeholder="Tối thiểu 8 ký tự" required></label>
+          <label>Nhập lại mật khẩu<input name="password_confirm" type="password" autocomplete="new-password" minlength="8" placeholder="Nhập lại mật khẩu" required></label>
+          <button class="solid-button" type="submit">Tạo tài khoản <span>→</span></button>
+          <small class="prototype-caption">Đăng ký công khai chỉ tạo tài khoản khách hàng. Quyền quản trị được cấp riêng.</small>
+        </form>
+      </div>
     </section>
   </section>
-</section>
+{% endif %}
 {% endblock %}

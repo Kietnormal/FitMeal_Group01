@@ -23,18 +23,41 @@ python manage.py runserver
 
 Mở http://127.0.0.1:8000 (trang chủ) và http://127.0.0.1:8000/admin (quản trị).
 
-## Giao diện prototype
+## Các chức năng hiện có
 
-Các trang dưới đây là prototype frontend dùng dữ liệu minh họa, chưa kết nối nghiệp vụ backend:
+- `/products/`: danh mục sản phẩm lấy từ database, có tìm kiếm, lọc và xem thông tin sản phẩm.
+- `/cart/`, `/checkout/`: tạo đơn hàng COD và lưu vào database. Đơn đặt khi đã đăng nhập sẽ được liên kết với tài khoản khách hàng.
+- `/orders/track/`: theo dõi trạng thái đơn hàng. Khách cũng xem đơn trong lịch sử tài khoản.
+- `/account/`: đăng ký/đăng nhập, hồ sơ, địa chỉ, điểm thưởng và đánh giá đơn đã hoàn tất.
+- `/management/orders/`: khu vực làm việc theo vai trò. NV bán hàng xử lý đơn và chỉ xem thực đơn;
+  Quản lý có thêm quản lý món/giá, tồn kho thủ công, báo cáo doanh thu 7 ngày và nhật ký thay đổi.
+  Dashboard quản trị đầy đủ và quản lý nhân viên chỉ dành cho superuser.
+- Xác thực hai bước cho nhân viên: sau khi đăng nhập, từng quản trị viên/quản lý mở **Xác thực hai bước**
+  ở thanh bên `/management/orders/`, quét mã bằng ứng dụng TOTP và lưu mã khôi phục. Superuser chỉ
+  bật yêu cầu bắt buộc trong tab **Bảo mật** sau khi tất cả tài khoản thuộc vai trò đó đã đăng ký;
+  chính sách mặc định tắt để tránh khóa nhân viên trước khi họ thiết lập thiết bị.
+- Quy trình hủy đơn: khách có thể hủy đơn đang chờ xác nhận/đã xác nhận; đơn đang chuẩn bị hoặc
+  sẵn sàng giao cần nhân viên gọi xác nhận; đơn đang giao không thể hủy. Nhân viên ghi nhận yêu cầu
+  hủy do hết món hoặc kết quả gọi khách, không tự duyệt. Quản lý xử lý yêu cầu trong tab **Yêu cầu
+  hủy**, và hủy trực tiếp bắt buộc có lý do.
+- Quy trình xác nhận giao hàng: khi nhân viên báo đã giao, khách có 3 phút để xác nhận đã nhận hoặc
+  báo chưa nhận. Khiếu nại xuất hiện trong tab **Khiếu nại giao hàng** để Quản lý xác minh và chọn
+  xác nhận hoàn tất hoặc tiếp tục giao. Chạy tác vụ hoàn tất tự động một lần để kiểm tra:
+  `python manage.py finalize_delivery_confirmations`. Để tự động chạy đúng hạn khi không có người
+  truy cập website, tạo tác vụ trong Windows Task Scheduler chạy mỗi phút; dùng `python.exe` trong
+  môi trường ảo ở **Program/script**, `manage.py finalize_delivery_confirmations` ở **Add arguments**,
+  và thư mục dự án ở **Start in**.
+- Sao lưu và hết hạn VNPay: để tác vụ chạy kể cả khi không có người truy cập, tạo hai lịch riêng
+  trong Windows Task Scheduler. Chạy `manage.py backup_database` mỗi ngày lúc 03:00 và
+  `manage.py expire_pending_payments` mỗi phút; đặt `python.exe` trong môi trường ảo ở
+  **Program/script**, các lệnh trên ở **Add arguments**, thư mục dự án ở **Start in**. Giữ
+  `BACKUP_ENCRYPTION_KEY` ổn định và lưu bản sao của khóa an toàn; đổi khóa sẽ khiến backup cũ
+  không giải mã được. Đặt `BACKUP_EXTERNAL_ROOT` trên ổ/đích lưu trữ khác để có bản off-site.
+- `/admin/`: trang quản trị Django để quản lý dữ liệu hệ thống. Tài khoản tạo bằng `createsuperuser` có quyền quản trị đầy đủ.
+- Sau khi áp dụng migration, tồn kho của sản phẩm cũ mặc định là chưa nhập; hệ thống chưa tự trừ kho khi khách đặt hàng.
+- `/policies/`: chính sách và thông tin hỗ trợ; xác nhận nội dung chính sách trước khi mở bán.
 
-- `/products/`: danh mục cơm, salad, món ăn nhẹ, thức uống và combo; tìm kiếm, lọc theo giá/protein/calo, sắp xếp, xem thành phần và thông tin dinh dưỡng.
-- `/cart/`, `/checkout/`: luồng giỏ hàng và đặt hàng mô phỏng; chỉnh số lượng, chọn địa chỉ/ngày/khung giờ, xem phí giao, thử COD hoặc kết quả thanh toán online thành công/thất bại. Sau khi đặt hàng, giỏ hàng hiển thị liên kết theo dõi các đơn đã tạo.
-- `/orders/track/`: chi tiết trạng thái giao hàng và yêu cầu hủy khi đơn còn ở trạng thái cho phép; khách truy cập từ liên kết của đơn trong giỏ hàng hoặc lịch sử tài khoản. Đơn demo tạo từ checkout xuất hiện trong dashboard admin; cập nhật trạng thái/yêu cầu hủy được đồng bộ giữa các tab cùng trình duyệt.
-- `/account/`: đăng ký/đăng nhập demo, khôi phục mật khẩu minh họa, chỉnh hồ sơ và xem lịch sử đơn; mật khẩu không được lưu.
-- `/policies/`: trang liên hệ, giao hàng, đổi trả, quyền riêng tư và điều khoản ở dạng nội dung mẫu. Các chính sách thực tế và thông tin liên hệ cần được cửa hàng xác nhận trước khi mở bán.
-- `/demo-admin/`: dashboard minh họa sản phẩm, khách hàng, đơn hàng, thanh toán, vận chuyển, bảo mật và vận hành. Mục Sản phẩm có thể thêm/xóa món, đổi giá, đánh dấu hết món, tải ảnh mới và thay ảnh món có sẵn; ảnh JPG/PNG/WebP được nén rồi lưu trong trình duyệt này để hiển thị trên trang chủ và thực đơn, chưa tải lên máy chủ.
-
-Hồ sơ demo, giỏ hàng, lịch sử đơn và danh sách món prototype được lưu trong `localStorage` của trình duyệt hiện tại; không đồng bộ giữa thiết bị hoặc người dùng. Dữ liệu dinh dưỡng là số liệu minh họa. Mọi bước thanh toán, đăng nhập, đặt hàng, đổi trạng thái và hủy đơn đều là giả lập, không gọi dịch vụ thật. Biểu mẫu admin chỉ kiểm tra giao diện, không tạo tài khoản và không lưu mật khẩu. Không nhập dữ liệu thật hoặc thông tin thanh toán. `/demo-admin/` chưa có đăng nhập hay phân quyền và không dùng như trang quản trị triển khai thật. Database, xác thực, thanh toán, bảo mật, vận chuyển, backup và giám sát sẽ làm ở giai đoạn backend sau.
+Dashboard `/demo-admin/` đã được gỡ. Không dùng trang demo để xử lý dữ liệu. Checkout hỗ trợ COD và VNPay khi đã cấu hình `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET` cùng IPN URL `/payments/vnpay/ipn/` tại cổng VNPay. Tích hợp hãng vận chuyển tự động chưa được cấu hình.
 
 Các trang prototype đã có bố cục responsive và hộp thoại hỗ trợ bàn phím cơ bản (giữ tiêu điểm trong hộp thoại, đóng bằng Escape, trả tiêu điểm về nút đã mở). Cần kiểm thử lại trên thiết bị và trình đọc màn hình thực tế trước khi triển khai.
 

@@ -12,6 +12,5 @@ urlpatterns = [
     path("orders/track/", views.order_tracking, name="tracking"),
     path("account/", views.account, name="account"),
     path("policies/", views.policies, name="policies"),
-    path("demo-admin/", views.demo_admin, name="demo_admin"),
     path("healthz/", views.healthz, name="healthz"),
 ]

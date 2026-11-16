@@ -1,0 +1,89 @@
+<article class="employee-order-card status-card-{{ order.status }}">
+  <header class="employee-order-card-header">
+    <strong>#{{ order.order_number }}</strong>
+    <span>{{ order.created_at|timesince }} trước</span>
+  </header>
+  <div class="employee-order-customer">
+    {% if order.customer_info_redacted %}
+      <strong>Thông tin khách hàng đã được mã hóa và ẩn sau khi đơn kết thúc.</strong>
+    {% else %}
+      <strong>{{ order.customer_name }}</strong>
+      <a href="tel:{{ order.customer_phone }}">{{ order.customer_phone }}</a>
+      <small>{{ order.address }}, {{ order.district }}, {{ order.city }}</small>
+    {% endif %}
+  </div>
+  <ul class="employee-order-items">
+    {% for item in order.items.all %}
+      <li>{{ item.quantity }} × {{ item.product_name }}</li>
+    {% empty %}
+      <li>Chưa có thông tin món.</li>
+    {% endfor %}
+  </ul>
+  {% if order.note %}<p class="employee-order-note">Ghi chú: {{ order.note }}</p>{% endif %}
+  <div class="employee-order-delivery">
+    Giao {{ order.delivery_date|date:"d/m/Y" }} · {{ order.get_delivery_slot_display }}
+  </div>
+  <div class="employee-order-payment">
+    <span>{{ order.get_payment_method_display }}</span>
+    <strong>{{ order.total|floatformat:0 }}₫</strong>
+  </div>
+  <div class="employee-order-card-actions">
+    {% if order.status == "pending" %}
+      <form action="{% url 'staff_orders:update_status' order.pk %}?workspace={{ active_workspace }}" method="post">
+        {% csrf_token %}<input type="hidden" name="status" value="confirmed"><button type="submit">Xác nhận đơn</button>
+      </form>
+    {% elif order.status == "confirmed" %}
+      {% if order.is_dry_goods_order %}
+        <form action="{% url 'staff_orders:update_status' order.pk %}?workspace={{ active_workspace }}" method="post">
+          {% csrf_token %}<input type="hidden" name="status" value="packing"><button type="submit">Bắt đầu đóng gói</button>
+        </form>
+      {% else %}
+        <form action="{% url 'staff_orders:update_status' order.pk %}?workspace={{ active_workspace }}" method="post">
+          {% csrf_token %}<input type="hidden" name="status" value="preparing"><button type="submit">Bắt đầu chuẩn bị</button>
+        </form>
+      {% endif %}
+    {% elif order.status == "preparing" %}
+      <form action="{% url 'staff_orders:update_status' order.pk %}?workspace={{ active_workspace }}" method="post">
+        {% csrf_token %}<input type="hidden" name="status" value="ready"><button type="submit">Sẵn sàng giao</button>
+      </form>
+    {% elif order.status == "packing" %}
+      <form action="{% url 'staff_orders:update_status' order.pk %}?workspace={{ active_workspace }}" method="post">
+        {% csrf_token %}<input type="hidden" name="status" value="shipped"><button type="submit">Bàn giao đơn vị vận chuyển</button>
+      </form>
+    {% elif order.status == "shipped" %}
+      <form action="{% url 'staff_orders:update_status' order.pk %}?workspace={{ active_workspace }}" method="post">
+        {% csrf_token %}<input type="hidden" name="status" value="delivering"><button type="submit">Đơn vị vận chuyển đang giao</button>
+      </form>
+    {% elif order.status == "ready" %}
+      <form action="{% url 'staff_orders:update_status' order.pk %}?workspace={{ active_workspace }}" method="post">
+        {% csrf_token %}<input type="hidden" name="status" value="delivering"><button type="submit">Bắt đầu giao</button>
+      </form>
+    {% elif order.status == "delivering" %}
+      <form action="{% url 'staff_orders:update_status' order.pk %}?workspace={{ active_workspace }}" method="post">
+        {% csrf_token %}<input type="hidden" name="status" value="awaiting_confirmation"><button type="submit">Đã giao · chờ khách xác nhận</button>
+      </form>
+    {% elif order.status == "awaiting_confirmation" %}
+      <p>Đã báo giao xong · đang chờ khách xác nhận nhận hàng.</p>
+    {% endif %}
+    {% if not order.customer_info_redacted %}<a href="tel:{{ order.customer_phone }}">☎ Gọi</a>{% endif %}
+  </div>
+  {% if order.has_open_cancellation_request %}
+    <p class="employee-order-cancellation-pending">Đơn đang có yêu cầu hủy chờ xử lý.</p>
+  {% elif order.status != "shipped" and order.status != "delivering" and order.status != "awaiting_confirmation" and order.status != "delivery_issue" and order.status != "delivered" and order.status != "cancelled" %}
+    {% if can_cancel_orders %}
+      <form class="employee-order-cancel" action="{% url 'staff_orders:cancel_order' order.pk %}?workspace={{ active_workspace }}" method="post">
+        {% csrf_token %}
+        <label for="manager-cancel-reason-{{ order.pk }}">Lý do hủy trực tiếp</label>
+        <textarea id="manager-cancel-reason-{{ order.pk }}" name="reason" minlength="3" maxlength="1000" required placeholder="Nhập lý do hủy đơn"></textarea>
+        <button type="submit">Hủy đơn</button>
+      </form>
+    {% elif can_request_cancellations %}
+      <form class="employee-order-cancel" action="{% url 'staff_orders:request_cancellation' order.pk %}?workspace={{ active_workspace }}" method="post">
+        {% csrf_token %}
+        <label for="staff-cancel-reason-{{ order.pk }}">Yêu cầu hủy (ví dụ: hết món)</label>
+        <textarea id="staff-cancel-reason-{{ order.pk }}" name="reason" minlength="3" maxlength="1000" required placeholder="Nhập lý do để Quản lý xem xét"></textarea>
+        <button type="submit">Gửi Quản lý duyệt</button>
+      </form>
+    {% endif %}
+  {% endif %}
+</article>

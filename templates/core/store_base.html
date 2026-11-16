@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
-{% block extra_css %}<link rel="stylesheet" href="{% static 'css/storefront.css' %}?v=20261110-mobile-flow-4">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/storefront.css' %}?v=20261116-sold-out-status-2">{% endblock %}
 {% block content %}
 <div class="store-shell">
   <header class="store-header">
@@ -15,8 +15,13 @@
       <a href="{% url 'core:home' %}#contact">FAQs</a>
     </nav>
     <div class="store-header-actions">
-      <a class="store-account-register" href="{% url 'core:account' %}#register">Đăng ký</a>
-      <a class="store-account-login" href="{% url 'core:account' %}#login">Đăng nhập</a>
+      {% if user.is_authenticated %}
+        <a class="store-account-login" href="{% url 'core:account' %}">Xin chào, {{ user.first_name|default:user.username }}</a>
+        {% if user.is_staff %}<a class="store-account-register" href="{% url 'staff_orders:dashboard' %}">Quản trị đơn hàng</a>{% endif %}
+      {% else %}
+        <a class="store-account-register" href="{% url 'core:account' %}#register">Đăng ký</a>
+        <a class="store-account-login" href="{% url 'core:account' %}#login">Đăng nhập</a>
+      {% endif %}
       <a class="store-cart-link" href="{% url 'core:cart' %}" aria-label="Giỏ hàng">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l1 13H4L5 8Z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/></svg>
         <span class="cart-count" data-cart-count>0</span>
@@ -32,25 +37,49 @@
     <a href="{% url 'core:home' %}">Trang chủ</a>
     <a href="{% url 'core:shop' %}">Cửa hàng</a>
     <a href="{% url 'core:cart' %}">Giỏ hàng <span data-cart-count>0</span></a>
-    <a href="{% url 'core:account' %}#login">Đăng nhập</a>
-    <a href="{% url 'core:account' %}#register">Đăng ký</a>
+    {% if user.is_authenticated %}
+      <a href="{% url 'core:account' %}">Tài khoản ({{ user.first_name|default:user.username }})</a>
+      {% if user.is_staff %}<a href="{% url 'staff_orders:dashboard' %}">Quản trị đơn hàng</a>{% endif %}
+    {% else %}
+      <a href="{% url 'core:account' %}#login">Đăng nhập</a>
+      <a href="{% url 'core:account' %}#register">Đăng ký</a>
+    {% endif %}
     <a href="{% url 'core:policies' %}">Chính sách & hỗ trợ</a>
     <div class="mobile-languages" aria-label="Ngôn ngữ giao diện"><button type="button" aria-pressed="false" data-language="en">EN</button><span>/</span><button type="button" class="is-active" aria-pressed="true" data-language="vi">VI</button><span class="visually-hidden" role="status" data-language-status>Giao diện hiện hiển thị tiếng Việt.</span></div>
   </nav>
-  <div class="demo-notice"><span>GIAO DIỆN MINH HỌA</span> Dữ liệu mẫu, chưa kết nối hệ thống xử lý đơn hàng thật.</div>
+  <div class="demo-notice"><span>FITMEAL.VN</span> Đơn hàng được xác nhận sau khi hệ thống kiểm tra giá, tình trạng bán và phí giao.</div>
 
   <main class="store-main">
     {% block store_content %}{% endblock %}
   </main>
   <footer class="store-footer">
     <a class="store-brand" href="{% url 'core:home' %}"><span class="store-brand-icon">F</span><span><strong>FitMeal</strong><small>ĂN KHỎE · SỐNG CHẤT</small></span></a>
-    <p>Giao diện prototype — các giao dịch và dữ liệu đều là minh họa.</p>
+    <p>Tài khoản, sản phẩm và đơn hàng được lưu trong hệ thống. Thanh toán VNPay chỉ mở khi cửa hàng cấu hình cổng thanh toán.</p>
     <nav class="store-footer-links" aria-label="Thông tin và hỗ trợ">
       <a href="{% url 'core:policies' %}">Chính sách & hỗ trợ</a>
       <a href="mailto:hello@fitmeal.vn">Liên hệ</a>
-      <a href="{% url 'core:demo_admin' %}">Quản trị demo ↗</a>
+      <a href="{% url 'staff_orders:dashboard' %}">Quản trị demo ↗</a>
     </nav>
   </footer>
   <div class="store-toast" role="status" aria-live="polite" data-toast></div>
+  <div class="cart-drawer-backdrop" data-cart-drawer hidden>
+    <aside class="cart-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="cart-drawer-title" aria-describedby="cart-drawer-description">
+      <header class="cart-drawer-header">
+        <button class="cart-drawer-close" type="button" aria-label="Đóng giỏ hàng" data-close-cart-drawer>×</button>
+        <div><h2 id="cart-drawer-title">GIỎ HÀNG</h2><p id="cart-drawer-description" data-cart-line-count>0 món</p></div>
+      </header>
+      <div class="cart-drawer-items" data-cart-drawer-items></div>
+      <div class="cart-drawer-empty" data-cart-drawer-empty hidden>
+        <span aria-hidden="true">🛒</span><p>Giỏ hàng đang trống.</p>
+        <a href="{% url 'core:shop' %}">Khám phá thực đơn</a>
+      </div>
+      <footer class="cart-drawer-footer">
+        <div class="cart-drawer-summary-row"><span>Tạm tính</span><strong data-cart-subtotal>0₫</strong></div>
+        <div class="cart-drawer-summary-row"><span>Phí giao hàng</span><strong data-shipping-fee>—</strong></div>
+        <div class="cart-drawer-summary-row cart-drawer-total"><span>Tổng cộng</span><strong data-cart-total>0₫</strong></div>
+        <a class="cart-drawer-checkout" href="{% url 'core:checkout' %}" data-checkout-link aria-disabled="true" tabindex="-1">Đặt hàng <span aria-hidden="true">→</span></a>
+      </footer>
+    </aside>
+  </div>
 </div>
 {% endblock %}

@@ -1,0 +1,469 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ workspace_title }} — FitMeal{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/storefront.css' %}?v=20261116-staff-availability-1">{% endblock %}
+{% block content %}
+<div class="employee-workspace-shell" {% if active_workspace == "work" or active_workspace == "orders" %}data-auto-refresh{% endif %}>
+  <aside class="employee-workspace-sidebar">
+    <a class="employee-workspace-brand" href="{% url 'staff_orders:dashboard' %}?workspace=work">
+      <span class="employee-workspace-brand-icon">F</span>
+      <span><strong>FitMeal</strong><small>KHU VỰC NHÂN VIÊN</small></span>
+    </a>
+    <span class="employee-workspace-nav-label">VẬN HÀNH</span>
+    <nav class="employee-workspace-nav" aria-label="Công việc">
+      <a class="{% if active_workspace == 'work' %}is-active{% endif %}" href="?workspace=work"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M5 4h3v16H5zM10 6h4v12h-4zM16 8h3v8h-3z"/></svg></span>Ca làm hôm nay{% if pending_count %}<b>{{ pending_count }}</b>{% endif %}</a>
+      <a class="{% if active_workspace == 'orders' %}is-active{% endif %}" href="?workspace=orders{% if is_manager %}&view=cancellations{% endif %}"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M6 3.5h12v17l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5-2 1.5z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span>{% if is_manager %}Đơn hàng & xử lý{% else %}Tra cứu đơn hàng{% endif %}{% if is_manager %}{% with cancellation_badge_count=pending_cancellation_count|add:contact_cancellation_count %}{% if cancellation_badge_count %}<b>{{ cancellation_badge_count }}</b>{% endif %}{% endwith %}{% elif contact_cancellation_count %}<b>{{ contact_cancellation_count }}</b>{% endif %}</a>
+      <a class="{% if active_workspace == 'customers' %}is-active{% endif %}" href="?workspace=customers"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="9" cy="8" r="3"/><path d="M3.5 20v-1.5a5.5 5.5 0 0 1 11 0V20zM16 5.5a3 3 0 0 1 0 5.8M18 14a4.5 4.5 0 0 1 2.5 4v2"/></svg></span>Khách hàng</a>
+    </nav>
+    {% if is_manager %}
+      <span class="employee-workspace-nav-label">CỬA HÀNG</span>
+      <nav class="employee-workspace-nav" aria-label="Quản lý cửa hàng">
+        <a class="{% if active_workspace == 'menu' %}is-active{% endif %}" href="?workspace=menu"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path d="m4.5 7.8 7.5 4.3 7.5-4.3M12 12v8.5"/></svg></span>Thực đơn & giá</a>
+        <a class="{% if active_workspace == 'inventory' %}is-active{% endif %}" href="?workspace=inventory"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M4 7h16v13H4zM4 7l2-4h12l2 4"/><path d="M9 11v5M15 11v5"/></svg></span>Kho hàng{% if product_stats.low or product_stats.out %}<b>{{ product_stats.low|add:product_stats.out }}</b>{% endif %}</a>
+        <a class="{% if active_workspace == 'reports' %}is-active{% endif %}" href="?workspace=reports"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M4 19V5M4 19h16"/><path d="m7 15 4-4 3 2 6-7"/></svg></span>Báo cáo doanh thu</a>
+        <a class="{% if active_workspace == 'activity' %}is-active{% endif %}" href="?workspace=activity"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M3 12h4l2.2-6 4.2 12 2.3-6H21"/></svg></span>Nhật ký hoạt động</a>
+      </nav>
+    {% else %}
+      <span class="employee-workspace-nav-label">CỬA HÀNG</span>
+      <nav class="employee-workspace-nav" aria-label="Thực đơn">
+        <a class="{% if active_workspace == 'menu' %}is-active{% endif %}" href="?workspace=menu"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path d="m4.5 7.8 7.5 4.3 7.5-4.3M12 12v8.5"/></svg></span>Thực đơn<small>chỉ xem</small></a>
+      </nav>
+    {% endif %}
+    <span class="employee-workspace-nav-label">TÀI KHOẢN</span>
+    <nav class="employee-workspace-nav" aria-label="Tài khoản">
+      <a class="{% if active_workspace == 'profile' %}is-active{% endif %}" href="?workspace=profile"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="7.5" r="3.2"/><path d="M5.5 20v-1.7a6.5 6.5 0 0 1 13 0V20"/></svg></span>Hồ sơ của tôi</a>
+      <a href="{% url 'core:home' %}"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M13 5h6v6M19 5l-9 9"/><path d="M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/></svg></span>Xem cửa hàng</a>
+    </nav>
+    <div class="employee-workspace-role-note">
+      Bạn đang dùng vai trò <strong>{{ employee_role }}</strong>. Quyền truy cập được cấp và quản lý bởi quản trị viên.
+    </div>
+    <div class="employee-workspace-user">
+      <span class="employee-workspace-avatar">{{ request.user.first_name|default:request.user.username|first|upper }}</span>
+      <span><strong>{{ request.user.get_full_name|default:request.user.username }}</strong><small>{{ employee_role }}</small></span>
+      <form action="{% url 'accounts:logout' %}" method="post">
+        {% csrf_token %}<button type="submit" aria-label="Đăng xuất"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5"/><path d="M14 8l4 4-4 4M18 12H9"/></svg></button>
+      </form>
+    </div>
+  </aside>
+
+  <main class="employee-workspace-main" id="staff-workspace">
+    {% if messages %}
+      <div class="staff-admin-messages" role="status" aria-live="polite">
+        {% for message in messages %}<p class="{{ message.tags }}">{{ message }}</p>{% endfor %}
+      </div>
+    {% endif %}
+
+    {% if active_workspace == "work" %}
+      <header class="employee-workspace-heading">
+        <div><span class="store-kicker">CA LÀM · {% now "l, d/m/Y" %}</span><h1>Chào {{ request.user.first_name|default:request.user.username }}, đây là đơn cần xử lý</h1></div>
+        <span class="employee-refresh-status"><i></i>Tự làm mới mỗi 30 giây</span>
+      </header>
+      <section class="employee-workspace-stats" aria-label="Tổng quan ca làm">
+        <article><span>Chờ xác nhận</span><strong class="is-amber">{{ pending_count }}</strong></article>
+        <article><span>Đang chuẩn bị</span><strong>{{ preparing_count }}</strong></article>
+        <article><span>Đang giao</span><strong>{{ delivering_count }}</strong></article>
+        <article><span>Đã hoàn tất hôm nay</span><strong class="is-green">{{ completed_today_count }}</strong></article>
+      </section>
+      {% include "orders/_employee_cancellation_contact_queue.html" %}
+      <section class="employee-order-board" aria-label="Đơn hàng cần xử lý">
+        <div class="employee-order-lane lane-pending">
+          <h2><i></i>Chờ xác nhận <b>{{ pending_count }}</b></h2>
+          <div class="employee-order-lane-cards">
+            {% for order in pending_orders %}{% include "orders/_employee_order_card.html" %}{% empty %}
+              <p class="employee-lane-empty">Không có đơn đang chờ.</p>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="employee-order-lane lane-preparing">
+          <h2><i></i>Đang chuẩn bị <b>{{ preparing_count }}</b></h2>
+          <div class="employee-order-lane-cards">
+            {% for order in preparing_orders %}{% include "orders/_employee_order_card.html" %}{% empty %}
+              <p class="employee-lane-empty">Không có đơn đang chuẩn bị.</p>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="employee-order-lane lane-delivering">
+          <h2><i></i>Đang giao <b>{{ delivering_count }}</b></h2>
+          <div class="employee-order-lane-cards">
+            {% for order in delivering_orders %}{% include "orders/_employee_order_card.html" %}{% empty %}
+              <p class="employee-lane-empty">Không có đơn đang giao.</p>
+            {% endfor %}
+          </div>
+        </div>
+      </section>
+
+    {% elif active_workspace == "orders" %}
+      <header class="employee-workspace-heading">
+        <div><span class="store-kicker">VẬN HÀNH BÁN HÀNG</span><h1>{% if is_manager %}Đơn hàng &amp; xử lý{% else %}Tra cứu đơn hàng{% endif %}</h1><p>{% if is_manager and orders_view == "cancellations" %}Duyệt hoặc từ chối các yêu cầu đang chờ.{% elif is_manager and orders_view == "delivery_issues" %}Xem xét khiếu nại khách chưa nhận được hàng.{% else %}Tìm theo mã đơn, tên hoặc số điện thoại người nhận.{% endif %}</p></div>
+      </header>
+      {% include "orders/_employee_cancellation_contact_queue.html" %}
+      {% if is_manager %}
+        <nav class="employee-cancellation-tabs" aria-label="Đơn hàng, yêu cầu hủy và khiếu nại giao hàng">
+          <a href="?workspace=orders&view=orders" {% if orders_view == "orders" %}aria-current="page"{% endif %}>Đơn hàng</a>
+          <a href="?workspace=orders&view=cancellations" {% if orders_view == "cancellations" %}aria-current="page"{% endif %}>Yêu cầu hủy <b>{{ pending_cancellation_count }}</b></a>
+          <a href="?workspace=orders&view=delivery_issues" {% if orders_view == "delivery_issues" %}aria-current="page"{% endif %}>Khiếu nại giao hàng <b>{{ pending_delivery_issue_count }}</b></a>
+        </nav>
+      {% endif %}
+      {% if is_manager and orders_view == "cancellations" %}
+        <form class="employee-workspace-search" method="get">
+          <input type="hidden" name="workspace" value="orders"><input type="hidden" name="view" value="cancellations">
+          <label class="visually-hidden" for="cancellation-request-search">Tìm yêu cầu hủy</label>
+          <input id="cancellation-request-search" type="search" name="q" value="{{ query }}" placeholder="Mã đơn, khách hàng hoặc lý do">
+          <button type="submit">Tìm yêu cầu</button>
+        </form>
+        <section class="manager-cancellation-review-list" aria-label="Yêu cầu hủy đang chờ">
+          {% for cancellation in cancellation_request_rows %}
+            <article class="manager-cancellation-card">
+              <header><div><span class="store-kicker">YÊU CẦU {{ cancellation.get_source_display|upper }}</span><h2>{{ cancellation.order.order_number }}</h2></div><span>{{ cancellation.requested_at|timesince }} trước</span></header>
+              <div class="manager-cancellation-order-info">
+                <p><strong>Khách hàng</strong>{{ cancellation.order.customer_name }} · <a href="tel:{{ cancellation.order.customer_phone }}">{{ cancellation.order.customer_phone }}</a></p>
+                <p><strong>Tình trạng bếp</strong>{{ cancellation.order.get_status_display }}</p>
+                <p><strong>Số tiền</strong>{{ cancellation.order.total|floatformat:0 }}₫</p>
+              </div>
+              <p class="manager-cancellation-reason"><strong>Lý do khách / nhân viên:</strong> {{ cancellation.reason }}</p>
+              {% if cancellation.contact_attempts %}
+                <p class="manager-cancellation-contact-result"><strong>Liên hệ:</strong> {{ cancellation.get_contact_outcome_display }} · {{ cancellation.contact_attempts }} lần gọi</p>
+                {% if cancellation.contact_notes %}<p class="manager-cancellation-notes">{{ cancellation.contact_notes|linebreaksbr }}</p>{% endif %}
+              {% endif %}
+              <div class="manager-cancellation-actions">
+                <form action="{% url 'staff_orders:resolve_cancellation' cancellation.pk %}" method="post">
+                  {% csrf_token %}<input type="hidden" name="decision" value="approve">
+                  <button type="submit">Duyệt hủy</button>
+                </form>
+                <form action="{% url 'staff_orders:resolve_cancellation' cancellation.pk %}" method="post">
+                  {% csrf_token %}<input type="hidden" name="decision" value="reject">
+                  <label>Lý do từ chối<textarea name="reason" minlength="3" maxlength="1000" required placeholder="Ví dụ: Món đã làm xong, đang chờ giao"></textarea></label>
+                  <button type="submit">Từ chối yêu cầu</button>
+                </form>
+              </div>
+            </article>
+          {% empty %}
+            <p class="employee-empty-state">Không có yêu cầu hủy đang chờ Quản lý duyệt.</p>
+          {% endfor %}
+          {% include "orders/employee_pagination.html" %}
+        </section>
+      {% elif is_manager and orders_view == "delivery_issues" %}
+        <form class="employee-workspace-search" method="get">
+          <input type="hidden" name="workspace" value="orders"><input type="hidden" name="view" value="delivery_issues">
+          <label class="visually-hidden" for="delivery-issue-search">Tìm khiếu nại giao hàng</label>
+          <input id="delivery-issue-search" type="search" name="q" value="{{ query }}" placeholder="Mã đơn, khách hàng hoặc nội dung">
+          <button type="submit">Tìm khiếu nại</button>
+        </form>
+        <section class="manager-cancellation-review-list" aria-label="Khiếu nại giao hàng đang chờ">
+          {% for issue in delivery_issue_rows %}
+            <article class="manager-cancellation-card">
+              <header><div><span class="store-kicker">KHÁCH BÁO CHƯA NHẬN HÀNG</span><h2>{{ issue.order.order_number }}</h2></div><span>{{ issue.reported_at|timesince }} trước</span></header>
+              <div class="manager-cancellation-order-info">
+                <p><strong>Khách hàng</strong>{{ issue.order.customer_name }} · <a href="tel:{{ issue.order.customer_phone }}">{{ issue.order.customer_phone }}</a></p>
+                <p><strong>Trạng thái</strong>{{ issue.order.get_status_display }}</p>
+                <p><strong>Số tiền</strong>{{ issue.order.total|floatformat:0 }}₫</p>
+              </div>
+              <p class="manager-cancellation-reason"><strong>Nội dung khiếu nại:</strong> {{ issue.details|linebreaksbr }}</p>
+              <form class="manager-delivery-issue-resolution" action="{% url 'staff_orders:resolve_delivery_issue' issue.pk %}" method="post">
+                {% csrf_token %}
+                <label for="delivery-issue-resolution-{{ issue.pk }}">Ghi chú xử lý<textarea id="delivery-issue-resolution-{{ issue.pk }}" name="resolution" minlength="3" maxlength="1000" required></textarea></label>
+                <div class="manager-cancellation-actions">
+                  <button type="submit" name="decision" value="confirmed">Xác nhận khách đã nhận</button>
+                  <button type="submit" name="decision" value="redeliver">Tiếp tục giao hàng</button>
+                </div>
+              </form>
+            </article>
+          {% empty %}
+            <p class="employee-empty-state">Không có khiếu nại giao hàng đang chờ xử lý.</p>
+          {% endfor %}
+          {% include "orders/employee_pagination.html" %}
+        </section>
+      {% else %}
+        <form class="employee-workspace-search" method="get">
+          <input type="hidden" name="workspace" value="orders">{% if is_manager %}<input type="hidden" name="view" value="orders">{% endif %}
+          <label class="visually-hidden" for="employee-order-search">Tìm kiếm đơn hàng</label>
+          <input id="employee-order-search" type="search" name="q" value="{{ query }}" placeholder="Mã đơn, tên hoặc số điện thoại">
+          <button type="submit">Tìm đơn</button>
+        </form>
+        <section class="employee-order-search-results">
+          {% if page_obj.object_list %}
+            {% for order in page_obj.object_list %}{% include "orders/_employee_order_card.html" %}{% endfor %}
+            {% include "orders/employee_pagination.html" %}
+          {% else %}
+            <p class="employee-empty-state">Không tìm thấy đơn hàng phù hợp.</p>
+          {% endif %}
+        </section>
+      {% endif %}
+
+    {% elif active_workspace == "customers" %}
+      <header class="employee-workspace-heading">
+        <div><span class="store-kicker">CHĂM SÓC KHÁCH HÀNG</span><h1>Khách hàng</h1><p>Thông tin tài khoản khách đã đăng ký.</p></div>
+      </header>
+      <form class="employee-workspace-search" method="get">
+        <input type="hidden" name="workspace" value="customers">
+        <label class="visually-hidden" for="employee-customer-search">Tìm kiếm khách hàng</label>
+        <input id="employee-customer-search" type="search" name="q" value="{{ query }}" placeholder="Tên, email hoặc số điện thoại">
+        <button type="submit">Tìm khách</button>
+      </form>
+      <section class="admin-panel employee-workspace-table-panel">
+        <div class="table-scroll">
+          <table class="admin-table employee-workspace-table">
+            <thead><tr><th>KHÁCH HÀNG</th><th>EMAIL</th><th>ĐIỆN THOẠI</th><th>SỐ ĐƠN</th><th>GIÁ TRỊ ĐƠN</th></tr></thead>
+            <tbody>
+              {% for customer in customer_rows %}
+                <tr>
+                  <td><strong>{{ customer.get_full_name|default:customer.username }}</strong></td>
+                  <td>{{ customer.email|default:"—" }}</td>
+                  <td>{{ customer.masked_phone }}</td>
+                  <td>{{ customer.order_count }}</td>
+                  <td>{{ customer.order_value|default:0|floatformat:0 }}₫</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="5">Chưa có khách hàng phù hợp.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% include "orders/employee_pagination.html" %}
+      </section>
+
+    {% elif active_workspace == "menu" and is_manager %}
+      <header class="employee-workspace-heading manager-workspace-heading">
+        <div><span class="store-kicker">CỬA HÀNG</span><h1>Thực đơn &amp; giá</h1><p>Bật tắt món, sửa giá và cập nhật tồn kho. Thay đổi giá được lưu vào nhật ký.</p></div>
+        <details class="manager-add-product">
+          <summary>＋ Thêm món mới</summary>
+          <form action="{% url 'staff_orders:create_product' %}" method="post" enctype="multipart/form-data">
+            {% csrf_token %}<input type="hidden" name="workspace" value="menu">
+            {{ product_create_form.as_p }}
+            <button type="submit">Lưu món mới</button>
+          </form>
+        </details>
+      </header>
+      <section class="manager-product-stats" aria-label="Tình trạng thực đơn">
+        <article><span>Đang bán</span><strong class="is-green">{{ product_stats.selling }} món</strong></article>
+        <article><span>Tạm ngưng</span><strong>{{ product_stats.paused }} món</strong></article>
+        <article><span>Sắp hết hàng</span><strong class="is-amber">{{ product_stats.low }} món</strong></article>
+        <article><span>Hết hàng</span><strong class="is-red">{{ product_stats.out }} món</strong></article>
+      </section>
+      {% if product_stats.unknown %}<p class="manager-inventory-note">{{ product_stats.unknown }} món chưa được nhập số tồn kho.</p>{% endif %}
+      <div class="manager-catalog-layout" id="manager-products">
+        <section class="manager-catalog-panel">
+          <nav class="manager-catalog-filters" aria-label="Lọc món ăn">
+            <a href="?workspace=menu&filter=all" {% if product_filter == "all" %}aria-current="page"{% endif %}>Tất cả · {{ product_stats.selling|add:product_stats.paused }}</a>
+            <a href="?workspace=menu&filter=selling" {% if product_filter == "selling" %}aria-current="page"{% endif %}>Đang bán · {{ product_stats.selling }}</a>
+            <a href="?workspace=menu&filter=paused" {% if product_filter == "paused" %}aria-current="page"{% endif %}>Tạm ngưng · {{ product_stats.paused }}</a>
+            <a href="?workspace=menu&filter=low" {% if product_filter == "low" %}aria-current="page"{% endif %}>Sắp hết / hết · {{ product_stats.low|add:product_stats.out }}</a>
+          </nav>
+          <form class="manager-catalog-search" method="get">
+            <input type="hidden" name="workspace" value="menu"><input type="hidden" name="filter" value="{{ product_filter }}">
+            <label class="visually-hidden" for="manager-product-search">Tìm món</label>
+            <input id="manager-product-search" type="search" name="q" value="{{ query }}" placeholder="Tên món hoặc mã sản phẩm">
+            <button type="submit">Tìm món</button>
+          </form>
+          <div class="table-scroll manager-catalog-scroll">
+            <table class="manager-catalog-table">
+              <thead><tr><th>MÓN</th><th>DINH DƯỠNG</th><th>GIÁ BÁN</th><th>TỒN KHO</th><th>BÁN 7 NGÀY</th></tr></thead>
+              <tbody>
+                {% for row in product_rows %}
+                  <tr class="{% if selected_product.pk == row.product.pk %}is-selected{% endif %}">
+                    <td><a class="manager-product-link" href="?workspace=menu&filter={{ product_filter }}&q={{ query|urlencode }}&product={{ row.product.pk }}#manager-products">
+                      {% if row.product.image %}<img src="{{ row.product.image.url }}" alt="">{% else %}<span class="manager-product-avatar">{{ row.product.name|first|upper }}</span>{% endif %}
+                      <span><strong>{{ row.product.name }}</strong><small>{{ row.product.get_category_display }}{% if row.product.category == "dry_goods" %} · {{ row.product.shipping_weight_grams }} g{% if row.product.expiry_date %} · HSD {{ row.product.expiry_date|date:"d/m/Y" }}{% endif %}{% endif %}</small></span>
+                    </a></td>
+                    <td>{{ row.product.calories }} kcal · {{ row.product.protein|floatformat:0 }}g đạm</td>
+                    <td><strong>{{ row.product.price|floatformat:0 }}₫</strong></td>
+                    <td><span class="manager-stock-state is-{{ row.inventory_status }}">
+                      {% if row.inventory_status == "unknown" %}Chưa nhập
+                      {% elif row.inventory_status == "out" %}Hết hàng
+                      {% elif row.inventory_status == "low" %}{{ row.product.stock_quantity }} · sắp hết
+                      {% else %}{{ row.product.stock_quantity }} đơn vị{% endif %}
+                    </span></td>
+                    <td>{{ row.sold_7d }} đơn vị</td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="5" class="manager-empty-row">Không tìm thấy món phù hợp.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% include "orders/employee_pagination.html" %}
+        </section>
+        <aside class="manager-product-editor">
+          {% if selected_product %}
+            <div class="manager-editor-heading">
+              <span class="manager-product-avatar">{{ selected_product.name|first|upper }}</span>
+              <div><small>SỬA MÓN</small><h2>{{ selected_product.name }}</h2><p>{{ selected_product.sku }}</p></div>
+            </div>
+            <form action="{% url 'staff_orders:update_product' selected_product.pk %}?workspace=menu&product={{ selected_product.pk }}" method="post" class="manager-product-form">
+              {% csrf_token %}
+              {% for field in selected_product_form %}
+                <label class="{% if field.field.widget.input_type == 'checkbox' %}manager-checkbox-field{% endif %}">{{ field.label }}{{ field }}{% for error in field.errors %}<small class="manager-form-error">{{ error }}</small>{% endfor %}</label>
+              {% endfor %}
+              <button type="submit">Lưu thay đổi</button>
+            </form>
+            <section class="manager-price-history">
+              <h3>Lịch sử giá</h3>
+              {% for event in price_history %}
+                <p><time>{{ event.created_at|date:"d/m/Y H:i" }}</time><strong>{% if event.old_value %}{{ event.old_value|floatformat:0 }}₫ → {% endif %}{{ event.new_value|floatformat:0 }}₫</strong><small>{{ event.actor.get_full_name|default:event.actor.username|default:"Quản trị hệ thống" }}</small></p>
+              {% empty %}<p class="manager-history-empty">Chưa có thay đổi giá được ghi nhận.</p>{% endfor %}
+            </section>
+          {% else %}
+            <p class="manager-empty-row">Chọn một món để xem và chỉnh sửa.</p>
+          {% endif %}
+        </aside>
+      </div>
+
+    {% elif active_workspace == "inventory" %}
+      <header class="employee-workspace-heading">
+        <div><span class="store-kicker">CỬA HÀNG</span><h1>Kho hàng</h1><p>Quản lý số lượng và ngưỡng cảnh báo của từng món.</p></div>
+      </header>
+      <section class="manager-product-stats" aria-label="Tình trạng kho">
+        <article><span>Đang bán</span><strong class="is-green">{{ product_stats.selling }} món</strong></article>
+        <article><span>Tạm ngưng</span><strong>{{ product_stats.paused }} món</strong></article>
+        <article><span>Sắp hết hàng</span><strong class="is-amber">{{ product_stats.low }} món</strong></article>
+        <article><span>Hết hàng</span><strong class="is-red">{{ product_stats.out }} món</strong></article>
+      </section>
+      <p class="manager-inventory-note">Số tồn kho được quản lý thủ công; doanh số bên dưới chỉ tính đơn đã hoàn tất trong 7 ngày qua.</p>
+      <div class="manager-inventory-layout" id="manager-inventory">
+        <section class="manager-catalog-panel">
+          <nav class="manager-catalog-filters" aria-label="Lọc tồn kho">
+            <a href="?workspace=inventory&filter=all" {% if product_filter == "all" %}aria-current="page"{% endif %}>Tất cả</a>
+            <a href="?workspace=inventory&filter=low" {% if product_filter == "low" %}aria-current="page"{% endif %}>Sắp hết</a>
+            <a href="?workspace=inventory&filter=out" {% if product_filter == "out" %}aria-current="page"{% endif %}>Hết hàng</a>
+          </nav>
+          <form class="manager-catalog-search" method="get">
+            <input type="hidden" name="workspace" value="inventory"><input type="hidden" name="filter" value="{{ product_filter }}">
+            <label class="visually-hidden" for="manager-inventory-search">Tìm món trong kho</label>
+            <input id="manager-inventory-search" type="search" name="q" value="{{ query }}" placeholder="Tên món hoặc mã sản phẩm">
+            <button type="submit">Tìm món</button>
+          </form>
+          <div class="table-scroll"><table class="manager-catalog-table manager-inventory-table">
+            <thead><tr><th>MÓN</th><th>TRẠNG THÁI BÁN</th><th>TỒN KHO</th><th>NGƯỠNG</th><th>BÁN 7 NGÀY</th><th></th></tr></thead>
+            <tbody>{% for row in product_rows %}
+              <tr><td><strong>{{ row.product.name }}</strong><small>{{ row.product.sku }}</small></td>
+                <td>{% if row.product.is_available %}Đang bán{% else %}Tạm ngưng{% endif %}</td>
+                <td class="is-{{ row.inventory_status }}">{% if row.inventory_status == "unknown" %}Chưa nhập{% else %}{{ row.product.stock_quantity }} đơn vị{% endif %}</td>
+                <td>{{ row.product.low_stock_threshold }}</td><td>{{ row.sold_7d }}</td>
+                <td><a href="?workspace=inventory&filter={{ product_filter }}&q={{ query|urlencode }}&product={{ row.product.pk }}">Cập nhật</a></td>
+              </tr>
+            {% empty %}<tr><td colspan="6" class="manager-empty-row">Không tìm thấy món trong kho.</td></tr>{% endfor %}</tbody>
+          </table></div>
+          {% include "orders/employee_pagination.html" %}
+        </section>
+        <aside class="manager-product-editor">
+          {% if selected_product %}
+            <div class="manager-editor-heading"><span class="manager-product-avatar">{{ selected_product.name|first|upper }}</span><div><small>CẬP NHẬT KHO</small><h2>{{ selected_product.name }}</h2></div></div>
+            <form action="{% url 'staff_orders:update_product' selected_product.pk %}?workspace=inventory&product={{ selected_product.pk }}" method="post" class="manager-product-form">
+              {% csrf_token %}
+              {% for field in selected_product_form %}<label class="{% if field.field.widget.input_type == 'checkbox' %}manager-checkbox-field{% endif %}">{{ field.label }}{{ field }}{% for error in field.errors %}<small class="manager-form-error">{{ error }}</small>{% endfor %}</label>{% endfor %}
+              <button type="submit">Lưu tồn kho</button>
+            </form>
+          {% else %}<p class="manager-empty-row">Chọn món để cập nhật tồn kho.</p>{% endif %}
+        </aside>
+      </div>
+
+    {% elif active_workspace == "reports" %}
+      <header class="employee-workspace-heading"><div><span class="store-kicker">BÁO CÁO CỬA HÀNG</span><h1>Báo cáo doanh thu</h1><p>Thống kê theo ngày đặt đơn trong 7 ngày gần nhất · {{ report_start|date:"d/m" }}–{{ report_end|date:"d/m/Y" }}.</p></div></header>
+      <section class="manager-product-stats manager-report-stats">
+        <article><span>Doanh thu đơn hoàn tất</span><strong class="is-green">{{ report_revenue|floatformat:0 }}₫</strong></article>
+        <article><span>Tổng đơn trong kỳ</span><strong>{{ report_order_count }}</strong></article>
+        <article><span>Đơn hoàn tất</span><strong>{{ report_completed_count }}</strong></article>
+        <article><span>Đơn đã hủy</span><strong class="is-red">{{ report_cancelled_count }}</strong></article>
+      </section>
+      <section class="admin-panel manager-report-panel">
+        <div class="manager-panel-heading"><div><h2>Món bán chạy</h2><p>Số phần trong đơn đã hoàn tất, theo dữ liệu đơn hàng</p></div></div>
+        <div class="table-scroll"><table class="manager-catalog-table">
+          <thead><tr><th>MÓN</th><th>SỐ PHẦN ĐÃ BÁN</th></tr></thead>
+          <tbody>{% for item in report_popular_products %}<tr><td>{{ item.product_name }}</td><td><strong>{{ item.quantity }}</strong></td>{% empty %}<tr><td colspan="2" class="manager-empty-row">Chưa có đơn hoàn tất trong kỳ.</td></tr>{% endfor %}</tbody>
+        </table></div>
+        <p class="manager-inventory-note">Doanh thu chỉ cộng đơn hoàn tất; đơn bị hủy không được tính. Hệ thống chưa lưu chi phí vốn nên đây không phải lợi nhuận.</p>
+      </section>
+
+    {% elif active_workspace == "activity" %}
+      <header class="employee-workspace-heading"><div><span class="store-kicker">LỊCH SỬ THAY ĐỔI</span><h1>Nhật ký hoạt động</h1><p>Các thao tác thay đổi món, giá và tồn kho đã được lưu.</p></div></header>
+      <section class="admin-panel manager-activity-panel">
+        <div class="table-scroll"><table class="manager-catalog-table">
+          <thead><tr><th>THỜI GIAN</th><th>NGƯỜI THỰC HIỆN</th><th>HOẠT ĐỘNG</th><th>MÓN</th><th>THAY ĐỔI</th></tr></thead>
+          <tbody>{% for event in product_activity %}
+            <tr><td>{{ event.created_at|date:"d/m/Y H:i" }}</td><td>{{ event.actor.get_full_name|default:event.actor.username|default:"Quản trị hệ thống" }}</td><td>{{ event.get_action_display }}</td><td>{{ event.product_name }}<small>{{ event.product_sku }}</small></td><td>{% if event.old_value %}{{ event.old_value }} → {% endif %}{{ event.new_value }}</td></tr>
+          {% empty %}<tr><td colspan="5" class="manager-empty-row">Chưa có thay đổi nào được ghi nhận.</td></tr>{% endfor %}</tbody>
+        </table></div>
+        <p class="manager-inventory-note">Nhật ký này theo dõi thay đổi sản phẩm; lịch sử cập nhật trạng thái đơn chưa được lưu riêng.</p>
+      </section>
+
+    {% elif active_workspace == "menu" %}
+      <header class="employee-workspace-heading">
+        <div><span class="store-kicker">DANH MỤC CỬA HÀNG</span><h1>Thực đơn</h1><p>Nhân viên có thể tạm ngưng món khi hết hàng và mở bán lại khi đã có hàng. Thao tác này không thay đổi giá hoặc số tồn kho.</p></div>
+      </header>
+      <section class="employee-menu-grid">
+        {% for product in menu_products %}
+          <article class="employee-menu-card">
+            {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}">{% else %}<span class="employee-menu-placeholder">FitMeal</span>{% endif %}
+            <div>
+              <small>{{ product.get_category_display }} · {{ product.sku }}</small>
+              <h2>{{ product.name }}</h2>
+              <p>{{ product.description }}</p>
+              <strong>{{ product.price|floatformat:0 }}₫</strong>
+              <span class="employee-menu-availability {% if product.is_available %}is-available{% else %}is-unavailable{% endif %}">
+                {% if product.is_available %}Đang bán{% else %}Tạm hết hàng{% endif %}
+              </span>
+              <form class="employee-menu-availability-form" action="{% url 'staff_orders:toggle_product_availability' product.pk %}" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="is_available" value="{% if product.is_available %}false{% else %}true{% endif %}">
+                <button type="submit">
+                  {% if product.is_available %}Tạm hết hàng{% else %}Mở bán lại{% endif %}
+                </button>
+              </form>
+            </div>
+          </article>
+        {% empty %}
+          <p class="employee-empty-state">Chưa có món đang bán.</p>
+        {% endfor %}
+      </section>
+
+    {% elif active_workspace == "profile" %}
+      <header class="employee-workspace-heading">
+        <div><span class="store-kicker">TÀI KHOẢN NHÂN VIÊN</span><h1>Hồ sơ của tôi</h1></div>
+      </header>
+      <section class="employee-profile-hero">
+        <span class="employee-profile-avatar">{{ request.user.first_name|default:request.user.username|first|upper }}</span>
+        <div><h2>{{ request.user.get_full_name|default:request.user.username }}</h2><p><b>{{ employee_role }}</b><span>Vào làm {{ request.user.date_joined|date:"d/m/Y" }}</span></p></div>
+      </section>
+      <div class="employee-profile-grid">
+        <div class="employee-profile-left">
+          <section class="admin-panel employee-profile-panel">
+            <h2>Thông tin liên hệ</h2>
+            <p class="employee-profile-note">Họ tên và email đăng nhập do quản trị viên quản lý. Cần sửa thông tin này, vui lòng liên hệ quản trị viên.</p>
+            <div class="employee-identity-grid">
+              <div><span>Họ và tên</span><strong>{{ request.user.get_full_name|default:request.user.username }}</strong></div>
+              <div><span>Email đăng nhập</span><strong>{{ request.user.email }}</strong></div>
+            </div>
+            <form action="{% url 'staff_orders:update_staff_profile' %}" method="post" class="employee-profile-form">
+              {% csrf_token %}
+              <label for="employee-phone">Số điện thoại liên lạc</label>
+              <input id="employee-phone" type="tel" name="phone" autocomplete="tel" value="{{ request.user.phone }}" placeholder="Nhập số điện thoại">
+              <small>Dùng số này để quản lý liên hệ với bạn khi đổi ca.</small>
+              <button type="submit">Lưu thay đổi</button>
+            </form>
+          </section>
+          <section class="admin-panel employee-profile-panel">
+            <div class="employee-profile-panel-heading"><div><h2>Bảo mật đăng nhập</h2><p>Đổi mật khẩu định kỳ và không chia sẻ với người khác.</p></div><a href="{% url 'accounts:password_change' %}">Đổi mật khẩu</a></div>
+            <p class="employee-profile-note">Phiên đăng nhập được quản lý an toàn. Hãy đăng xuất khi dùng thiết bị chung.</p>
+          </section>
+        </div>
+        <aside class="admin-panel employee-rights-panel">
+          <h2>Quyền của bạn</h2>
+          <p>Theo vai trò {{ employee_role }}. Quản trị viên cấp và quản lý quyền.</p>
+          <ul>
+            <li class="is-allowed">Xem đơn hàng</li>
+            <li class="is-allowed">Xác nhận đơn</li>
+            <li class="is-allowed">Cập nhật tiến độ giao hàng</li>
+            <li class="is-allowed">Xem thông tin khách hàng</li>
+            <li class="is-allowed">Xem thực đơn</li>
+            <li class="is-allowed">Tạm ngưng hoặc mở bán lại món</li>
+            <li class="{% if can_cancel_orders %}is-allowed{% else %}is-denied{% endif %}">{% if can_cancel_orders %}Hủy đơn chưa giao{% else %}Hủy đơn{% endif %}</li>
+            <li class="{% if is_manager %}is-allowed{% else %}is-denied{% endif %}">{% if is_manager %}Quản lý món, giá và tồn kho{% else %}Không sửa thông tin món, giá hoặc tồn kho{% endif %}</li>
+            <li class="{% if is_manager %}is-allowed{% else %}is-denied{% endif %}">Xem doanh thu và báo cáo</li>
+            <li class="is-denied">Quản lý nhân viên</li>
+          </ul>
+        </aside>
+      </div>
+    {% endif %}
+  </main>
+</div>
+{% endblock %}

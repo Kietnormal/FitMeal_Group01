@@ -1,0 +1,7 @@
+{% if page_obj.paginator.num_pages > 1 %}
+  <nav class="staff-admin-pagination" aria-label="Phân trang">
+    {% if page_obj.has_previous %}{% if active_section == "orders" %}<a href="?section=orders&date_range={{ orders_date_range }}&status={{ selected_status }}&payment={{ payment_filter|urlencode }}&q={{ order_search|urlencode }}&page={{ page_obj.previous_page_number }}#orders">← Trước</a>{% else %}<a href="?section={{ active_section }}&page={{ page_obj.previous_page_number }}">← Trước</a>{% endif %}{% endif %}
+    <span>Trang {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}{% if active_section == "orders" %}<a href="?section=orders&date_range={{ orders_date_range }}&status={{ selected_status }}&payment={{ payment_filter|urlencode }}&q={{ order_search|urlencode }}&page={{ page_obj.next_page_number }}#orders">Sau →</a>{% else %}<a href="?section={{ active_section }}&page={{ page_obj.next_page_number }}">Sau →</a>{% endif %}{% endif %}
+  </nav>
+{% endif %}

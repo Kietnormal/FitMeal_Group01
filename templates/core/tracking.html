@@ -1,19 +1,31 @@
 {% extends "core/store_base.html" %}
 {% block title %}Theo dõi đơn hàng — FitMeal{% endblock %}
 {% block store_content %}
-<section class="page-heading compact-heading"><span class="store-kicker">ĐỒNG HÀNH CÙNG BẠN</span><h1>Theo dõi đơn hàng.</h1><p>Tra cứu trạng thái giao hàng qua màn hình minh họa.</p></section>
+<section class="page-heading compact-heading"><span class="store-kicker">ĐỒNG HÀNH CÙNG BẠN</span><h1>Theo dõi đơn hàng.</h1><p>Dùng mã tra cứu được cấp sau khi đặt hàng để xem trạng thái cập nhật từ cửa hàng.</p></section>
 <section class="tracking-layout">
   <form class="tracking-search-panel" data-tracking-form>
     <span class="tracking-icon">⌕</span><h2>Đơn hàng của bạn đang ở đâu?</h2>
-    <p>Tra cứu đơn mẫu bằng mã đơn; dữ liệu trên trang này chỉ nằm trong trình duyệt.</p>
-    <label>Mã đơn hàng<input name="order" placeholder="Ví dụ: FM-2026-001" value="FM-2026-001"></label>
+    <p>Mã tra cứu là liên kết riêng tư trong xác nhận đơn hàng. Hãy giữ mã này an toàn.</p>
+    <label>Mã tra cứu<input name="order" placeholder="Dán mã tra cứu đơn hàng" autocomplete="off"></label>
     <button class="solid-button" type="submit">Tra cứu đơn hàng <span>→</span></button>
-    <small>Màn hình minh họa — chưa kết nối dữ liệu đơn hàng thực.</small>
-    <section class="tracking-history"><h3>Lịch sử mua hàng demo</h3><div data-tracking-history></div></section>
+    <small>Thông tin cá nhân và địa chỉ giao hàng không hiển thị trên trang tra cứu.</small>
   </form>
   <section class="tracking-result" data-tracking-result>
     <div class="tracking-result-top"><div><span class="store-kicker">TRẠNG THÁI HIỆN TẠI</span><h2 data-tracking-status-heading>Đơn hàng đang được chuẩn bị</h2></div><span class="status-pill status-preparing" data-tracking-status>ĐANG XỬ LÝ</span></div>
-    <div class="tracking-meta"><span>Mã đơn <strong data-tracking-order>Chọn một đơn trong lịch sử</strong></span><span>Ngày đặt <strong data-tracking-date>—</strong></span></div>
+    <div class="tracking-meta"><span>Mã đơn <strong data-tracking-order>Nhập mã đơn để tra cứu</strong></span><span>Ngày đặt <strong data-tracking-date>—</strong></span></div>
+    <section class="customer-delivery-confirmation tracking-delivery-actions" data-tracking-delivery-actions aria-label="Phản hồi về việc nhận hàng" hidden>
+      <p>Vui lòng phản hồi trong 3 phút. Nếu bạn chưa phản hồi, đơn sẽ tự động được xác nhận đã nhận.</p>
+      <form method="post" data-tracking-confirmation-form>
+        {% csrf_token %}
+        <button type="submit">Tôi đã nhận được hàng</button>
+      </form>
+      <form method="post" data-tracking-issue-form>
+        {% csrf_token %}
+        <label for="tracking-delivery-issue-details">Nếu chưa nhận được hàng, hãy mô tả tình trạng để báo Quản lý</label>
+        <textarea id="tracking-delivery-issue-details" name="details" minlength="3" maxlength="1000" required></textarea>
+        <button type="submit">Tôi chưa nhận được hàng</button>
+      </form>
+    </section>
     <div class="tracking-order-detail" data-tracking-detail hidden></div>
     <ol class="tracking-timeline" data-tracking-timeline></ol>
     <button class="cancel-order-button" type="button" data-cancel-order hidden>Yêu cầu hủy đơn</button>
