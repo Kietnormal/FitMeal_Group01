@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Thêm món mới — FitMeal{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/storefront.css' %}?v=20261116-dry-goods-inventory-1">{% endblock %}
+{% block content %}
+<div class="employee-workspace-shell product-create-shell">
+  <aside class="employee-workspace-sidebar">
+    <a class="employee-workspace-brand" href="{% url 'staff_orders:dashboard' %}?workspace=work">
+      <span class="employee-workspace-brand-icon">F</span>
+      <span><strong>FitMeal</strong><small>KHU VỰC NHÂN VIÊN</small></span>
+    </a>
+    <span class="employee-workspace-nav-label">VẬN HÀNH</span>
+    <nav class="employee-workspace-nav" aria-label="Công việc">
+      <a href="{% url 'staff_orders:dashboard' %}?{% if request.user.is_superuser %}section=overview{% else %}workspace=work{% endif %}"><span aria-hidden="true">▦</span>Ca làm hôm nay</a>
+      <a href="{% url 'staff_orders:dashboard' %}?{% if request.user.is_superuser %}section=orders{% else %}workspace=orders{% endif %}"><span aria-hidden="true">▤</span>Đơn hàng &amp; xử lý</a>
+    </nav>
+    <span class="employee-workspace-nav-label">CỬA HÀNG</span>
+    <nav class="employee-workspace-nav" aria-label="Quản lý cửa hàng">
+      <a class="is-active" href="{{ catalog_url }}"><span aria-hidden="true">◇</span>Thực đơn &amp; giá</a>
+      <a href="{% url 'staff_orders:dashboard' %}?{% if request.user.is_superuser %}section=products{% else %}workspace=inventory{% endif %}"><span aria-hidden="true">▣</span>Kho hàng</a>
+      {% if request.user.is_superuser %}<a href="{% url 'staff_orders:dashboard' %}?section=overview&range=7d"><span aria-hidden="true">⌁</span>Báo cáo doanh thu</a>{% else %}<a href="{% url 'staff_orders:dashboard' %}?workspace=reports"><span aria-hidden="true">⌁</span>Báo cáo doanh thu</a>{% endif %}
+    </nav>
+    <div class="employee-workspace-role-note">Bạn đang dùng vai trò <strong>{{ employee_role|default:"Quản trị viên" }}</strong>. Món ăn sẽ hiển thị trên trang cửa hàng sau khi được bật bán.</div>
+    <div class="employee-workspace-user">
+      <span class="employee-workspace-avatar">{{ request.user.first_name|default:request.user.username|first|upper }}</span>
+      <span><strong>{{ request.user.get_full_name|default:request.user.username }}</strong><small>{{ employee_role|default:"Quản trị viên" }}</small></span>
+      <form action="{% url 'accounts:logout' %}" method="post">{% csrf_token %}<button type="submit" aria-label="Đăng xuất">↗</button></form>
+    </div>
+  </aside>
+
+  <main class="employee-workspace-main product-create-main">
+    <header class="product-create-heading">
+      <div>
+        <p class="product-create-breadcrumb"><a href="{{ catalog_url }}">Thực đơn &amp; giá</a><span>/</span>Thêm món mới</p>
+        <h1>Thêm món mới</h1>
+        <p>Các trường có dấu * là bắt buộc. Món lưu nháp sẽ chưa hiển thị với khách.</p>
+      </div>
+      <a class="product-create-back-link" href="{{ catalog_url }}">Quay lại danh sách</a>
+    </header>
+
+    {% if messages %}
+      <div class="staff-admin-messages" role="status" aria-live="polite">
+        {% for message in messages %}<p class="{{ message.tags }}">{{ message }}</p>{% endfor %}
+      </div>
+    {% endif %}
+
+    {% if product_form.errors %}
+      <div class="product-create-error-summary" role="alert">
+        <strong>Chưa thể lưu món. Vui lòng kiểm tra các trường được đánh dấu.</strong>
+        {% for field, errors in product_form.errors.items %}{% for error in errors %}<p>{{ error }}</p>{% endfor %}{% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="product-create-layout">
+      <form id="product-create-form" class="product-create-form" data-product-create-form action="{% url 'staff_orders:create_product' %}" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ product_form.sku }}{{ product_form.slug }}
+
+        <section class="product-create-card product-create-kind-card">
+          <h2><span>1.</span> Loại hàng <i>*</i></h2>
+          <div class="product-kind-options">
+            <label class="product-kind-option">
+              <input type="radio" name="product_kind" value="fresh" data-product-kind="fresh" {% if product_form.category.value != "dry_goods" %}checked{% endif %}>
+              <span><strong>Đồ tươi</strong><small>Nấu hoặc pha trong ngày: cơm, salad, đồ uống pha sẵn. Chỉ giao TP.HCM.</small></span>
+            </label>
+            <label class="product-kind-option">
+              <input type="radio" name="product_kind" value="dry" data-product-kind="dry" {% if product_form.category.value == "dry_goods" %}checked{% endif %}>
+              <span><strong>Đồ khô đóng gói</strong><small>Bột whey, thanh năng lượng, granola. Giao toàn quốc, cần khai báo khối lượng.</small></span>
+            </label>
+          </div>
+        </section>
+
+        <section class="product-create-card">
+          <h2><span>2.</span> Thông tin chung</h2>
+          <div class="product-create-fields product-create-basic-fields">
+            <label class="product-create-field">
+              <span>Tên món <i>*</i></span>{{ product_form.name }}
+              <small class="product-create-help">Tên món sẽ hiển thị trên trang cửa hàng.</small>
+              {% for error in product_form.name.errors %}<small class="product-create-field-error">{{ error }}</small>{% endfor %}
+            </label>
+            <label class="product-create-field">
+              <span>Danh mục <i>*</i></span>{{ product_form.category }}
+              {% for error in product_form.category.errors %}<small class="product-create-field-error">{{ error }}</small>{% endfor %}
+            </label>
+            <div class="product-create-generated-code"><span>Mã sản phẩm (tự sinh)</span><strong>FM-••••••••••</strong><small>Đường dẫn món cũng được tự tạo khi lưu.</small></div>
+            <label class="product-create-field product-create-full">
+              <span>Mô tả ngắn <i>*</i></span>{{ product_form.description }}
+              <small class="product-create-help">Một câu giới thiệu ngắn cho khách hàng.</small>
+              {% for error in product_form.description.errors %}<small class="product-create-field-error">{{ error }}</small>{% endfor %}
+            </label>
+            <label class="product-create-field product-create-full">
+              <span>Thành phần chính <i>*</i></span>{{ product_form.ingredients }}
+              <small class="product-create-help">Ví dụ: Ức gà, gạo lứt, sốt mè rang.</small>
+              {% for error in product_form.ingredients.errors %}<small class="product-create-field-error">{{ error }}</small>{% endfor %}
+            </label>
+            <label class="product-create-field product-create-full">
+              <span>Chất gây dị ứng</span>{{ product_form.allergens }}
+              <small class="product-create-help">Liệt kê các thành phần có thể gây dị ứng, nếu có.</small>
+              {% for error in product_form.allergens.errors %}<small class="product-create-field-error">{{ error }}</small>{% endfor %}
+            </label>
+          </div>
+        </section>
+
+        <section class="product-create-card">
+          <h2><span>3.</span> Dinh dưỡng mỗi khẩu phần</h2>
+          <div class="product-create-fields product-create-nutrition-fields">
+            <label class="product-create-field"><span>Calo <i>*</i></span><span class="product-create-input-suffix">{{ product_form.calories }}<b>kcal</b></span>{% for error in product_form.calories.errors %}<small class="product-create-field-error">{{ error }}</small>{% endfor %}</label>
+            <label class="product-create-field"><span>Đạm <i>*</i></span><span class="product-create-input-suffix">{{ product_form.protein }}<b>g</b></span>{% for error in product_form.protein.errors %}<small class="product-create-field-error">{{ error }}</small>{% endfor %}</label>
+            <label class="product-create-field"><span>Carb <i>*</i></span><span class="product-create-input-suffix">{{ product_form.carbs }}<b>g</b></span>{% for error in product_form.carbs.errors %}<small class="product-create-field-error">{{ error }}</small>{% endfor %}</label>
+            <label class="product-create-field"><span>Chất béo <i>*</i></span><span class="product-create-input-suffix">{{ product_form.fat }}<b>g</b></span>{% for error in product_form.fat.errors %}<small class="product-create-field-error">{{ error }}</small>{% endfor %}</label>
+            <label class="product-create-field"><span>Khẩu phần <i>*</i></span>{{ product_form.serving }}{% for error in product_form.serving.errors %}<small class="product-create-field-error">{{ error }}</small>{% endfor %}</label>
+          </div>
+        </section>
+
+        <section class="product-create-card">
+          <h2><span>4.</span> Ảnh món <i>*</i></h2>
+          <div class="product-create-upload-row">
+            <span class="product-create-upload-preview" data-product-upload-preview>Chưa có ảnh</span>
+            <label class="product-create-upload-control"><span>Chọn ảnh</span>{{ product_form.image }}</label>
+            <small>Ảnh giúp khách nhận biết món trước khi đặt.</small>
+          </div>
+          {% for error in product_form.image.errors %}<small class="product-create-field-error">{{ error }}</small>{% endfor %}
+        </section>
+
+        <section class="product-create-card">
+          <h2><span>5.</span> Giá, kho và giao hàng</h2>
+          <div class="product-create-fields product-create-stock-fields">
+            <label class="product-create-field"><span>Giá bán <i>*</i></span><span class="product-create-input-suffix">{{ product_form.price }}<b>đ</b></span>{% for error in product_form.price.errors %}<small class="product-create-field-error">{{ error }}</small>{% endfor %}</label>
+            <label class="product-create-field product-create-inventory-field"><span>Số lượng tồn kho <i>*</i></span>{{ product_form.stock_quantity }}<small class="product-create-help">Chỉ nhập cho đồ khô; đồ tươi được làm sau khi khách đặt.</small>{% for error in product_form.stock_quantity.errors %}<small class="product-create-field-error">{{ error }}</small>{% endfor %}</label>
+            <label class="product-create-field product-create-inventory-field"><span>Ngưỡng cảnh báo</span>{{ product_form.low_stock_threshold }}<small class="product-create-help">Mặc định 5 phần, chỉ áp dụng cho đồ khô.</small>{% for error in product_form.low_stock_threshold.errors %}<small class="product-create-field-error">{{ error }}</small>{% endfor %}</label>
+            <label class="product-create-field product-create-dry-field"><span>Khối lượng giao hàng</span><span class="product-create-input-suffix">{{ product_form.shipping_weight_grams }}<b>g</b></span>{% for error in product_form.shipping_weight_grams.errors %}<small class="product-create-field-error">{{ error }}</small>{% endfor %}</label>
+            <label class="product-create-field product-create-dry-field"><span>Hạn sử dụng</span>{{ product_form.expiry_date }}{% for error in product_form.expiry_date.errors %}<small class="product-create-field-error">{{ error }}</small>{% endfor %}</label>
+            <label class="product-create-featured">{{ product_form.is_featured }}<span>Đánh dấu món nổi bật</span></label>
+          </div>
+          <p class="product-create-delivery-note" data-product-delivery-note>Đồ tươi giao trong TP. Hồ Chí Minh và được làm sau khi khách đặt.</p>
+        </section>
+      </form>
+
+      <aside class="product-create-side">
+        <section class="product-create-preview-card">
+          <span class="product-create-side-kicker">XEM TRƯỚC TRÊN TRANG KHÁCH</span>
+          <article class="product-customer-preview">
+            <div class="product-customer-image" data-product-preview-image>
+              <span data-product-preview-category>ĐỒ TƯƠI · TRONG NGÀY</span>
+              <small>Chưa có ảnh</small>
+            </div>
+            <div class="product-customer-info">
+              <strong data-product-preview-name>Tên món</strong>
+              <p data-product-preview-description>Thành phần chính</p>
+              <div class="product-customer-tags"><span data-product-preview-calories>— kcal</span><span data-product-preview-protein>— g đạm</span><span data-product-preview-serving>Khẩu phần</span></div>
+              <div class="product-customer-buy"><b data-product-preview-price>—</b><button type="button" disabled>Thêm vào giỏ</button></div>
+            </div>
+          </article>
+        </section>
+
+        <section class="product-create-checklist-card">
+          <h2>Đủ điều kiện mở bán <strong><span data-product-check-count>0</span>/6</strong></h2>
+          <ul class="product-create-checklist">
+            <li data-product-check="identity">Tên món và danh mục</li>
+            <li data-product-check="details">Mô tả và thành phần</li>
+            <li data-product-check="nutrition">Calo, đạm, khẩu phần</li>
+            <li data-product-check="image">Ảnh món</li>
+            <li data-product-check="price">Giá bán hợp lệ</li>
+            <li data-product-check="stock">Tồn kho (chỉ đồ khô)</li>
+          </ul>
+          <button class="product-create-publish-button" type="submit" form="product-create-form" name="save_mode" value="publish" data-product-publish disabled>Lưu và mở bán</button>
+          <button class="product-create-draft-button" type="submit" form="product-create-form" name="save_mode" value="draft">Lưu nháp (chưa hiện khách)</button>
+          <a class="product-create-cancel-link" href="{{ catalog_url }}">Hủy, quay lại danh sách</a>
+        </section>
+      </aside>
+    </div>
+  </main>
+</div>
+{% endblock %}

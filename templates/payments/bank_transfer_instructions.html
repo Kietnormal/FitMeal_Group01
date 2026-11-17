@@ -1,0 +1,33 @@
+{% extends "core/store_base.html" %}
+{% block title %}Chuyển khoản ngân hàng — FitMeal{% endblock %}
+{% block store_content %}
+  <section class="page-heading compact-heading bank-transfer-page" data-bank-transfer-status data-status-url="{{ payment_status_url }}">
+    <span class="store-kicker">CHUYỂN KHOẢN NGÂN HÀNG</span>
+    {% if payment.status == "paid" %}
+      <h1>Đã nhận được thanh toán.</h1>
+      <p>Đơn {{ payment.order.order_number }} đã được cập nhật thanh toán tự động.</p>
+    {% elif payment.status == "expired" %}
+      <h1>Mã thanh toán đã hết hạn.</h1>
+      <p>Vui lòng liên hệ cửa hàng để kiểm tra trước khi chuyển khoản.</p>
+    {% else %}
+      <h1>Quét mã để thanh toán.</h1>
+      <p>Đơn {{ payment.order.order_number }} sẽ được xác nhận thanh toán tự động sau khi chuyển khoản.</p>
+    {% endif %}
+    {% if payment.status == "pending" %}
+      <div class="bank-transfer-instructions">
+        <img src="{{ bank_qr_url }}" alt="Mã QR chuyển khoản FitMeal">
+        <div>
+          <p>Ngân hàng: <strong>{{ bank_code }}</strong></p>
+          <p>Số tài khoản: <strong>{{ account_number }}</strong></p>
+          <p>Chủ tài khoản: <strong>{{ account_name }}</strong></p>
+          <p>Số tiền: <strong>{{ payment.amount|floatformat:0 }}₫</strong></p>
+          <p>Nội dung chuyển khoản: <strong>{{ payment.bank_transfer_code }}</strong></p>
+          <p>Mã này có hiệu lực trong 24 giờ. Vui lòng chuyển đúng số tiền và nội dung để hệ thống tự đối soát.</p>
+        </div>
+      </div>
+      <p class="bank-transfer-live-status" data-payment-live-status role="status">Đang chờ ngân hàng xác nhận…</p>
+    {% endif %}
+    <p>Trạng thái thanh toán: <strong data-payment-status>{{ payment.get_status_display }}</strong></p>
+    <a class="solid-button" href="{% url 'core:home' %}">Quay về cửa hàng →</a>
+  </section>
+{% endblock %}

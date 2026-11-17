@@ -16,11 +16,12 @@ from django.core.mail import send_mail
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count, Exists, F, OuterRef, Q, Sum
+from django.db.models.functions import TruncDate
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 from django.contrib.auth import get_user_model
 
 from apps.core.admin_dashboard import (
@@ -33,8 +34,14 @@ from apps.products.forms import (
     ProductManagerUpdateForm,
     ProductQuickEditForm,
 )
-from apps.products.models import Product, ProductActivity
+from apps.products.models import InventoryRestockRequest, Product, ProductActivity
 from apps.products.services import record_product_activity as _record_product_activity
+from .inventory import (
+    fulfill_inventory_backorders,
+    reserve_order_inventory,
+    restore_order_inventory,
+    update_inventory_shortage,
+)
 from .shipping import calculate_order_shipping, is_ho_chi_minh_city
 
 from .forms import (
@@ -47,7 +54,13 @@ from .forms import (
 )
 from .models import DeliveryIssue, Order, OrderCancellationRequest, OrderItem
 from .delivery import begin_customer_delivery_confirmation, finalize_expired_delivery_confirmations
-from apps.payments.gateway import create_vnpay_payment, expire_pending_payments
+from apps.payments.gateway import (
+    PaymentGatewayError,
+    create_bank_transfer_payment,
+    create_momo_payment,
+    expire_pending_payments,
+    momo_payment_session_key,
+)
 from apps.payments.models import PaymentTransaction
 
 MAX_REQUEST_SIZE = 64 * 1024
@@ -81,6 +94,10 @@ def _period_comparison(current, previous):
         "text": f"{abs(change):.1f}% so với kỳ trước",
         "direction": direction,
     }
+
+
+def _format_vnd(amount):
+    return f"{amount:,.0f}".replace(",", ".")
 
 
 def _safe_csv_value(value):
@@ -122,11 +139,20 @@ def _serialize_order(order):
 
     latest_cancellation = order.cancellation_requests.first()
     dry_goods_order = order.is_dry_goods_order
+    cancellation_requested = bool(
+        latest_cancellation
+        and latest_cancellation.source == OrderCancellationRequest.Source.CUSTOMER
+        and latest_cancellation.status in OPEN_CANCELLATION_STATUSES
+    )
     return {
         "order_number": order.order_number,
         "tracking_token": str(order.tracking_token),
         "status": order.status,
-        "status_display": order.get_status_display(),
+        "status_display": (
+            "Giao hàng không thành công"
+            if order.status == Order.Status.DELIVERY_ISSUE
+            else order.get_status_display()
+        ),
         "created_at": order.created_at.isoformat(),
         "delivery_date": order.delivery_date.isoformat(),
         "delivery_slot": order.delivery_slot,
@@ -139,9 +165,7 @@ def _serialize_order(order):
         "subtotal": str(order.subtotal),
         "shipping_fee": str(order.shipping_fee),
         "total": str(order.total),
-        "cancellation_requested": bool(
-            latest_cancellation and latest_cancellation.status in OPEN_CANCELLATION_STATUSES
-        ),
+        "cancellation_requested": cancellation_requested,
         "cancellation_request_status": (
             latest_cancellation.status if latest_cancellation else ""
         ),
@@ -165,7 +189,12 @@ def _serialize_order(order):
 def _cancel_order(order, actor, reason):
     payment = (
         PaymentTransaction.objects.select_for_update().filter(order=order).first()
-        if order.payment_method == Order.PaymentMethod.VNPAY
+        if order.payment_method
+        in {
+            Order.PaymentMethod.MOMO,
+            Order.PaymentMethod.BANK_TRANSFER,
+            Order.PaymentMethod.VNPAY,
+        }
         else None
     )
     payment_is_paid = payment and payment.status == PaymentTransaction.Status.PAID
@@ -177,6 +206,7 @@ def _cancel_order(order, actor, reason):
     order.cancelled_at = timezone.now()
     order.cancelled_by = actor
     order.cancellation_reason = reason
+    order.cancellation_reason_category = _categorize_cancellation_reason(reason)
     order.refund_status = (
         Order.RefundStatus.NOT_REQUIRED
         if not payment_is_paid
@@ -188,10 +218,32 @@ def _cancel_order(order, actor, reason):
             "cancelled_at",
             "cancelled_by",
             "cancellation_reason",
+            "cancellation_reason_category",
             "refund_status",
             "updated_at",
         ]
     )
+    restore_order_inventory(order, actor=actor)
+
+
+def _categorize_cancellation_reason(reason):
+    normalized_reason = reason.casefold()
+    if any(
+        phrase in normalized_reason
+        for phrase in ("đổi ý", "thay đổi", "đặt nhầm", "không cần")
+    ):
+        return Order.CancellationReasonCategory.CUSTOMER_CHANGED_MIND
+    if any(
+        phrase in normalized_reason
+        for phrase in ("hết món", "hết hàng", "không còn", "thiếu hàng", "tồn kho")
+    ):
+        return Order.CancellationReasonCategory.OUT_OF_STOCK
+    if any(
+        phrase in normalized_reason
+        for phrase in ("không liên lạc", "không nghe máy", "không bắt máy")
+    ):
+        return Order.CancellationReasonCategory.NO_CONTACT
+    return Order.CancellationReasonCategory.OTHER
 
 
 def _finalize_delivery_confirmation(order, now):
@@ -303,10 +355,19 @@ def create_order(request):
     if delivery_slot not in Order.DeliverySlot.values:
         return _error("Khung giờ giao không hợp lệ.")
     payment_method = payload.get("payment", Order.PaymentMethod.COD)
-    if payment_method not in Order.PaymentMethod.values:
+    if payment_method not in {
+        Order.PaymentMethod.MOMO,
+        Order.PaymentMethod.BANK_TRANSFER,
+        Order.PaymentMethod.COD,
+    }:
         return _error("Phương thức thanh toán không hợp lệ.")
-    if payment_method == Order.PaymentMethod.VNPAY and not settings.VNPAY_ENABLED:
-        return _error("Thanh toán VNPay chưa được cấu hình. Vui lòng chọn COD.")
+    if payment_method == Order.PaymentMethod.MOMO and not settings.MOMO_ENABLED:
+        return _error("Thanh toán MoMo chưa được cấu hình.")
+    if (
+        payment_method == Order.PaymentMethod.BANK_TRANSFER
+        and not settings.BANK_TRANSFER_ENABLED
+    ):
+        return _error("Chuyển khoản ngân hàng chưa được cấu hình.")
     if payload.get("accept_policy") is not True:
         return _error("Vui lòng đồng ý với chính sách giao hàng và đổi trả.")
     note = payload.get("note", "")
@@ -341,6 +402,16 @@ def create_order(request):
         }
         if products.keys() != quantities.keys():
             return _error("Một hoặc nhiều sản phẩm không còn bán. Vui lòng cập nhật giỏ hàng.")
+        inventory_shortages = []
+        for slug, quantity in quantities.items():
+            product = products[slug]
+            if product.tracks_inventory and product.stock_quantity is None:
+                return _error(
+                    f"{product.name} chưa được cập nhật tồn kho. Vui lòng liên hệ cửa hàng.",
+                    status=409,
+                )
+            if product.tracks_inventory and quantity > product.stock_quantity:
+                inventory_shortages.append(product)
 
         dry_goods_only = all(
             product.category == Product.Category.DRY_GOODS for product in products.values()
@@ -387,6 +458,11 @@ def create_order(request):
             address=address,
             district=district,
             city=city,
+            delivery_region=(
+                Order.DeliveryRegion.HO_CHI_MINH_CITY
+                if is_ho_chi_minh_city(city)
+                else Order.DeliveryRegion.OTHER_PROVINCES
+            ),
             delivery_date=delivery_date,
             delivery_slot=delivery_slot,
             note=note.strip(),
@@ -395,24 +471,45 @@ def create_order(request):
             shipping_fee=shipping_fee,
             total=total,
         )
-        OrderItem.objects.bulk_create(
-            [
-                OrderItem(
-                    order=order,
-                    product=products[slug],
-                    product_sku=products[slug].sku,
-                    product_name=products[slug].name,
-                    product_category=products[slug].category,
-                    shipping_weight_grams=products[slug].shipping_weight_grams,
-                    unit_price=products[slug].price,
-                    quantity=quantity,
-                    line_total=products[slug].price * quantity,
-                )
-                for slug, quantity in quantities.items()
-            ]
+        order_items = [
+            OrderItem(
+                order=order,
+                product=products[slug],
+                product_sku=products[slug].sku,
+                product_name=products[slug].name,
+                product_category=products[slug].category,
+                shipping_weight_grams=products[slug].shipping_weight_grams,
+                inventory_deducted=False,
+                unit_price=products[slug].price,
+                quantity=quantity,
+                line_total=products[slug].price * quantity,
+            )
+            for slug, quantity in quantities.items()
+        ]
+        reserve_order_inventory(
+            order_items,
+            actor=request.user if request.user.is_authenticated else None,
         )
-        if payment_method == Order.PaymentMethod.VNPAY:
-            _, payment_url = create_vnpay_payment(order, request)
+        OrderItem.objects.bulk_create(order_items)
+        for product in inventory_shortages:
+            update_inventory_shortage(product)
+        if payment_method == Order.PaymentMethod.MOMO:
+            try:
+                payment, gateway_payment_url = create_momo_payment(order, request)
+            except PaymentGatewayError as error:
+                transaction.set_rollback(True)
+                return _error(str(error), status=502)
+            request.session[momo_payment_session_key(payment.transaction_ref)] = (
+                gateway_payment_url
+            )
+            payment_url = request.build_absolute_uri(
+                reverse(
+                    "payments:momo_payment_instructions",
+                    args=[payment.transaction_ref],
+                )
+            )
+        elif payment_method == Order.PaymentMethod.BANK_TRANSFER:
+            _, payment_url = create_bank_transfer_payment(order, request)
 
     response_data = _serialize_order(order)
     if payment_url:
@@ -836,7 +933,13 @@ def admin_staff_dashboard(request):
     orders_date_range = "today"
     selected_status = "all"
     payment_filter = "all"
-    payment_methods = Order.PaymentMethod.choices
+    payment_methods = (
+        (Order.PaymentMethod.MOMO, Order.PaymentMethod.MOMO.label),
+        (
+            Order.PaymentMethod.BANK_TRANSFER,
+            Order.PaymentMethod.BANK_TRANSFER.label,
+        ),
+    )
     order_search = ""
     orders_date_range_label = "Hôm nay"
     order_action_query = ""
@@ -927,7 +1030,7 @@ def admin_staff_dashboard(request):
         selected_statuses = orders_by_tab[selected_status]
         if selected_statuses:
             filtered_orders = filtered_orders.filter(status__in=selected_statuses)
-        payment_method_values = dict(Order.PaymentMethod.choices)
+        payment_method_values = dict(payment_methods)
         payment_filter = request.GET.get("payment", "all")
         if payment_filter not in ("all", *payment_method_values.keys()):
             payment_filter = "all"
@@ -1179,6 +1282,8 @@ def _catalog_products():
 
 
 def _product_inventory_status(product):
+    if not product.tracks_inventory:
+        return "made-to-order"
     if product.stock_quantity is None:
         return "unknown"
     if product.stock_quantity == 0:
@@ -1238,6 +1343,33 @@ def employee_workspace(request):
     )
     query = request.GET.get("q", "").strip()[:100]
     is_manager = user.staff_role == user.StaffRole.MANAGER
+    active_restock_requests = list(
+        InventoryRestockRequest.objects.filter(
+            status__in=[
+                InventoryRestockRequest.Status.STAFF_ALERT,
+                InventoryRestockRequest.Status.MANAGER_REVIEW,
+            ]
+        )
+        .select_related("product", "requested_by")
+        .order_by("status", "updated_at", "pk")
+    )
+    for restock_request in active_restock_requests:
+        restock_request.can_fulfill = bool(
+            restock_request.status == InventoryRestockRequest.Status.MANAGER_REVIEW
+            and restock_request.product
+            and restock_request.product.stock_quantity is not None
+            and restock_request.product.stock_quantity
+            >= restock_request.requested_quantity
+        )
+    manager_restock_requests = [
+        restock_request
+        for restock_request in active_restock_requests
+        if restock_request.status == InventoryRestockRequest.Status.MANAGER_REVIEW
+    ]
+    pending_inventory_restock_count = sum(
+        restock_request.status == InventoryRestockRequest.Status.MANAGER_REVIEW
+        for restock_request in active_restock_requests
+    ) if is_manager else 0
     active_section = request.GET.get("workspace", "work")
     allowed_sections = {"work", "orders", "customers", "menu", "profile"}
     if is_manager:
@@ -1257,8 +1389,17 @@ def employee_workspace(request):
     selected_product = None
     selected_product_form = None
     price_history = []
+    employee_menu_stats = {}
     product_filter = request.GET.get("filter", "all")
-    allowed_product_filters = {"all", "selling", "paused", "low", "out"}
+    allowed_product_filters = {
+        "all",
+        "selling",
+        "paused",
+        "low",
+        "out",
+        "fresh",
+        "dry",
+    }
     if product_filter not in allowed_product_filters:
         product_filter = "all"
     product_stats = (
@@ -1266,14 +1407,37 @@ def employee_workspace(request):
             "selling": Product.objects.filter(is_available=True).count(),
             "paused": Product.objects.filter(is_available=False).count(),
             "low": Product.objects.filter(
+                category=Product.Category.DRY_GOODS,
                 stock_quantity__gt=0,
                 stock_quantity__lte=F("low_stock_threshold"),
             ).count(),
-            "out": Product.objects.filter(stock_quantity=0).count(),
-            "unknown": Product.objects.filter(stock_quantity__isnull=True).count(),
+            "out": Product.objects.filter(
+                category=Product.Category.DRY_GOODS,
+                stock_quantity=0,
+            ).count(),
+            "unknown": Product.objects.filter(
+                category=Product.Category.DRY_GOODS,
+                stock_quantity__isnull=True,
+            ).count(),
+            "inventory_selling": Product.objects.filter(
+                category=Product.Category.DRY_GOODS,
+                is_available=True,
+            ).count(),
+            "inventory_paused": Product.objects.filter(
+                category=Product.Category.DRY_GOODS,
+                is_available=False,
+            ).count(),
         }
         if is_manager
-        else {"selling": 0, "paused": 0, "low": 0, "out": 0, "unknown": 0}
+        else {
+            "selling": 0,
+            "paused": 0,
+            "low": 0,
+            "out": 0,
+            "unknown": 0,
+            "inventory_selling": 0,
+            "inventory_paused": 0,
+        }
     )
     if active_section == "orders":
         if is_manager and orders_view == "cancellations":
@@ -1342,23 +1506,36 @@ def employee_workspace(request):
         customer_rows = page_obj.object_list
     elif (active_section == "menu" and is_manager) or active_section == "inventory":
         catalog = _catalog_products().order_by("name", "pk")
+        if active_section == "inventory":
+            catalog = catalog.filter(category=Product.Category.DRY_GOODS)
         if query:
             catalog = catalog.filter(Q(name__icontains=query) | Q(sku__icontains=query))
         if active_section == "menu":
-            if product_filter == "selling":
+            if product_filter == "dry":
+                catalog = catalog.filter(category=Product.Category.DRY_GOODS)
+            elif product_filter == "fresh":
+                catalog = catalog.exclude(category=Product.Category.DRY_GOODS)
+            elif product_filter == "selling":
                 catalog = catalog.filter(is_available=True)
             elif product_filter == "paused":
                 catalog = catalog.filter(is_available=False)
             elif product_filter == "low":
                 catalog = catalog.filter(
-                    Q(stock_quantity=0)
+                    Q(
+                        category=Product.Category.DRY_GOODS,
+                        stock_quantity=0,
+                    )
                     | Q(
+                        category=Product.Category.DRY_GOODS,
                         stock_quantity__gt=0,
                         stock_quantity__lte=F("low_stock_threshold"),
                     )
                 )
             elif product_filter == "out":
-                catalog = catalog.filter(stock_quantity=0)
+                catalog = catalog.filter(
+                    category=Product.Category.DRY_GOODS,
+                    stock_quantity=0,
+                )
         elif product_filter == "low":
             catalog = catalog.filter(
                 stock_quantity__gt=0,
@@ -1402,39 +1579,508 @@ def employee_workspace(request):
                 ],
             )[:10]
     elif active_section == "menu":
-        menu_products = Product.objects.order_by("category", "name")
+        menu_catalog = Product.objects.order_by("category", "name")
+        if query:
+            menu_catalog = menu_catalog.filter(
+                Q(name__icontains=query) | Q(sku__icontains=query)
+            )
+        if product_filter == "dry":
+            menu_catalog = menu_catalog.filter(category=Product.Category.DRY_GOODS)
+        elif product_filter == "fresh":
+            menu_catalog = menu_catalog.exclude(category=Product.Category.DRY_GOODS)
+        elif product_filter == "selling":
+            menu_catalog = menu_catalog.filter(is_available=True)
+        elif product_filter == "paused":
+            menu_catalog = menu_catalog.filter(is_available=False)
+        elif product_filter == "low":
+            menu_catalog = menu_catalog.filter(
+                category=Product.Category.DRY_GOODS
+            ).filter(
+                Q(stock_quantity=0)
+                | Q(
+                    stock_quantity__gt=0,
+                    stock_quantity__lte=F("low_stock_threshold"),
+                )
+            )
+        elif product_filter == "out":
+            menu_catalog = menu_catalog.filter(
+                category=Product.Category.DRY_GOODS,
+                stock_quantity=0,
+            )
+        menu_products = menu_catalog
+        employee_menu_stats = {
+            "total": Product.objects.count(),
+            "selling": Product.objects.filter(is_available=True).count(),
+            "fresh": Product.objects.exclude(
+                category=Product.Category.DRY_GOODS
+            ).count(),
+            "dry": Product.objects.filter(
+                category=Product.Category.DRY_GOODS
+            ).count(),
+            "low_or_out": Product.objects.filter(
+                category=Product.Category.DRY_GOODS
+            ).filter(
+                Q(stock_quantity=0)
+                | Q(
+                    stock_quantity__gt=0,
+                    stock_quantity__lte=F("low_stock_threshold"),
+                )
+            ).count(),
+            "paused": Product.objects.filter(is_available=False).count(),
+        }
 
-    report_start = today_start - timedelta(days=6)
+    report_range = request.GET.get("range", "7d")
+    report_range_options = {
+        "today": (1, "Hôm nay"),
+        "7d": (7, "7 ngày gần nhất"),
+        "30d": (30, "30 ngày gần nhất"),
+    }
+    if report_range not in {*report_range_options, "custom"}:
+        report_range = "7d"
+    report_period_days, report_period_label = report_range_options.get(
+        report_range,
+        (7, "Khoảng tùy chọn"),
+    )
+    report_end = today
+    report_start = today - timedelta(days=report_period_days - 1)
+    if report_range == "custom":
+        try:
+            custom_start = date.fromisoformat(request.GET.get("start", ""))
+            custom_end = date.fromisoformat(request.GET.get("end", ""))
+        except ValueError:
+            report_range = "7d"
+        else:
+            custom_days = (custom_end - custom_start).days + 1
+            if (
+                custom_start <= custom_end <= today
+                and custom_days <= 90
+            ):
+                report_start = custom_start
+                report_end = custom_end
+                report_period_days = custom_days
+            else:
+                report_range = "7d"
+        if report_range == "7d":
+            report_period_days, report_period_label = report_range_options["7d"]
+            report_start = today - timedelta(days=report_period_days - 1)
+
+    report_start_at = day_start(report_start)
+    report_end_at = day_start(report_end + timedelta(days=1))
+    report_chart_min_width = (
+        (6 if report_range == "today" else report_period_days) * 52
+    )
+    report_previous_end = report_start - timedelta(days=1)
+    report_previous_start = report_previous_end - timedelta(days=report_period_days - 1)
     report_order_count = 0
     report_completed_count = 0
     report_cancelled_count = 0
     report_revenue = Decimal("0.00")
-    report_popular_products = []
+    report_previous_revenue = Decimal("0.00")
+    report_average_order_value = Decimal("0.00")
+    report_completion_percentage = 0
+    report_cancellation_percentage = 0
+    report_cancellation_change = "Không có dữ liệu kỳ trước"
+    report_cancellation_direction = "neutral"
+    report_chart_points = []
+    report_chart_peak = None
+    report_chart_has_data = False
+    report_category_rows = []
+    report_delivery_rows = []
+    report_payment_rows = []
+    report_cancellation_reason_rows = []
     if active_section == "reports":
         report_orders = orders.filter(
-            created_at__gte=report_start,
-            created_at__lt=tomorrow_start,
+            created_at__gte=report_start_at,
+            created_at__lt=report_end_at,
         )
         report_completed_orders = report_orders.filter(status=Order.Status.DELIVERED)
         report_order_count = report_orders.count()
         report_completed_count = report_completed_orders.count()
-        report_cancelled_count = report_orders.filter(
-            status=Order.Status.CANCELLED
-        ).count()
+        report_cancelled_orders = report_orders.filter(status=Order.Status.CANCELLED)
+        report_cancelled_count = report_cancelled_orders.count()
         report_revenue = (
-            report_completed_orders.aggregate(total=Sum("total"))["total"]
+            report_completed_orders.aggregate(total=Sum("subtotal"))["total"]
             or Decimal("0.00")
         )
-        report_popular_products = (
-            OrderItem.objects.filter(
-                order__status=Order.Status.DELIVERED,
-                order__created_at__gte=report_start,
-                order__created_at__lt=tomorrow_start,
-            )
-            .values("product_name")
-            .annotate(quantity=Sum("quantity"))
-            .order_by("-quantity", "product_name")[:5]
+        previous_report_orders = orders.filter(
+            created_at__gte=day_start(report_previous_start),
+            created_at__lt=day_start(report_previous_end + timedelta(days=1)),
         )
+        report_previous_revenue = (
+            previous_report_orders.filter(status=Order.Status.DELIVERED)
+            .aggregate(total=Sum("subtotal"))["total"]
+            or Decimal("0.00")
+        )
+        report_previous_cancelled_count = previous_report_orders.filter(
+            status=Order.Status.CANCELLED
+        ).count()
+        report_previous_order_count = previous_report_orders.count()
+        report_average_order_value = (
+            report_revenue / report_completed_count if report_completed_count else Decimal("0.00")
+        )
+        report_completion_percentage = round(
+            report_completed_count * 100 / report_order_count if report_order_count else 0
+        )
+        report_cancellation_percentage = (
+            report_cancelled_count * 100 / report_order_count if report_order_count else 0
+        )
+        previous_cancellation_percentage = (
+            report_previous_cancelled_count * 100 / report_previous_order_count
+            if report_previous_order_count
+            else 0
+        )
+        cancellation_change = round(
+            report_cancellation_percentage - previous_cancellation_percentage,
+            1,
+        )
+        report_cancellation_direction = "good" if cancellation_change <= 0 else "bad"
+        if cancellation_change == 0:
+            report_cancellation_change = "Không đổi so với kỳ trước"
+        else:
+            arrow = "▼" if cancellation_change < 0 else "▲"
+            report_cancellation_change = (
+                f"{arrow} {abs(cancellation_change):.1f} điểm so với kỳ trước"
+            )
+
+        weekday_labels = ("T2", "T3", "T4", "T5", "T6", "T7", "CN")
+        chart_values = []
+        if report_range == "today":
+            hour_slots = ((6, 9), (9, 12), (12, 15), (15, 18), (18, 21))
+            hourly_report_orders = report_orders.exclude(
+                status=Order.Status.CANCELLED
+            )
+            hourly_totals = hourly_report_orders.aggregate(
+                **{
+                    f"slot_{index}": Sum(
+                        "subtotal",
+                        filter=Q(
+                            created_at__gte=today_start + timedelta(hours=start_hour),
+                            created_at__lt=today_start + timedelta(hours=end_hour),
+                        ),
+                    )
+                    for index, (start_hour, end_hour) in enumerate(hour_slots)
+                }
+            )
+            for index, (start_hour, end_hour) in enumerate(hour_slots):
+                slot_label = f"{start_hour}–{end_hour}h"
+                chart_values.append(
+                    {
+                        "day": today,
+                        "label": slot_label,
+                        "tooltip": slot_label,
+                        "amount": hourly_totals.get(f"slot_{index}")
+                        or Decimal("0.00"),
+                    }
+                )
+            outside_hours_total = hourly_report_orders.aggregate(
+                amount=Sum(
+                    "subtotal",
+                    filter=Q(
+                        created_at__lt=today_start + timedelta(hours=6)
+                    )
+                    | Q(
+                        created_at__gte=today_start + timedelta(hours=21)
+                    ),
+                )
+            )["amount"] or Decimal("0.00")
+            if outside_hours_total:
+                chart_values.append(
+                    {
+                        "day": today,
+                        "label": "Ngoài giờ",
+                        "tooltip": "Ngoài khung 6–21h",
+                        "amount": outside_hours_total,
+                    }
+                )
+        else:
+            daily_totals = report_completed_orders.aggregate(
+                **{
+                    f"day_{day_offset}": Sum(
+                        "subtotal",
+                        filter=Q(
+                            created_at__gte=day_start(
+                                report_start + timedelta(days=day_offset)
+                            ),
+                            created_at__lt=day_start(
+                                report_start + timedelta(days=day_offset + 1)
+                            ),
+                        ),
+                    )
+                    for day_offset in range(report_period_days)
+                }
+            )
+            for day_offset in range(report_period_days):
+                chart_day = report_start + timedelta(days=day_offset)
+                day_label = (
+                    f"{weekday_labels[chart_day.weekday()]} {chart_day:%d/%m}"
+                    if report_period_days <= 7
+                    else chart_day.strftime("%d/%m")
+                    if chart_day == report_start
+                    or chart_day == report_end
+                    or chart_day.day % 5 == 0
+                    else ""
+                )
+                chart_values.append(
+                    {
+                        "day": chart_day,
+                        "label": day_label,
+                        "tooltip": chart_day.strftime("%d/%m/%Y"),
+                        "amount": daily_totals.get(f"day_{day_offset}")
+                        or Decimal("0.00"),
+                    }
+                )
+
+        max_chart_revenue = max(
+            (point["amount"] for point in chart_values),
+            default=Decimal("0.00"),
+        )
+        chart_track_height = 160
+        for point in chart_values:
+            amount = point["amount"]
+            height_percentage = (
+                float(amount / max_chart_revenue * 100)
+                if max_chart_revenue
+                else 0
+            )
+            height_px = (
+                max(3, round(height_percentage * chart_track_height / 100))
+                if amount
+                else 0
+            )
+            report_chart_points.append(
+                {
+                    **point,
+                    "amount": amount,
+                    "amount_display": _format_vnd(amount),
+                    "height": round(height_percentage, 1),
+                    "height_px": height_px,
+                    "label_bottom": (
+                        height_px + 29 if amount else 0
+                    ),
+                }
+            )
+        report_chart_peak = max(
+            report_chart_points,
+            key=lambda point: point["amount"],
+            default=None,
+        )
+        report_chart_has_data = any(
+            point["amount"] for point in report_chart_points
+        )
+
+        item_revenue_by_category = {
+            row["product_category"]: row["amount"] or Decimal("0.00")
+            for row in OrderItem.objects.filter(
+                order__in=report_completed_orders
+            )
+            .values("product_category")
+            .annotate(amount=Sum("line_total"))
+        }
+        dry_goods_revenue = item_revenue_by_category.pop(
+            Product.Category.DRY_GOODS,
+            Decimal("0.00"),
+        )
+        fresh_categories = set(Product.Category.values) - {Product.Category.DRY_GOODS}
+        fresh_revenue = sum(
+            (
+                amount
+                for category, amount in item_revenue_by_category.items()
+                if category in fresh_categories
+            ),
+            Decimal("0.00"),
+        )
+        unknown_category_revenue = sum(
+            (
+                amount
+                for category, amount in item_revenue_by_category.items()
+                if category not in fresh_categories
+            ),
+            Decimal("0.00"),
+        )
+        report_category_total = dry_goods_revenue + fresh_revenue + unknown_category_revenue
+        report_category_rows = [
+            {
+                "label": "Đồ tươi (chỉ TP.HCM)",
+                "amount": fresh_revenue,
+                "amount_display": _format_vnd(fresh_revenue),
+                "percentage": (
+                    round(fresh_revenue * 100 / report_category_total)
+                    if report_category_total
+                    else 0
+                ),
+                "color": "green",
+            },
+            {
+                "label": "Đồ khô (toàn quốc)",
+                "amount": dry_goods_revenue,
+                "amount_display": _format_vnd(dry_goods_revenue),
+                "percentage": (
+                    round(dry_goods_revenue * 100 / report_category_total)
+                    if report_category_total
+                    else 0
+                ),
+                "color": "blue",
+            },
+        ]
+        if unknown_category_revenue:
+            report_category_rows.append(
+                {
+                    "label": "Chưa phân loại",
+                    "amount": unknown_category_revenue,
+                    "amount_display": _format_vnd(unknown_category_revenue),
+                    "percentage": round(
+                        unknown_category_revenue * 100 / report_category_total
+                    ),
+                    "color": "gray",
+                }
+            )
+
+        delivery_revenue = {
+            row["delivery_region"]: row["amount"] or Decimal("0.00")
+            for row in report_completed_orders.values("delivery_region")
+            .annotate(amount=Sum("subtotal"))
+        }
+        report_delivery_rows = [
+            {
+                "label": label,
+                "amount_display": _format_vnd(delivery_revenue.get(value, Decimal("0.00"))),
+                "percentage": (
+                    round(delivery_revenue.get(value, Decimal("0.00")) * 100 / report_revenue)
+                    if report_revenue
+                    else 0
+                ),
+                "color": color,
+            }
+            for value, label, color in (
+                (Order.DeliveryRegion.HO_CHI_MINH_CITY, "TP. Hồ Chí Minh", "green"),
+                (Order.DeliveryRegion.OTHER_PROVINCES, "Các tỉnh khác", "blue"),
+            )
+        ]
+        unknown_delivery_revenue = delivery_revenue.get("", Decimal("0.00"))
+        if unknown_delivery_revenue:
+            report_delivery_rows.append(
+                {
+                    "label": "Chưa phân loại",
+                    "amount_display": _format_vnd(unknown_delivery_revenue),
+                    "percentage": round(unknown_delivery_revenue * 100 / report_revenue),
+                    "color": "gray",
+                }
+            )
+
+        payment_revenue = {
+            row["payment_method"]: row["amount"] or Decimal("0.00")
+            for row in report_completed_orders.values("payment_method")
+            .annotate(amount=Sum("subtotal"))
+        }
+        report_payment_rows = [
+            {
+                "label": "COD" if value == Order.PaymentMethod.COD else label,
+                "amount_display": _format_vnd(payment_revenue.get(value, Decimal("0.00"))),
+                "percentage": (
+                    round(payment_revenue.get(value, Decimal("0.00")) * 100 / report_revenue)
+                    if report_revenue
+                    else 0
+                ),
+                "color": "green" if index == 0 else "blue",
+            }
+            for index, (value, label) in enumerate(Order.PaymentMethod.choices)
+        ]
+
+        cancellation_labels = dict(Order.CancellationReasonCategory.choices)
+        reason_counts = list(
+            report_cancelled_orders.values("cancellation_reason_category")
+            .annotate(count=Count("pk"))
+            .order_by("-count", "cancellation_reason_category")
+        )
+        max_reason_count = max((row["count"] for row in reason_counts), default=0)
+        report_cancellation_reason_rows = [
+            {
+                "label": cancellation_labels.get(
+                    row["cancellation_reason_category"],
+                    "Chưa phân loại",
+                )
+                if row["cancellation_reason_category"]
+                else "Chưa phân loại",
+                "count": row["count"],
+                "percentage": (
+                    round(row["count"] * 100 / max_reason_count)
+                    if max_reason_count
+                    else 0
+                ),
+            }
+            for row in reason_counts
+        ]
+
+        if request.GET.get("export") == "csv":
+            response = HttpResponse(content_type="text/csv; charset=utf-8")
+            response["Content-Disposition"] = (
+                f'attachment; filename="fitmeal-revenue-{report_start:%Y%m%d}-{report_end:%Y%m%d}.csv"'
+            )
+            response.write("\ufeff")
+            writer = csv.writer(response)
+            writer.writerow(["BÁO CÁO DOANH THU", report_period_label])
+            writer.writerow(["Từ ngày", report_start.strftime("%d/%m/%Y")])
+            writer.writerow(["Đến ngày", report_end.strftime("%d/%m/%Y")])
+            writer.writerow(["Doanh thu hàng hóa", _format_vnd(report_revenue)])
+            writer.writerow(["Đơn hoàn tất", f"{report_completed_count} / {report_order_count}"])
+            writer.writerow(["Giá trị trung bình mỗi đơn", _format_vnd(report_average_order_value)])
+            writer.writerow(["Tỷ lệ hủy", f"{report_cancellation_percentage:.1f}%"])
+            writer.writerow([])
+            if report_range == "today":
+                writer.writerow(["Doanh thu theo khung giờ"])
+                writer.writerow(["Khung giờ", "Doanh thu"])
+                writer.writerows(
+                    [
+                        [point["label"], _format_vnd(point["amount"])]
+                        for point in report_chart_points
+                    ]
+                )
+            else:
+                writer.writerow(["Doanh thu theo ngày"])
+                writer.writerow(["Ngày", "Doanh thu"])
+                writer.writerows(
+                    [
+                        [
+                            point["day"].strftime("%d/%m/%Y"),
+                            _format_vnd(point["amount"]),
+                        ]
+                        for point in report_chart_points
+                    ]
+                )
+            writer.writerow([])
+            writer.writerow(["Doanh thu theo khu vực"])
+            writer.writerow(["Khu vực", "Doanh thu", "Tỷ trọng"])
+            writer.writerows(
+                [
+                    [row["label"], row["amount_display"], f'{row["percentage"]}%']
+                    for row in report_delivery_rows
+                ]
+            )
+            writer.writerow([])
+            writer.writerow(["Doanh thu theo nhóm món"])
+            writer.writerow(["Nhóm món", "Doanh thu", "Tỷ trọng"])
+            writer.writerows(
+                [
+                    [row["label"], row["amount_display"], f'{row["percentage"]}%']
+                    for row in report_category_rows
+                ]
+            )
+            writer.writerow([])
+            writer.writerow(["Doanh thu theo thanh toán"])
+            writer.writerow(["Phương thức", "Doanh thu", "Tỷ trọng"])
+            writer.writerows(
+                [
+                    [row["label"], row["amount_display"], f'{row["percentage"]}%']
+                    for row in report_payment_rows
+                ]
+            )
+            writer.writerow([])
+            writer.writerow(["Lý do hủy"])
+            writer.writerow(["Lý do", "Số đơn"])
+            writer.writerows(
+                [[row["label"], row["count"]] for row in report_cancellation_reason_rows]
+            )
+            return response
     product_activity = (
         ProductActivity.objects.select_related("actor")
         .order_by("-created_at", "-pk")[:100]
@@ -1514,16 +2160,46 @@ def employee_workspace(request):
             "selected_product_form": selected_product_form,
             "price_history": price_history,
             "product_filter": product_filter,
+            "employee_menu_stats": employee_menu_stats,
             "product_stats": product_stats,
+            "inventory_restock_requests": active_restock_requests,
+            "manager_restock_requests": manager_restock_requests,
+            "inventory_restock_alert_count": len(active_restock_requests),
+            "pending_inventory_restock_count": pending_inventory_restock_count,
             "product_create_form": ProductCreateForm(auto_id="manager_create_%s"),
             "report_order_count": report_order_count,
             "report_completed_count": report_completed_count,
             "report_cancelled_count": report_cancelled_count,
             "report_revenue": report_revenue,
-            "report_popular_products": report_popular_products,
+            "report_revenue_display": _format_vnd(report_revenue),
+            "report_previous_revenue": report_previous_revenue,
+            "report_previous_revenue_display": _format_vnd(report_previous_revenue),
+            "report_revenue_comparison": _period_comparison(
+                report_revenue,
+                report_previous_revenue,
+            ),
+            "report_average_order_value": report_average_order_value,
+            "report_average_order_value_display": _format_vnd(report_average_order_value),
+            "report_completion_percentage": report_completion_percentage,
+            "report_cancellation_percentage": report_cancellation_percentage,
+            "report_cancellation_change": report_cancellation_change,
+            "report_cancellation_direction": report_cancellation_direction,
+            "report_chart_points": report_chart_points,
+            "report_chart_peak": report_chart_peak,
+            "report_chart_has_data": report_chart_has_data,
+            "report_chart_min_width": report_chart_min_width,
+            "report_category_rows": report_category_rows,
+            "report_delivery_rows": report_delivery_rows,
+            "report_payment_rows": report_payment_rows,
+            "report_cancellation_reason_rows": report_cancellation_reason_rows,
+            "report_range": report_range,
+            "report_period_label": report_period_label,
+            "report_period_days": report_period_days,
+            "report_previous_start": report_previous_start,
+            "report_previous_end": report_previous_end,
             "product_activity": product_activity,
             "report_start": report_start,
-            "report_end": today,
+            "report_end": report_end,
             "query": query,
         },
     )
@@ -1551,13 +2227,32 @@ def staff_update_order_status(request, order_id):
                     "Hãy xử lý yêu cầu hủy đang mở trước khi cập nhật tiến độ đơn.",
                 )
             elif (
-                order.payment_method == Order.PaymentMethod.VNPAY
+                order.payment_method
+                in {
+                    Order.PaymentMethod.MOMO,
+                    Order.PaymentMethod.BANK_TRANSFER,
+                    Order.PaymentMethod.VNPAY,
+                }
                 and not PaymentTransaction.objects.filter(
                     order=order,
                     status=PaymentTransaction.Status.PAID,
                 ).exists()
             ):
-                messages.error(request, "Chỉ có thể xử lý đơn VNPay sau khi giao dịch được xác nhận đã thanh toán.")
+                messages.error(
+                    request,
+                    "Chỉ có thể xử lý đơn thanh toán trực tuyến sau khi giao dịch được xác nhận.",
+                )
+            elif next_status in {
+                Order.Status.PREPARING,
+                Order.Status.PACKING,
+            } and order.items.filter(
+                product_category=Product.Category.DRY_GOODS,
+                inventory_deducted=False,
+            ).exists():
+                messages.error(
+                    request,
+                    "Đơn đã được ghi nhận nhưng đang chờ bổ sung hàng; chưa thể chuẩn bị hoặc đóng gói.",
+                )
             elif current_status in {
                 Order.Status.AWAITING_CUSTOMER_CONFIRMATION,
                 Order.Status.DELIVERY_ISSUE,
@@ -1578,7 +2273,25 @@ def staff_update_order_status(request, order_id):
                         request,
                         f"Đã ghi nhận giao đơn {order.order_number}; chờ khách xác nhận trong 3 phút.",
                     )
-            elif next_status in {Order.Status.DELIVERED, Order.Status.DELIVERY_ISSUE}:
+            elif next_status == Order.Status.DELIVERY_ISSUE:
+                if current_status != Order.Status.DELIVERING:
+                    messages.error(
+                        request,
+                        "Chỉ có thể ghi nhận không liên lạc được khi đơn đang giao.",
+                    )
+                else:
+                    DeliveryIssue.objects.create(
+                        order=order,
+                        details="Không liên lạc được với khách khi giao hàng.",
+                        reported_by=request.user,
+                    )
+                    order.status = Order.Status.DELIVERY_ISSUE
+                    order.save(update_fields=["status", "updated_at"])
+                    messages.success(
+                        request,
+                        "Đã ghi nhận giao hàng không thành công do không liên lạc được với khách.",
+                    )
+            elif next_status == Order.Status.DELIVERED:
                 messages.error(
                     request,
                     "Trạng thái này chỉ được cập nhật theo phản hồi của khách hoặc Quản lý.",
@@ -1985,12 +2698,54 @@ def manager_cancel_order(request, order_id):
 
 
 @login_required
-@require_POST
+@require_http_methods(["GET", "POST"])
 def staff_create_product(request):
     if not _can_manage_catalog(request.user):
         raise PermissionDenied
 
-    form = ProductCreateForm(request.POST, request.FILES)
+    if request.method == "GET":
+        return render(
+            request,
+            "orders/product_create.html",
+            {
+                "product_form": ProductCreateForm(),
+                "employee_role": request.user.get_staff_role_display(),
+                "catalog_url": (
+                    f"{reverse('staff_orders:dashboard')}?section=products#products"
+                    if request.user.is_superuser
+                    else f"{reverse('staff_orders:dashboard')}?workspace=menu"
+                ),
+            },
+        )
+
+    post_data = request.POST.copy()
+    save_mode = post_data.get("save_mode")
+    if save_mode == "publish":
+        post_data["is_available"] = "on"
+    elif save_mode == "draft":
+        post_data.pop("is_available", None)
+    form = ProductCreateForm(post_data, request.FILES)
+    if form.is_valid():
+        if save_mode == "publish":
+            publish_requirements = {
+                "ingredients": bool(form.cleaned_data["ingredients"].strip()),
+                "calories": bool(form.cleaned_data["calories"]),
+                "protein": form.cleaned_data["protein"] > 0,
+                "serving": bool(form.cleaned_data["serving"].strip()),
+                "image": bool(form.cleaned_data["image"]),
+            }
+            if form.cleaned_data["category"] == Product.Category.DRY_GOODS:
+                publish_requirements["stock_quantity"] = (
+                    form.cleaned_data["stock_quantity"] is not None
+                )
+            missing_requirements = [
+                field_name
+                for field_name, is_complete in publish_requirements.items()
+                if not is_complete
+            ]
+            for field_name in missing_requirements:
+                form.add_error(field_name, "Cần điền thông tin này để mở bán món.")
+
     if form.is_valid():
         with transaction.atomic():
             product = form.save()
@@ -2000,7 +2755,7 @@ def staff_create_product(request):
                 action=ProductActivity.Action.CREATED,
                 new_value=format(product.price, ".2f"),
             )
-            if product.stock_quantity is not None:
+            if product.tracks_inventory and product.stock_quantity is not None:
                 _record_product_activity(
                     product=product,
                     actor=request.user,
@@ -2014,6 +2769,20 @@ def staff_create_product(request):
         for errors in form.errors.values():
             for error in errors:
                 messages.error(request, error)
+        return render(
+            request,
+            "orders/product_create.html",
+            {
+                "product_form": form,
+                "employee_role": request.user.get_staff_role_display(),
+                "catalog_url": (
+                    f"{reverse('staff_orders:dashboard')}?section=products#products"
+                    if request.user.is_superuser
+                    else f"{reverse('staff_orders:dashboard')}?workspace=menu"
+                ),
+            },
+            status=400,
+        )
     if not request.user.is_superuser:
         if form.is_valid():
             return redirect(
@@ -2029,10 +2798,19 @@ def staff_toggle_product_availability(request, product_id):
     if not _can_access_employee_workspace(request.user):
         raise PermissionDenied
 
+    menu_query = urlencode(
+        {
+            "workspace": "menu",
+            "filter": request.GET.get("filter", "all"),
+            "q": request.GET.get("q", "")[:100],
+        }
+    )
     requested_value = request.POST.get("is_available")
     if requested_value not in {"true", "false"}:
         messages.error(request, "Trạng thái món không hợp lệ.")
-        return redirect(f"{reverse('staff_orders:dashboard')}?workspace=menu#staff-workspace")
+        return redirect(
+            f"{reverse('staff_orders:dashboard')}?{menu_query}#staff-workspace"
+        )
 
     is_available = requested_value == "true"
     with transaction.atomic():
@@ -2058,7 +2836,143 @@ def staff_toggle_product_availability(request, product_id):
                 request,
                 f"Đã {'mở bán lại' if is_available else 'tạm ngưng bán'} món {product.name}.",
             )
+    return redirect(
+        f"{reverse('staff_orders:dashboard')}?{menu_query}#staff-workspace"
+    )
+
+
+@login_required
+@require_POST
+def staff_request_inventory_restock(request, product_id):
+    if not _can_access_employee_workspace(request.user):
+        raise PermissionDenied
+
+    with transaction.atomic():
+        product = get_object_or_404(
+            Product.objects.select_for_update(),
+            pk=product_id,
+            category=Product.Category.DRY_GOODS,
+        )
+        restock_request = InventoryRestockRequest.objects.select_for_update().filter(
+            product=product,
+            status=InventoryRestockRequest.Status.STAFF_ALERT,
+        ).first()
+        if not restock_request:
+            messages.info(
+                request,
+                f"Cảnh báo bổ sung {product.name} đã được gửi hoặc không còn mở.",
+            )
+        else:
+            restock_request.status = InventoryRestockRequest.Status.MANAGER_REVIEW
+            restock_request.requested_by = request.user
+            restock_request.save(
+                update_fields=["status", "requested_by", "updated_at"]
+            )
+
+    if restock_request:
+        messages.success(
+            request,
+            f"Đã gửi yêu cầu bổ sung {product.name} cho Quản lý.",
+        )
     return redirect(f"{reverse('staff_orders:dashboard')}?workspace=menu#staff-workspace")
+
+
+@login_required
+@require_POST
+def manager_fulfill_inventory_restock(request, restock_request_id):
+    if not _can_manage_catalog(request.user):
+        raise PermissionDenied
+
+    with transaction.atomic():
+        restock_request = InventoryRestockRequest.objects.filter(
+            pk=restock_request_id,
+            status=InventoryRestockRequest.Status.MANAGER_REVIEW,
+        ).first()
+        if not restock_request:
+            messages.error(request, "Yêu cầu bổ sung này đã được xử lý hoặc không còn mở.")
+        elif not restock_request.product_id:
+            restock_request = InventoryRestockRequest.objects.select_for_update().get(
+                pk=restock_request_id,
+                status=InventoryRestockRequest.Status.MANAGER_REVIEW,
+            )
+            restock_request.status = InventoryRestockRequest.Status.CANCELLED
+            restock_request.requested_quantity = 0
+            restock_request.save(
+                update_fields=["status", "requested_quantity", "updated_at"]
+            )
+            messages.error(request, "Sản phẩm của yêu cầu này không còn tồn tại.")
+        else:
+            product, outstanding_quantity, fulfilled = fulfill_inventory_backorders(
+                restock_request.product_id,
+                actor=request.user,
+            )
+            restock_request = InventoryRestockRequest.objects.select_for_update().filter(
+                pk=restock_request_id,
+                status=InventoryRestockRequest.Status.MANAGER_REVIEW,
+            ).first()
+            if not restock_request:
+                messages.info(request, "Yêu cầu này đã được quản lý khác xử lý.")
+            elif outstanding_quantity == 0:
+                restock_request.status = InventoryRestockRequest.Status.CANCELLED
+                restock_request.requested_quantity = 0
+                restock_request.available_quantity = product.stock_quantity or 0
+                restock_request.save(
+                    update_fields=[
+                        "status",
+                        "requested_quantity",
+                        "available_quantity",
+                        "updated_at",
+                    ]
+                )
+                messages.info(
+                    request,
+                    f"Không còn đơn chờ nhập hàng cho {product.name}.",
+                )
+            elif not product.tracks_inventory:
+                restock_request.status = InventoryRestockRequest.Status.CANCELLED
+                restock_request.requested_quantity = 0
+                restock_request.save(
+                    update_fields=["status", "requested_quantity", "updated_at"]
+                )
+                messages.error(
+                    request,
+                    f"{product.name} không còn được quản lý tồn kho.",
+                )
+            elif not fulfilled:
+                restock_request.requested_quantity = outstanding_quantity
+                restock_request.available_quantity = product.stock_quantity or 0
+                restock_request.save(
+                    update_fields=[
+                        "requested_quantity",
+                        "available_quantity",
+                        "updated_at",
+                    ]
+                )
+                messages.error(
+                    request,
+                    f"Cần cập nhật tồn kho {product.name} đủ ít nhất "
+                    f"{outstanding_quantity} trước khi xác nhận.",
+                )
+            else:
+                restock_request.status = InventoryRestockRequest.Status.FULFILLED
+                restock_request.fulfilled_by = request.user
+                restock_request.fulfilled_at = timezone.now()
+                restock_request.save(
+                    update_fields=[
+                        "status",
+                        "fulfilled_by",
+                        "fulfilled_at",
+                        "updated_at",
+                    ]
+                )
+                messages.success(
+                    request,
+                    f"Đã xác nhận bổ sung {product.name}.",
+                )
+
+    return redirect(
+        f"{reverse('staff_orders:dashboard')}?workspace=inventory#manager-inventory"
+    )
 
 
 @login_required
@@ -2068,16 +2982,21 @@ def staff_update_product(request, product_id):
         raise PermissionDenied
 
     with transaction.atomic():
-        product = get_object_or_404(Product.objects.select_for_update(), pk=product_id)
+        workspace = request.GET.get("workspace", "menu")
+        if workspace not in {"menu", "inventory"}:
+            workspace = "menu"
+        product_queryset = Product.objects.select_for_update()
+        if workspace == "inventory" and not request.user.is_superuser:
+            product_queryset = product_queryset.filter(
+                category=Product.Category.DRY_GOODS
+            )
+        product = get_object_or_404(product_queryset, pk=product_id)
         old_values = {
             "price": product.price,
             "stock_quantity": product.stock_quantity,
             "low_stock_threshold": product.low_stock_threshold,
             "is_available": product.is_available,
         }
-        workspace = request.GET.get("workspace", "menu")
-        if workspace not in {"menu", "inventory"}:
-            workspace = "menu"
         if request.user.is_superuser:
             form_class = ProductQuickEditForm
         elif workspace == "inventory":

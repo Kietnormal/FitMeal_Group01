@@ -1,6 +1,6 @@
 import json
 from importlib import import_module
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -8,13 +8,13 @@ from unittest.mock import patch
 from django.apps import apps
 from django.contrib import admin
 from django.db import connection
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
 from apps.accounts.models import PointsTransaction, User
 from apps.products.forms import ProductCreateForm
-from apps.products.models import Product, ProductActivity
+from apps.products.models import InventoryRestockRequest, Product, ProductActivity
 from apps.payments.models import PaymentTransaction
 
 from .admin import OrderAdmin
@@ -22,6 +22,13 @@ from .delivery import finalize_expired_delivery_confirmations
 from .models import DeliveryIssue, Order, OrderCancellationRequest, OrderItem
 
 
+@override_settings(
+    BANK_TRANSFER_ENABLED=True,
+    BANK_TRANSFER_BANK_CODE="VCB",
+    BANK_TRANSFER_ACCOUNT_NUMBER="123456789",
+    BANK_TRANSFER_ACCOUNT_NAME="FITMEAL",
+    SEPAY_API_KEY="test-sepay-key",
+)
 class OrderApiTests(TestCase):
     def setUp(self):
         self.product = Product.objects.create(
@@ -42,7 +49,7 @@ class OrderApiTests(TestCase):
             "delivery_date": (timezone.localdate() + timedelta(days=1)).isoformat(),
             "delivery_slot": Order.DeliverySlot.MORNING,
             "note": "",
-            "payment": Order.PaymentMethod.COD,
+            "payment": Order.PaymentMethod.BANK_TRANSFER,
             "accept_policy": True,
             "items": [{"id": self.product.slug, "quantity": 2}],
         }
@@ -52,6 +59,18 @@ class OrderApiTests(TestCase):
             reverse("orders:create"),
             data=json.dumps(payload if payload is not None else self.payload),
             content_type="application/json",
+        )
+
+    def create_dry_product(self, *, slug, stock_quantity):
+        return Product.objects.create(
+            sku=f"FM-{slug.upper()}",
+            slug=slug,
+            name="Đồ khô kiểm tra",
+            category=Product.Category.DRY_GOODS,
+            description="Sản phẩm khô",
+            price=Decimal("100000.00"),
+            stock_quantity=stock_quantity,
+            shipping_weight_grams=500,
         )
 
     def create_awaiting_confirmation_order(self):
@@ -68,13 +87,160 @@ class OrderApiTests(TestCase):
         self.assertEqual(response.status_code, 201)
         order = Order.objects.get()
         item = OrderItem.objects.get(order=order)
+        self.assertEqual(order.delivery_region, Order.DeliveryRegion.HO_CHI_MINH_CITY)
         self.assertEqual(order.subtotal, Decimal("200000.00"))
         self.assertEqual(order.shipping_fee, Decimal("20000.00"))
         self.assertEqual(order.total, Decimal("220000.00"))
         self.assertEqual(item.product_name, "Whey")
         self.assertEqual(item.unit_price, Decimal("100000.00"))
         self.assertEqual(item.quantity, 2)
+        self.assertFalse(item.inventory_deducted)
+        self.assertIsNone(self.product.stock_quantity)
         self.assertTrue(response.json()["tracking_token"])
+
+    def test_overselling_order_is_accepted_and_staff_restock_alert_is_created(self):
+        product = self.create_dry_product(slug="tracked-stock", stock_quantity=14)
+        payload = {
+            **self.payload,
+            "delivery_slot": Order.DeliverySlot.COURIER,
+            "items": [{"id": product.slug, "quantity": 14}],
+        }
+
+        response = self.post_order(payload)
+
+        self.assertEqual(response.status_code, 201)
+        product.refresh_from_db()
+        item = OrderItem.objects.get()
+        self.assertEqual(product.stock_quantity, 0)
+        self.assertTrue(item.inventory_deducted)
+
+        oversell_response = self.post_order(payload)
+
+        self.assertEqual(oversell_response.status_code, 201)
+        self.assertNotIn("error", oversell_response.json())
+        self.assertNotIn("tồn kho", json.dumps(oversell_response.json()).casefold())
+        self.assertEqual(Order.objects.count(), 2)
+        product.refresh_from_db()
+        self.assertEqual(product.stock_quantity, 0)
+        restock_request = InventoryRestockRequest.objects.get(product=product)
+        self.assertEqual(restock_request.status, InventoryRestockRequest.Status.STAFF_ALERT)
+        self.assertEqual(restock_request.requested_quantity, 14)
+        self.assertEqual(restock_request.available_quantity, 0)
+
+        repeat_response = self.post_order(
+            {**payload, "items": [{"id": product.slug, "quantity": 15}]}
+        )
+        self.assertEqual(repeat_response.status_code, 201)
+        restock_request.refresh_from_db()
+        self.assertEqual(restock_request.requested_quantity, 29)
+        self.assertEqual(restock_request.attempt_count, 2)
+        self.assertEqual(
+            OrderItem.objects.filter(
+                product=product,
+                inventory_deducted=False,
+            ).count(),
+            2,
+        )
+
+    def test_shortage_in_multiple_products_creates_staff_alert_for_each(self):
+        first_product = self.create_dry_product(slug="first-shortage", stock_quantity=1)
+        second_product = self.create_dry_product(slug="second-shortage", stock_quantity=2)
+        payload = {
+            **self.payload,
+            "delivery_slot": Order.DeliverySlot.COURIER,
+            "items": [
+                {"id": first_product.slug, "quantity": 3},
+                {"id": second_product.slug, "quantity": 4},
+            ],
+        }
+
+        response = self.post_order(payload)
+
+        self.assertEqual(response.status_code, 201)
+        self.assertNotIn("error", response.json())
+        self.assertEqual(Order.objects.count(), 1)
+        self.assertEqual(
+            set(
+                InventoryRestockRequest.objects.values_list(
+                    "product_id",
+                    flat=True,
+                )
+            ),
+            {first_product.pk, second_product.pk},
+        )
+
+    @patch("apps.orders.views.send_mail", return_value=1)
+    def test_cancelling_order_restores_deducted_stock_once(self, send_mail):
+        customer = User.objects.create_user(
+            username="inventory-customer",
+            email="inventory-customer@example.com",
+            password="Customer-Strong-2026!",
+        )
+        self.client.force_login(customer)
+        product = self.create_dry_product(slug="cancel-stock", stock_quantity=8)
+
+        create_response = self.post_order(
+            {
+                **self.payload,
+                "email": customer.email,
+                "delivery_slot": Order.DeliverySlot.COURIER,
+                "items": [{"id": product.slug, "quantity": 3}],
+            }
+        )
+        self.assertEqual(create_response.status_code, 201)
+        product.refresh_from_db()
+        self.assertEqual(product.stock_quantity, 5)
+        order = Order.objects.get()
+
+        cancel_url = reverse("orders:customer_cancel", args=[order.pk])
+        response = self.client.post(cancel_url, {"reason": "Khách đổi ý"})
+        self.assertEqual(response.status_code, 302)
+
+        product.refresh_from_db()
+        item = OrderItem.objects.get(order=order)
+        self.assertEqual(product.stock_quantity, 8)
+        self.assertFalse(item.inventory_deducted)
+
+        self.client.post(cancel_url, {"reason": "Gửi lại yêu cầu"})
+        product.refresh_from_db()
+        self.assertEqual(product.stock_quantity, 8)
+        send_mail.assert_called_once()
+
+    @patch("apps.orders.views.send_mail", return_value=1)
+    def test_cancelling_backordered_order_closes_restock_alert(self, send_mail):
+        customer = User.objects.create_user(
+            username="backorder-customer",
+            email="backorder-customer@example.com",
+            password="Customer-Strong-2026!",
+        )
+        self.client.force_login(customer)
+        product = self.create_dry_product(slug="backordered-stock", stock_quantity=0)
+
+        create_response = self.post_order(
+            {
+                **self.payload,
+                "email": customer.email,
+                "delivery_slot": Order.DeliverySlot.COURIER,
+                "items": [{"id": product.slug, "quantity": 5}],
+            }
+        )
+
+        self.assertEqual(create_response.status_code, 201)
+        order = Order.objects.get()
+        restock_request = InventoryRestockRequest.objects.get(product=product)
+        self.assertEqual(restock_request.requested_quantity, 5)
+
+        cancel_response = self.client.post(
+            reverse("orders:customer_cancel", args=[order.pk]),
+            {"reason": "Khách đổi ý"},
+        )
+
+        self.assertEqual(cancel_response.status_code, 302)
+        restock_request.refresh_from_db()
+        product.refresh_from_db()
+        self.assertEqual(restock_request.status, InventoryRestockRequest.Status.CANCELLED)
+        self.assertEqual(product.stock_quantity, 0)
+        send_mail.assert_called_once()
 
     def test_create_order_ignores_client_price_and_applies_free_shipping_threshold(self):
         self.product.price = Decimal("150000.00")
@@ -95,6 +261,7 @@ class OrderApiTests(TestCase):
             category=Product.Category.DRY_GOODS,
             description="Hạt điều rang",
             price=Decimal("80000.00"),
+            stock_quantity=10,
             shipping_weight_grams=500,
             expiry_date=timezone.localdate() + timedelta(days=180),
         )
@@ -122,6 +289,7 @@ class OrderApiTests(TestCase):
             category=Product.Category.DRY_GOODS,
             description="Yến mạch",
             price=Decimal("80000.00"),
+            stock_quantity=10,
             shipping_weight_grams=750,
         )
         payload = {
@@ -149,6 +317,7 @@ class OrderApiTests(TestCase):
             category=Product.Category.DRY_GOODS,
             description="Hạnh nhân",
             price=Decimal("90000.00"),
+            stock_quantity=10,
             shipping_weight_grams=500,
         )
         payload = {
@@ -171,6 +340,7 @@ class OrderApiTests(TestCase):
             category=Product.Category.DRY_GOODS,
             description="Đậu phộng",
             price=Decimal("50000.00"),
+            stock_quantity=10,
             shipping_weight_grams=500,
         )
         payload = {**self.payload, "items": [{"id": product.slug, "quantity": 1}]}
@@ -271,12 +441,71 @@ class OrderApiTests(TestCase):
             {**self.payload, "delivery_slot": "midnight"},
             {**self.payload, "items": [{"id": self.product.slug, "quantity": 0}]},
             {**self.payload, "payment": "online"},
+            {**self.payload, "payment": Order.PaymentMethod.VNPAY},
         ]
         for payload in invalid_payloads:
             with self.subTest(payload=payload):
                 response = self.post_order(payload)
                 self.assertEqual(response.status_code, 400)
         self.assertEqual(Order.objects.count(), 0)
+
+    def test_cod_order_is_created_without_online_payment_transaction(self):
+        response = self.post_order({**self.payload, "payment": Order.PaymentMethod.COD})
+
+        self.assertEqual(response.status_code, 201)
+        order = Order.objects.get()
+        self.assertEqual(order.payment_method, Order.PaymentMethod.COD)
+        self.assertEqual(order.status, Order.Status.PENDING)
+        self.assertFalse(PaymentTransaction.objects.filter(order=order).exists())
+        self.assertNotIn("payment_url", response.json())
+
+    @override_settings(
+        MOMO_ENABLED=True,
+        MOMO_PARTNER_CODE="MOMO123",
+        MOMO_ACCESS_KEY="momo-access",
+        MOMO_SECRET_KEY="momo-secret",
+        MOMO_CREATE_PAYMENT_URL="https://sandbox.example/momo",
+    )
+    @patch("apps.payments.gateway.urlopen")
+    def test_momo_checkout_redirects_to_local_qr_instructions(self, urlopen):
+        response = urlopen.return_value.__enter__.return_value
+        response.read.return_value = json.dumps(
+            {"resultCode": 0, "payUrl": "https://sandbox.example/pay?token=sample"}
+        ).encode()
+
+        order_response = self.post_order(
+            {**self.payload, "payment": Order.PaymentMethod.MOMO}
+        )
+
+        self.assertEqual(order_response.status_code, 201)
+        payment = PaymentTransaction.objects.get(
+            order__order_number=order_response.json()["order_number"]
+        )
+        self.assertIn(
+            reverse(
+                "payments:momo_payment_instructions",
+                args=[payment.transaction_ref],
+            ),
+            order_response.json()["payment_url"],
+        )
+        instructions_response = self.client.get(order_response.json()["payment_url"])
+        self.assertEqual(instructions_response.status_code, 200)
+        self.assertContains(instructions_response, "data:image/svg+xml;base64,")
+
+    @override_settings(
+        MOMO_ENABLED=True,
+        MOMO_PARTNER_CODE="MOMO123",
+        MOMO_ACCESS_KEY="momo-access",
+        MOMO_SECRET_KEY="momo-secret",
+        MOMO_CREATE_PAYMENT_URL="https://sandbox.example/momo",
+    )
+    @patch("apps.payments.gateway.urlopen", side_effect=TimeoutError)
+    def test_momo_gateway_timeout_rolls_back_order_and_inventory(self, _urlopen):
+        response = self.post_order({**self.payload, "payment": Order.PaymentMethod.MOMO})
+
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(Order.objects.count(), 0)
+        self.assertEqual(PaymentTransaction.objects.count(), 0)
 
     def test_tracking_token_returns_order_status_without_customer_contact_data(self):
         create_response = self.post_order()
@@ -289,6 +518,31 @@ class OrderApiTests(TestCase):
         self.assertEqual(response.json()["status"], Order.Status.PENDING)
         self.assertNotIn("customer_email", response.json())
         self.assertNotIn("address", response.json())
+
+    def test_tracking_reports_delivery_failure_and_only_customer_cancellation_progress(self):
+        create_response = self.post_order()
+        order = Order.objects.get()
+        order.status = Order.Status.DELIVERY_ISSUE
+        order.save(update_fields=["status"])
+        token = create_response.json()["tracking_token"]
+        request = OrderCancellationRequest.objects.create(
+            order=order,
+            source=OrderCancellationRequest.Source.STAFF,
+            status=OrderCancellationRequest.Status.MANAGER_REVIEW,
+            reason="Kiểm tra nội bộ",
+        )
+
+        response = self.client.get(reverse("orders:track", args=[token]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status_display"], "Giao hàng không thành công")
+        self.assertFalse(response.json()["cancellation_requested"])
+
+        request.source = OrderCancellationRequest.Source.CUSTOMER
+        request.save(update_fields=["source"])
+        response = self.client.get(reverse("orders:track", args=[token]))
+
+        self.assertTrue(response.json()["cancellation_requested"])
 
     def test_tracking_page_includes_csrf_protected_delivery_response_forms(self):
         response = self.client.get(reverse("core:tracking"))
@@ -669,6 +923,7 @@ class StaffOrderDashboardTests(TestCase):
             address="12 Duong X",
             district="Quan 1",
             city="TP Ho Chi Minh",
+            delivery_region=Order.DeliveryRegion.HO_CHI_MINH_CITY,
             delivery_date=timezone.localdate() + timedelta(days=1),
             delivery_slot=Order.DeliverySlot.MORNING,
             status=status,
@@ -735,7 +990,7 @@ class StaffOrderDashboardTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "FMTEST123")
         self.assertContains(response, "Chờ thanh toán")
-        self.assertContains(response, "Giao dịch VNPay")
+        self.assertContains(response, "Giao dịch thanh toán")
 
     def test_staff_order_details_hide_customer_data_after_delivery(self):
         order = self.create_order(status=Order.Status.DELIVERED, total=Decimal("80000.00"))
@@ -791,9 +1046,32 @@ class StaffOrderDashboardTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Thông tin khách hàng đã được mã hóa và ẩn sau khi đơn kết thúc.")
+        self.assertContains(response, 'class="employee-order-terminal-status is-cancelled">Đơn hủy</p>')
         for personal_data in ("Nguyen Van A", "customer@example.com", "0901234567", "12 Duong X"):
             with self.subTest(personal_data=personal_data):
                 self.assertNotContains(response, personal_data)
+
+    def test_employee_order_search_marks_completed_orders_in_green(self):
+        order = self.create_order(
+            status=Order.Status.DELIVERED,
+            total=Decimal("80000.00"),
+        )
+        employee = User.objects.create_user(
+            username="completed-order-employee",
+            email="completed-order-employee@example.com",
+            password="Employee-Strong-2026!",
+            is_staff=True,
+            staff_role=User.StaffRole.SALES,
+        )
+        self.client.force_login(employee)
+
+        response = self.client.get(
+            reverse("staff_orders:dashboard"),
+            {"workspace": "orders", "q": order.order_number},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="employee-order-terminal-status is-completed">Hoàn tất</p>')
 
     def test_customer_order_history_shows_cancel_actions_for_cancellable_orders(self):
         customer = User.objects.create_user(
@@ -1026,6 +1304,46 @@ class StaffOrderDashboardTests(TestCase):
         )
         order.refresh_from_db()
         self.assertEqual(order.status, Order.Status.AWAITING_CUSTOMER_CONFIRMATION)
+
+    def test_staff_can_mark_delivery_as_failed_when_customer_cannot_be_contacted(self):
+        order = self.create_order(status=Order.Status.DELIVERING, total=Decimal("120000.00"))
+        manager = User.objects.create_user(
+            username="no-contact-manager",
+            email="no-contact-manager@example.com",
+            password="Manager-Strong-2026!",
+            is_staff=True,
+            staff_role=User.StaffRole.MANAGER,
+        )
+        self.client.force_login(manager)
+
+        workspace_response = self.client.get(
+            reverse("staff_orders:dashboard"),
+            {"workspace": "work"},
+        )
+        self.assertContains(workspace_response, "Không liên lạc được với khách")
+
+        self.client.post(
+            reverse("staff_orders:update_status", args=[order.pk]),
+            {"status": Order.Status.DELIVERY_ISSUE},
+        )
+
+        order.refresh_from_db()
+        issue = DeliveryIssue.objects.get(order=order)
+        self.assertEqual(order.status, Order.Status.DELIVERY_ISSUE)
+        self.assertEqual(issue.details, "Không liên lạc được với khách khi giao hàng.")
+        self.assertEqual(issue.reported_by, manager)
+
+        response = self.client.get(reverse("orders:track", args=[order.tracking_token]))
+        self.assertEqual(response.json()["status_display"], "Giao hàng không thành công")
+
+        other_order = self.create_order(status=Order.Status.READY, total=Decimal("120000.00"))
+        self.client.post(
+            reverse("staff_orders:update_status", args=[other_order.pk]),
+            {"status": Order.Status.DELIVERY_ISSUE},
+        )
+        other_order.refresh_from_db()
+        self.assertEqual(other_order.status, Order.Status.READY)
+        self.assertFalse(DeliveryIssue.objects.filter(order=other_order).exists())
 
     def test_customer_can_confirm_receipt_and_delivery_is_archived(self):
         customer = User.objects.create_user(
@@ -1334,7 +1652,7 @@ class StaffOrderDashboardTests(TestCase):
 
         response = self.client.post(
             reverse("staff_orders:cancel_order", args=[order.pk]),
-            {"reason": "Khách xác nhận hủy đơn"},
+            {"reason": "Khách đổi ý"},
         )
 
         self.assertRedirects(
@@ -1354,6 +1672,10 @@ class StaffOrderDashboardTests(TestCase):
         self.assertEqual(order.customer_name, "")
         self.assertEqual(order.customer_email, "")
         self.assertEqual(order.cancellation_reason, "")
+        self.assertEqual(
+            order.cancellation_reason_category,
+            Order.CancellationReasonCategory.CUSTOMER_CHANGED_MIND,
+        )
         self.assertEqual(send_mail.call_args.args[3], ["customer@example.com"])
         cancellation = OrderCancellationRequest.objects.get(order=order)
         self.assertEqual(cancellation.status, OrderCancellationRequest.Status.APPROVED)
@@ -1440,6 +1762,10 @@ class StaffOrderDashboardTests(TestCase):
         order.refresh_from_db()
         cancellation.refresh_from_db()
         self.assertEqual(order.status, Order.Status.CANCELLED)
+        self.assertEqual(
+            order.cancellation_reason_category,
+            Order.CancellationReasonCategory.OUT_OF_STOCK,
+        )
         self.assertEqual(cancellation.status, OrderCancellationRequest.Status.APPROVED)
         self.assertTrue(order.customer_info_redacted)
         self.assertEqual(order.customer_phone, "")
@@ -1650,6 +1976,7 @@ class StaffOrderDashboardTests(TestCase):
             product=sold_product,
             product_sku=sold_product.sku,
             product_name=sold_product.name,
+            product_category=sold_product.category,
             unit_price=Decimal("60000"),
             quantity=2,
             line_total=Decimal("120000"),
@@ -1686,9 +2013,328 @@ class StaffOrderDashboardTests(TestCase):
                     self.assertEqual(response.context["report_revenue"], Decimal("120000"))
                     self.assertEqual(response.context["report_completed_count"], 1)
                     self.assertEqual(
-                        list(response.context["report_popular_products"])[0]["quantity"],
-                        2,
+                        response.context["report_average_order_value"],
+                        Decimal("120000"),
                     )
+                    self.assertEqual(
+                        response.context["report_category_rows"][0]["amount"],
+                        Decimal("120000"),
+                    )
+                    self.assertContains(response, 'class="employee-workspace-shell is-report-workspace"')
+                    self.assertContains(response, "Doanh thu hàng hóa theo ngày")
+                    self.assertContains(response, "Theo khu vực giao")
+                    self.assertContains(response, "Xuất Excel")
+
+    def test_staff_can_view_stock_and_request_restock_after_customer_shortage(self):
+        dry_product = Product.objects.create(
+            sku="FM-STAFF-STOCK-001",
+            slug="staff-stock-item",
+            name="Thanh protein",
+            category=Product.Category.DRY_GOODS,
+            description="Đồ khô",
+            price=Decimal("50000"),
+            stock_quantity=0,
+            shipping_weight_grams=200,
+        )
+        Product.objects.create(
+            sku="FM-STAFF-FRESH-001",
+            slug="staff-fresh-item",
+            name="Salad tươi",
+            category=Product.Category.SALAD,
+            description="Món tươi",
+            price=Decimal("60000"),
+        )
+        backorder = self.create_order(
+            status=Order.Status.PENDING,
+            total=Decimal("400000"),
+        )
+        backorder_item = OrderItem.objects.create(
+            order=backorder,
+            product=dry_product,
+            product_sku=dry_product.sku,
+            product_name=dry_product.name,
+            product_category=Product.Category.DRY_GOODS,
+            unit_price=dry_product.price,
+            quantity=8,
+            line_total=Decimal("400000"),
+        )
+        restock_request = InventoryRestockRequest.objects.create(
+            product=dry_product,
+            product_name=dry_product.name,
+            product_sku=dry_product.sku,
+            requested_quantity=8,
+            available_quantity=0,
+        )
+        employee = User.objects.create_user(
+            username="inventory-sales-employee",
+            email="inventory-sales@example.com",
+            password="Employee-Strong-2026!",
+            is_staff=True,
+            staff_role=User.StaffRole.SALES,
+        )
+        self.client.force_login(employee)
+
+        menu_response = self.client.get(
+            reverse("staff_orders:dashboard"),
+            {"workspace": "menu"},
+        )
+
+        self.assertContains(menu_response, "Kho còn 0")
+        self.assertContains(menu_response, "Làm sau khi đặt")
+        self.assertContains(menu_response, "Đơn chờ cần 8")
+
+        self.client.post(
+            reverse("staff_orders:update_status", args=[backorder.pk]),
+            {"status": Order.Status.CONFIRMED},
+        )
+        backorder.refresh_from_db()
+        self.assertEqual(backorder.status, Order.Status.CONFIRMED)
+        self.client.post(
+            reverse("staff_orders:update_status", args=[backorder.pk]),
+            {"status": Order.Status.PACKING},
+        )
+        backorder.refresh_from_db()
+        self.assertEqual(backorder.status, Order.Status.CONFIRMED)
+
+        request_response = self.client.post(
+            reverse(
+                "staff_orders:request_inventory_restock",
+                args=[dry_product.pk],
+            )
+        )
+        self.assertRedirects(
+            request_response,
+            f"{reverse('staff_orders:dashboard')}?workspace=menu#staff-workspace",
+        )
+        restock_request.refresh_from_db()
+        self.assertEqual(
+            restock_request.status,
+            InventoryRestockRequest.Status.MANAGER_REVIEW,
+        )
+        self.assertEqual(restock_request.requested_by, employee)
+
+        forbidden_response = self.client.post(
+            reverse(
+                "staff_orders:fulfill_inventory_restock",
+                args=[restock_request.pk],
+            )
+        )
+        self.assertEqual(forbidden_response.status_code, 403)
+
+        manager = User.objects.create_user(
+            username="inventory-restock-manager",
+            email="inventory-restock-manager@example.com",
+            password="Manager-Strong-2026!",
+            is_staff=True,
+            staff_role=User.StaffRole.MANAGER,
+        )
+        self.client.force_login(manager)
+        inventory_response = self.client.get(
+            reverse("staff_orders:dashboard"),
+            {"workspace": "inventory"},
+        )
+        self.assertContains(inventory_response, "Yêu cầu bổ sung hàng")
+        self.assertContains(inventory_response, "Thanh protein")
+
+        insufficient_response = self.client.post(
+            reverse(
+                "staff_orders:fulfill_inventory_restock",
+                args=[restock_request.pk],
+            )
+        )
+        self.assertRedirects(
+            insufficient_response,
+            f"{reverse('staff_orders:dashboard')}?workspace=inventory#manager-inventory",
+        )
+        restock_request.refresh_from_db()
+        self.assertEqual(
+            restock_request.status,
+            InventoryRestockRequest.Status.MANAGER_REVIEW,
+        )
+
+        self.client.post(
+            f"{reverse('staff_orders:update_product', args=[dry_product.pk])}?workspace=inventory&product={dry_product.pk}",
+            {"stock_quantity": "8", "low_stock_threshold": "5"},
+        )
+        fulfill_response = self.client.post(
+            reverse(
+                "staff_orders:fulfill_inventory_restock",
+                args=[restock_request.pk],
+            )
+        )
+        self.assertRedirects(
+            fulfill_response,
+            f"{reverse('staff_orders:dashboard')}?workspace=inventory#manager-inventory",
+        )
+        restock_request.refresh_from_db()
+        self.assertEqual(restock_request.status, InventoryRestockRequest.Status.FULFILLED)
+        self.assertEqual(restock_request.fulfilled_by, manager)
+        backorder_item.refresh_from_db()
+        dry_product.refresh_from_db()
+        self.assertTrue(backorder_item.inventory_deducted)
+        self.assertEqual(dry_product.stock_quantity, 0)
+
+        self.client.force_login(employee)
+        self.client.post(
+            reverse("staff_orders:update_status", args=[backorder.pk]),
+            {"status": Order.Status.PACKING},
+        )
+        backorder.refresh_from_db()
+        self.assertEqual(backorder.status, Order.Status.PACKING)
+
+    def test_manager_report_filters_custom_period_and_exports_summary_csv(self):
+        recent_order = self.create_order(
+            status=Order.Status.DELIVERED,
+            total=Decimal("90000.00"),
+        )
+        old_order = self.create_order(
+            status=Order.Status.DELIVERED,
+            total=Decimal("60000.00"),
+        )
+        old_order.created_at = timezone.now() - timedelta(days=10)
+        old_order.save(update_fields=["created_at"])
+        manager = User.objects.create_user(
+            username="report-workspace-manager",
+            email="report-workspace-manager@example.com",
+            password="Employee-Strong-2026!",
+            is_staff=True,
+            staff_role=User.StaffRole.MANAGER,
+        )
+        self.client.force_login(manager)
+        dashboard_url = reverse("staff_orders:dashboard")
+
+        recent_response = self.client.get(
+            dashboard_url,
+            {"workspace": "reports", "range": "7d"},
+        )
+        self.assertEqual(
+            recent_response.context["report_revenue"],
+            recent_order.subtotal,
+        )
+
+        custom_start = (timezone.localdate() - timedelta(days=14)).isoformat()
+        custom_end = timezone.localdate().isoformat()
+        custom_response = self.client.get(
+            dashboard_url,
+            {
+                "workspace": "reports",
+                "range": "custom",
+                "start": custom_start,
+                "end": custom_end,
+            },
+        )
+        self.assertEqual(
+            custom_response.context["report_revenue"],
+            recent_order.subtotal + old_order.subtotal,
+        )
+        self.assertEqual(custom_response.context["report_period_days"], 15)
+
+        export_response = self.client.get(
+            dashboard_url,
+            {
+                "workspace": "reports",
+                "range": "custom",
+                "start": custom_start,
+                "end": custom_end,
+                "export": "csv",
+            },
+        )
+        self.assertEqual(export_response["Content-Type"], "text/csv; charset=utf-8")
+        self.assertIn("Doanh thu hàng hóa", export_response.content.decode("utf-8-sig"))
+
+    def test_manager_report_chart_scales_each_day_against_daily_peak(self):
+        yesterday_order = self.create_order(
+            status=Order.Status.DELIVERED,
+            total=Decimal("50000.00"),
+        )
+        yesterday_order.created_at = timezone.now() - timedelta(days=1)
+        yesterday_order.save(update_fields=["created_at"])
+        today_order = self.create_order(
+            status=Order.Status.DELIVERED,
+            total=Decimal("100000.00"),
+        )
+        today_order.created_at = timezone.make_aware(
+            datetime.combine(timezone.localdate(), time(10)),
+            timezone.get_current_timezone(),
+        )
+        today_order.save(update_fields=["created_at"])
+        processing_order = self.create_order(
+            status=Order.Status.PREPARING,
+            total=Decimal("25000.00"),
+        )
+        processing_order.created_at = timezone.make_aware(
+            datetime.combine(timezone.localdate(), time(8)),
+            timezone.get_current_timezone(),
+        )
+        processing_order.save(update_fields=["created_at"])
+        manager = User.objects.create_user(
+            username="report-chart-manager",
+            email="report-chart-manager@example.com",
+            password="Employee-Strong-2026!",
+            is_staff=True,
+            staff_role=User.StaffRole.MANAGER,
+        )
+        self.client.force_login(manager)
+
+        response = self.client.get(
+            reverse("staff_orders:dashboard"),
+            {"workspace": "reports", "range": "7d"},
+        )
+
+        points_by_day = {
+            point["day"]: point for point in response.context["report_chart_points"]
+        }
+        today = timezone.localdate()
+        yesterday = today - timedelta(days=1)
+        self.assertEqual(points_by_day[yesterday]["amount"], Decimal("50000.00"))
+        self.assertEqual(points_by_day[today]["amount"], Decimal("100000.00"))
+        self.assertEqual(points_by_day[yesterday]["height"], 50.0)
+        self.assertEqual(points_by_day[today]["height"], 100.0)
+        self.assertEqual(points_by_day[yesterday]["height_px"], 80)
+        self.assertEqual(points_by_day[today]["height_px"], 160)
+        self.assertContains(response, 'style="height:80px"')
+        self.assertContains(response, 'style="height:160px"')
+        self.assertNotContains(response, 'class="manager-report-chart-axis"')
+        self.assertGreater(
+            points_by_day[today]["height"],
+            points_by_day[yesterday]["height"],
+        )
+
+        today_response = self.client.get(
+            reverse("staff_orders:dashboard"),
+            {"workspace": "reports", "range": "today"},
+        )
+        today_points = today_response.context["report_chart_points"]
+        self.assertEqual(
+            [point["label"] for point in today_points],
+            ["6–9h", "9–12h", "12–15h", "15–18h", "18–21h"],
+        )
+        self.assertEqual(today_points[0]["amount"], Decimal("25000.00"))
+        self.assertEqual(today_points[1]["amount"], Decimal("100000.00"))
+        self.assertContains(
+            today_response,
+            "Doanh thu đặt hàng theo khung giờ hôm nay",
+        )
+
+        outside_order = self.create_order(
+            status=Order.Status.PENDING,
+            total=Decimal("10000.00"),
+        )
+        outside_order.created_at = timezone.make_aware(
+            datetime.combine(timezone.localdate(), time(23)),
+            timezone.get_current_timezone(),
+        )
+        outside_order.save(update_fields=["created_at"])
+        outside_hours_response = self.client.get(
+            reverse("staff_orders:dashboard"),
+            {"workspace": "reports", "range": "today"},
+        )
+        outside_hours_points = outside_hours_response.context["report_chart_points"]
+        self.assertEqual(outside_hours_points[-1]["label"], "Ngoài giờ")
+        self.assertEqual(
+            outside_hours_points[-1]["amount"],
+            Decimal("10000.00"),
+        )
 
     def test_manager_can_manage_products_and_price_inventory_changes_are_logged(self):
         manager = User.objects.create_user(
@@ -1725,7 +2371,17 @@ class StaffOrderDashboardTests(TestCase):
             response,
             f"{reverse('staff_orders:dashboard')}?workspace=menu&product={product.pk}#manager-products",
         )
-        self.assertEqual(product.stock_quantity, 12)
+        self.assertIsNone(product.stock_quantity)
+        inventory_product = Product.objects.create(
+            sku="FM-MANAGER-DRY-001",
+            slug="manager-dry-goods",
+            name="Granola quản lý",
+            category=Product.Category.DRY_GOODS,
+            description="Đồ khô đóng gói",
+            price=Decimal("99000"),
+            stock_quantity=12,
+            shipping_weight_grams=500,
+        )
         self.assertTrue(
             ProductActivity.objects.filter(
                 product=product,
@@ -1733,15 +2389,18 @@ class StaffOrderDashboardTests(TestCase):
                 actor=manager,
             ).exists()
         )
-
         inventory_page = self.client.get(
             reverse("staff_orders:dashboard"),
-            {"workspace": "inventory", "product": product.pk},
+            {"workspace": "inventory", "product": inventory_product.pk},
         )
         self.assertEqual(
             set(inventory_page.context["selected_product_form"].fields),
             {"stock_quantity", "low_stock_threshold", "shipping_weight_grams", "expiry_date"},
         )
+        self.assertContains(inventory_page, "Tồn kho")
+        self.assertNotContains(inventory_page, "Tồn kho (đơn vị)")
+        self.assertNotContains(inventory_page, "12 đơn vị")
+        self.assertNotContains(inventory_page, "Salad quản lý")
         response = self.client.post(
             f"{reverse('staff_orders:update_product', args=[product.pk])}?workspace=menu&product={product.pk}",
             {
@@ -1759,7 +2418,7 @@ class StaffOrderDashboardTests(TestCase):
             f"{reverse('staff_orders:dashboard')}?workspace=menu&product={product.pk}#manager-products",
         )
         self.assertEqual(product.price, Decimal("139000"))
-        self.assertEqual(product.stock_quantity, 12)
+        self.assertIsNone(product.stock_quantity)
         price_activity = ProductActivity.objects.filter(
             product=product,
             action=ProductActivity.Action.PRICE_CHANGED,
@@ -1774,26 +2433,104 @@ class StaffOrderDashboardTests(TestCase):
         )
 
         response = self.client.post(
-            f"{reverse('staff_orders:update_product', args=[product.pk])}?workspace=inventory&product={product.pk}",
+            f"{reverse('staff_orders:update_product', args=[inventory_product.pk])}?workspace=inventory&product={inventory_product.pk}",
             {"stock_quantity": "2", "low_stock_threshold": "5"},
         )
         self.assertRedirects(
             response,
-            f"{reverse('staff_orders:dashboard')}?workspace=inventory&product={product.pk}#manager-inventory",
+            f"{reverse('staff_orders:dashboard')}?workspace=inventory&product={inventory_product.pk}#manager-inventory",
         )
-        product.refresh_from_db()
-        self.assertEqual(product.stock_quantity, 2)
+        inventory_product.refresh_from_db()
+        self.assertEqual(
+            inventory_product.stock_quantity,
+            2,
+            list(response.wsgi_request._messages),
+        )
         self.assertTrue(
             ProductActivity.objects.filter(
-                product=product,
+                product=inventory_product,
                 action=ProductActivity.Action.INVENTORY_CHANGED,
                 actor=manager,
             ).exists()
         )
 
-        page = self.client.get(reverse("staff_orders:dashboard"), {"workspace": "menu"})
+        page = self.client.get(
+            reverse("staff_orders:dashboard"),
+            {"workspace": "menu", "product": product.pk},
+        )
         self.assertContains(page, "Lịch sử giá")
         self.assertContains(page, "129000₫ → 139000₫")
+        self.assertContains(page, "Làm sau khi đặt")
+        self.assertNotIn("stock_quantity", page.context["selected_product_form"].fields)
+
+    def test_manager_product_create_page_saves_draft_with_generated_identifiers(self):
+        manager = User.objects.create_user(
+            username="catalog-page-manager",
+            email="catalog-page-manager@example.com",
+            password="Employee-Strong-2026!",
+            is_staff=True,
+            staff_role=User.StaffRole.MANAGER,
+        )
+        self.client.force_login(manager)
+
+        response = self.client.get(reverse("staff_orders:create_product"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "XEM TRƯỚC TRÊN TRANG KHÁCH")
+        self.assertContains(response, "Đủ điều kiện mở bán")
+
+        response = self.client.post(
+            reverse("staff_orders:create_product"),
+            {
+                "name": "Salad nháp",
+                "category": Product.Category.SALAD,
+                "description": "Món salad đang hoàn thiện",
+                "price": "79000",
+                "calories": "320",
+                "protein": "28",
+                "carbs": "24",
+                "fat": "9",
+                "save_mode": "draft",
+            },
+        )
+
+        product = Product.objects.get(name="Salad nháp")
+        self.assertRedirects(
+            response,
+            f"{reverse('staff_orders:dashboard')}?workspace=menu&product={product.pk}#manager-products",
+        )
+        self.assertFalse(product.is_available)
+        self.assertTrue(product.sku.startswith("FM-"))
+        self.assertTrue(product.slug.startswith("salad-nhap-"))
+
+    def test_product_create_page_rejects_incomplete_product_for_publish(self):
+        manager = User.objects.create_user(
+            username="catalog-publish-manager",
+            email="catalog-publish-manager@example.com",
+            password="Employee-Strong-2026!",
+            is_staff=True,
+            staff_role=User.StaffRole.MANAGER,
+        )
+        self.client.force_login(manager)
+
+        response = self.client.post(
+            reverse("staff_orders:create_product"),
+            {
+                "name": "Salad chưa đủ",
+                "category": Product.Category.SALAD,
+                "description": "Món chưa đủ dữ liệu",
+                "price": "79000",
+                "calories": "320",
+                "protein": "28",
+                "carbs": "24",
+                "fat": "9",
+                "save_mode": "publish",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(response, "Cần điền thông tin này để mở bán món.", status_code=400)
+        self.assertFalse(Product.objects.filter(name="Salad chưa đủ").exists())
 
     def test_sales_employee_cannot_manage_products_or_access_manager_reports(self):
         product = Product.objects.create(
@@ -1827,7 +2564,7 @@ class StaffOrderDashboardTests(TestCase):
         self.assertEqual(response.status_code, 403)
         product.refresh_from_db()
         self.assertEqual(product.price, Decimal("50000"))
-        self.assertEqual(product.stock_quantity, 7)
+        self.assertIsNone(product.stock_quantity)
 
         response = self.client.get(
             reverse("staff_orders:dashboard"),
@@ -1860,19 +2597,26 @@ class StaffOrderDashboardTests(TestCase):
             {"workspace": "menu"},
         )
         self.assertContains(menu_response, "Banana Whey")
-        self.assertContains(menu_response, "Tạm hết hàng")
+        self.assertContains(menu_response, "Đang bán")
+        self.assertContains(
+            menu_response,
+            'type="checkbox" name="is_available" value="true" checked',
+        )
 
         toggle_url = reverse("staff_orders:toggle_product_availability", args=[product.pk])
-        pause_response = self.client.post(toggle_url, {"is_available": "false"})
+        pause_response = self.client.post(
+            f"{toggle_url}?workspace=menu&filter=fresh&q=Banana",
+            {"is_available": "false"},
+        )
 
         self.assertRedirects(
             pause_response,
-            f"{reverse('staff_orders:dashboard')}?workspace=menu#staff-workspace",
+            f"{reverse('staff_orders:dashboard')}?workspace=menu&filter=fresh&q=Banana#staff-workspace",
         )
         product.refresh_from_db()
         self.assertFalse(product.is_available)
         self.assertEqual(product.price, Decimal("59000"))
-        self.assertEqual(product.stock_quantity, 8)
+        self.assertIsNone(product.stock_quantity)
         self.assertTrue(
             ProductActivity.objects.filter(
                 product=product,
@@ -1885,7 +2629,7 @@ class StaffOrderDashboardTests(TestCase):
         invalid_response = self.client.post(toggle_url, {"is_available": "on"})
         self.assertRedirects(
             invalid_response,
-            f"{reverse('staff_orders:dashboard')}?workspace=menu#staff-workspace",
+            f"{reverse('staff_orders:dashboard')}?workspace=menu&filter=all&q=#staff-workspace",
         )
         product.refresh_from_db()
         self.assertFalse(product.is_available)
@@ -1902,12 +2646,16 @@ class StaffOrderDashboardTests(TestCase):
             {"workspace": "menu"},
         )
         self.assertContains(paused_menu_response, "Banana Whey")
-        self.assertContains(paused_menu_response, "Mở bán lại")
-        restore_response = self.client.post(toggle_url, {"is_available": "true"})
+        self.assertContains(paused_menu_response, "Tạm hết hàng")
+        self.assertContains(paused_menu_response, 'aria-label="Mở bán lại Banana Whey"')
+        restore_response = self.client.post(
+            toggle_url,
+            {"is_available": ["false", "true"]},
+        )
 
         self.assertRedirects(
             restore_response,
-            f"{reverse('staff_orders:dashboard')}?workspace=menu#staff-workspace",
+            f"{reverse('staff_orders:dashboard')}?workspace=menu&filter=all&q=#staff-workspace",
         )
         product.refresh_from_db()
         self.assertTrue(product.is_available)
@@ -1919,6 +2667,60 @@ class StaffOrderDashboardTests(TestCase):
             ).count(),
             2,
         )
+
+    def test_employee_menu_shows_simple_dry_stock_and_filters_products(self):
+        dry_product = Product.objects.create(
+            sku="FM-STAFF-MENU-DRY",
+            slug="staff-menu-dry",
+            name="Hạt điều rang",
+            category=Product.Category.DRY_GOODS,
+            description="Đồ khô",
+            price=Decimal("89000"),
+            stock_quantity=12,
+            shipping_weight_grams=500,
+            serving="Túi 1kg",
+        )
+        fresh_product = Product.objects.create(
+            sku="FM-STAFF-MENU-FRESH",
+            slug="staff-menu-fresh",
+            name="Salad gà",
+            category=Product.Category.SALAD,
+            description="Món tươi",
+            price=Decimal("69000"),
+            serving="1 phần",
+        )
+        employee = User.objects.create_user(
+            username="staff-menu-inventory",
+            email="staff-menu-inventory@example.com",
+            password="Employee-Strong-2026!",
+            is_staff=True,
+            staff_role=User.StaffRole.SALES,
+        )
+        self.client.force_login(employee)
+
+        menu_response = self.client.get(
+            reverse("staff_orders:dashboard"),
+            {"workspace": "menu"},
+        )
+
+        self.assertContains(menu_response, "Kho còn 12")
+        self.assertContains(menu_response, "Làm sau khi đặt")
+        self.assertNotContains(menu_response, dry_product.serving)
+        self.assertNotContains(menu_response, fresh_product.serving)
+
+        dry_filter_response = self.client.get(
+            reverse("staff_orders:dashboard"),
+            {"workspace": "menu", "filter": "dry"},
+        )
+        self.assertContains(dry_filter_response, dry_product.name)
+        self.assertNotContains(dry_filter_response, fresh_product.name)
+
+        fresh_filter_response = self.client.get(
+            reverse("staff_orders:dashboard"),
+            {"workspace": "menu", "filter": "fresh"},
+        )
+        self.assertContains(fresh_filter_response, fresh_product.name)
+        self.assertNotContains(fresh_filter_response, dry_product.name)
 
     def test_customer_cannot_toggle_product_availability(self):
         product = Product.objects.create(

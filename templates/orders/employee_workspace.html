@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% load static %}
 {% block title %}{{ workspace_title }} — FitMeal{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{% static 'css/storefront.css' %}?v=20261116-staff-availability-1">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/storefront.css' %}?v=20261117-report-chart-4">{% endblock %}
 {% block content %}
-<div class="employee-workspace-shell" {% if active_workspace == "work" or active_workspace == "orders" %}data-auto-refresh{% endif %}>
+<div class="employee-workspace-shell{% if active_workspace == 'reports' %} is-report-workspace{% endif %}" {% if active_workspace == "work" or active_workspace == "orders" or active_workspace == "menu" or active_workspace == "inventory" %}data-auto-refresh{% endif %}>
   <aside class="employee-workspace-sidebar">
     <a class="employee-workspace-brand" href="{% url 'staff_orders:dashboard' %}?workspace=work">
       <span class="employee-workspace-brand-icon">F</span>
@@ -19,14 +19,14 @@
       <span class="employee-workspace-nav-label">CỬA HÀNG</span>
       <nav class="employee-workspace-nav" aria-label="Quản lý cửa hàng">
         <a class="{% if active_workspace == 'menu' %}is-active{% endif %}" href="?workspace=menu"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path d="m4.5 7.8 7.5 4.3 7.5-4.3M12 12v8.5"/></svg></span>Thực đơn & giá</a>
-        <a class="{% if active_workspace == 'inventory' %}is-active{% endif %}" href="?workspace=inventory"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M4 7h16v13H4zM4 7l2-4h12l2 4"/><path d="M9 11v5M15 11v5"/></svg></span>Kho hàng{% if product_stats.low or product_stats.out %}<b>{{ product_stats.low|add:product_stats.out }}</b>{% endif %}</a>
+        <a class="{% if active_workspace == 'inventory' %}is-active{% endif %}" href="?workspace=inventory"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M4 7h16v13H4zM4 7l2-4h12l2 4"/><path d="M9 11v5M15 11v5"/></svg></span>Kho hàng{% if product_stats.low or product_stats.out or pending_inventory_restock_count %}<b>{{ product_stats.low|add:product_stats.out|add:pending_inventory_restock_count }}</b>{% endif %}</a>
         <a class="{% if active_workspace == 'reports' %}is-active{% endif %}" href="?workspace=reports"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M4 19V5M4 19h16"/><path d="m7 15 4-4 3 2 6-7"/></svg></span>Báo cáo doanh thu</a>
         <a class="{% if active_workspace == 'activity' %}is-active{% endif %}" href="?workspace=activity"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M3 12h4l2.2-6 4.2 12 2.3-6H21"/></svg></span>Nhật ký hoạt động</a>
       </nav>
     {% else %}
       <span class="employee-workspace-nav-label">CỬA HÀNG</span>
       <nav class="employee-workspace-nav" aria-label="Thực đơn">
-        <a class="{% if active_workspace == 'menu' %}is-active{% endif %}" href="?workspace=menu"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path d="m4.5 7.8 7.5 4.3 7.5-4.3M12 12v8.5"/></svg></span>Thực đơn<small>chỉ xem</small></a>
+        <a class="{% if active_workspace == 'menu' %}is-active{% endif %}" href="?workspace=menu"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path d="m4.5 7.8 7.5 4.3 7.5-4.3M12 12v8.5"/></svg></span>Thực đơn{% if inventory_restock_alert_count %}<b>{{ inventory_restock_alert_count }}</b>{% else %}<small>chỉ xem</small>{% endif %}</a>
       </nav>
     {% endif %}
     <span class="employee-workspace-nav-label">TÀI KHOẢN</span>
@@ -64,6 +64,7 @@
         <article><span>Đang giao</span><strong>{{ delivering_count }}</strong></article>
         <article><span>Đã hoàn tất hôm nay</span><strong class="is-green">{{ completed_today_count }}</strong></article>
       </section>
+      {% include "orders/_inventory_restock_alerts.html" %}
       {% include "orders/_employee_cancellation_contact_queue.html" %}
       <section class="employee-order-board" aria-label="Đơn hàng cần xử lý">
         <div class="employee-order-lane lane-pending">
@@ -152,7 +153,7 @@
         <section class="manager-cancellation-review-list" aria-label="Khiếu nại giao hàng đang chờ">
           {% for issue in delivery_issue_rows %}
             <article class="manager-cancellation-card">
-              <header><div><span class="store-kicker">KHÁCH BÁO CHƯA NHẬN HÀNG</span><h2>{{ issue.order.order_number }}</h2></div><span>{{ issue.reported_at|timesince }} trước</span></header>
+              <header><div><span class="store-kicker">VẤN ĐỀ GIAO HÀNG</span><h2>{{ issue.order.order_number }}</h2></div><span>{{ issue.reported_at|timesince }} trước</span></header>
               <div class="manager-cancellation-order-info">
                 <p><strong>Khách hàng</strong>{{ issue.order.customer_name }} · <a href="tel:{{ issue.order.customer_phone }}">{{ issue.order.customer_phone }}</a></p>
                 <p><strong>Trạng thái</strong>{{ issue.order.get_status_display }}</p>
@@ -224,15 +225,8 @@
 
     {% elif active_workspace == "menu" and is_manager %}
       <header class="employee-workspace-heading manager-workspace-heading">
-        <div><span class="store-kicker">CỬA HÀNG</span><h1>Thực đơn &amp; giá</h1><p>Bật tắt món, sửa giá và cập nhật tồn kho. Thay đổi giá được lưu vào nhật ký.</p></div>
-        <details class="manager-add-product">
-          <summary>＋ Thêm món mới</summary>
-          <form action="{% url 'staff_orders:create_product' %}" method="post" enctype="multipart/form-data">
-            {% csrf_token %}<input type="hidden" name="workspace" value="menu">
-            {{ product_create_form.as_p }}
-            <button type="submit">Lưu món mới</button>
-          </form>
-        </details>
+        <div><span class="store-kicker">CỬA HÀNG</span><h1>Thực đơn &amp; giá</h1><p>Bật tắt món, sửa giá. Chỉ đồ khô quản lý tồn kho; món tươi được chuẩn bị sau khi nhận đơn.</p></div>
+        <a class="manager-add-product-link" href="{% url 'staff_orders:create_product' %}">＋ Thêm món mới</a>
       </header>
       <section class="manager-product-stats" aria-label="Tình trạng thực đơn">
         <article><span>Đang bán</span><strong class="is-green">{{ product_stats.selling }} món</strong></article>
@@ -257,7 +251,7 @@
           </form>
           <div class="table-scroll manager-catalog-scroll">
             <table class="manager-catalog-table">
-              <thead><tr><th>MÓN</th><th>DINH DƯỠNG</th><th>GIÁ BÁN</th><th>TỒN KHO</th><th>BÁN 7 NGÀY</th></tr></thead>
+              <thead><tr><th>MÓN</th><th>DINH DƯỠNG</th><th>GIÁ BÁN</th><th>TỒN KHO / CHUẨN BỊ</th><th>BÁN 7 NGÀY</th></tr></thead>
               <tbody>
                 {% for row in product_rows %}
                   <tr class="{% if selected_product.pk == row.product.pk %}is-selected{% endif %}">
@@ -268,10 +262,11 @@
                     <td>{{ row.product.calories }} kcal · {{ row.product.protein|floatformat:0 }}g đạm</td>
                     <td><strong>{{ row.product.price|floatformat:0 }}₫</strong></td>
                     <td><span class="manager-stock-state is-{{ row.inventory_status }}">
-                      {% if row.inventory_status == "unknown" %}Chưa nhập
+                      {% if row.inventory_status == "made-to-order" %}Làm sau khi đặt
+                      {% elif row.inventory_status == "unknown" %}Chưa nhập
                       {% elif row.inventory_status == "out" %}Hết hàng
                       {% elif row.inventory_status == "low" %}{{ row.product.stock_quantity }} · sắp hết
-                      {% else %}{{ row.product.stock_quantity }} đơn vị{% endif %}
+                      {% else %}{{ row.product.stock_quantity }}{% endif %}
                     </span></td>
                     <td>{{ row.sold_7d }} đơn vị</td>
                   </tr>
@@ -310,15 +305,34 @@
 
     {% elif active_workspace == "inventory" %}
       <header class="employee-workspace-heading">
-        <div><span class="store-kicker">CỬA HÀNG</span><h1>Kho hàng</h1><p>Quản lý số lượng và ngưỡng cảnh báo của từng món.</p></div>
+        <div><span class="store-kicker">CỬA HÀNG</span><h1>Kho đồ khô</h1><p>Chỉ sản phẩm đồ khô có số lượng tồn kho; món tươi được làm sau khi nhận đơn.</p></div>
       </header>
       <section class="manager-product-stats" aria-label="Tình trạng kho">
-        <article><span>Đang bán</span><strong class="is-green">{{ product_stats.selling }} món</strong></article>
-        <article><span>Tạm ngưng</span><strong>{{ product_stats.paused }} món</strong></article>
+        <article><span>Đồ khô đang bán</span><strong class="is-green">{{ product_stats.inventory_selling }} món</strong></article>
+        <article><span>Đồ khô tạm ngưng</span><strong>{{ product_stats.inventory_paused }} món</strong></article>
         <article><span>Sắp hết hàng</span><strong class="is-amber">{{ product_stats.low }} món</strong></article>
         <article><span>Hết hàng</span><strong class="is-red">{{ product_stats.out }} món</strong></article>
       </section>
-      <p class="manager-inventory-note">Số tồn kho được quản lý thủ công; doanh số bên dưới chỉ tính đơn đã hoàn tất trong 7 ngày qua.</p>
+      <p class="manager-inventory-note">Tồn kho đồ khô tự giảm theo số lượng đặt và được cộng lại nếu đơn bị hủy; món tươi không trừ kho. Doanh số bên dưới chỉ tính đơn đã hoàn tất trong 7 ngày qua.</p>
+      <section class="inventory-replenishment-queue" aria-label="Yêu cầu bổ sung hàng">
+        <header><div><h2>Yêu cầu bổ sung hàng</h2><p>Đơn đang chờ sẽ được cấp hàng và có thể đóng gói sau khi cập nhật đủ tồn kho.</p></div><b>{{ pending_inventory_restock_count }}</b></header>
+        {% for restock_request in manager_restock_requests %}
+          <article>
+            <div>
+              <strong>{{ restock_request.product_name }}</strong>
+              <span>Nhân viên {{ restock_request.requested_by.get_full_name|default:restock_request.requested_by.username|default:"" }} gửi yêu cầu · Đơn chờ cần {{ restock_request.requested_quantity }} · Hiện còn {% if restock_request.product.stock_quantity != None %}{{ restock_request.product.stock_quantity }}{% else %}chưa cập nhật{% endif %}</span>
+            </div>
+            {% if restock_request.product %}<a href="?workspace=inventory&product={{ restock_request.product.pk }}#manager-inventory">Cập nhật tồn kho</a>{% endif %}
+            <form action="{% url 'staff_orders:fulfill_inventory_restock' restock_request.pk %}" method="post">
+              {% csrf_token %}
+              <button type="submit" {% if not restock_request.can_fulfill %}disabled{% endif %}>Cấp hàng cho đơn chờ</button>
+              {% if not restock_request.can_fulfill %}<small>Cần cập nhật tồn kho đủ {{ restock_request.requested_quantity }} trước.</small>{% endif %}
+            </form>
+          </article>
+        {% empty %}
+          <p>Chưa có yêu cầu nào cần bổ sung.</p>
+        {% endfor %}
+      </section>
       <div class="manager-inventory-layout" id="manager-inventory">
         <section class="manager-catalog-panel">
           <nav class="manager-catalog-filters" aria-label="Lọc tồn kho">
@@ -337,7 +351,7 @@
             <tbody>{% for row in product_rows %}
               <tr><td><strong>{{ row.product.name }}</strong><small>{{ row.product.sku }}</small></td>
                 <td>{% if row.product.is_available %}Đang bán{% else %}Tạm ngưng{% endif %}</td>
-                <td class="is-{{ row.inventory_status }}">{% if row.inventory_status == "unknown" %}Chưa nhập{% else %}{{ row.product.stock_quantity }} đơn vị{% endif %}</td>
+                <td class="is-{{ row.inventory_status }}">{% if row.inventory_status == "unknown" %}Chưa nhập{% else %}{{ row.product.stock_quantity }}{% endif %}</td>
                 <td>{{ row.product.low_stock_threshold }}</td><td>{{ row.sold_7d }}</td>
                 <td><a href="?workspace=inventory&filter={{ product_filter }}&q={{ query|urlencode }}&product={{ row.product.pk }}">Cập nhật</a></td>
               </tr>
@@ -358,21 +372,143 @@
       </div>
 
     {% elif active_workspace == "reports" %}
-      <header class="employee-workspace-heading"><div><span class="store-kicker">BÁO CÁO CỬA HÀNG</span><h1>Báo cáo doanh thu</h1><p>Thống kê theo ngày đặt đơn trong 7 ngày gần nhất · {{ report_start|date:"d/m" }}–{{ report_end|date:"d/m/Y" }}.</p></div></header>
-      <section class="manager-product-stats manager-report-stats">
-        <article><span>Doanh thu đơn hoàn tất</span><strong class="is-green">{{ report_revenue|floatformat:0 }}₫</strong></article>
-        <article><span>Tổng đơn trong kỳ</span><strong>{{ report_order_count }}</strong></article>
-        <article><span>Đơn hoàn tất</span><strong>{{ report_completed_count }}</strong></article>
-        <article><span>Đơn đã hủy</span><strong class="is-red">{{ report_cancelled_count }}</strong></article>
+      <header class="employee-workspace-heading manager-report-heading">
+        <div>
+          <span class="store-kicker">BÁO CÁO CỬA HÀNG</span>
+          <h1>Báo cáo doanh thu</h1>
+          <p>{{ report_period_label }}, {{ report_start|date:"j/n" }}–{{ report_end|date:"j/n/Y" }} · so với kỳ trước ({{ report_previous_start|date:"j/n" }}–{{ report_previous_end|date:"j/n" }}).</p>
+        </div>
+        <nav class="manager-report-controls" aria-label="Khoảng thời gian báo cáo">
+          <div class="manager-report-ranges">
+            <a href="?workspace=reports&range=today" {% if report_range == "today" %}aria-current="page"{% endif %}>Hôm nay</a>
+            <a href="?workspace=reports&range=7d" {% if report_range == "7d" %}aria-current="page"{% endif %}>7 ngày</a>
+            <a href="?workspace=reports&range=30d" {% if report_range == "30d" %}aria-current="page"{% endif %}>30 ngày</a>
+            <details class="manager-report-custom-range" {% if report_range == "custom" %}open{% endif %}>
+              <summary {% if report_range == "custom" %}aria-current="page"{% endif %}>Tự chọn...</summary>
+              <form method="get">
+                <input type="hidden" name="workspace" value="reports">
+                <input type="hidden" name="range" value="custom">
+                <label>Từ ngày<input type="date" name="start" value="{{ report_start|date:'Y-m-d' }}" required></label>
+                <label>Đến ngày<input type="date" name="end" value="{{ report_end|date:'Y-m-d' }}" required></label>
+                <button type="submit">Áp dụng</button>
+                <small>Chọn tối đa 90 ngày, đến hôm nay.</small>
+              </form>
+            </details>
+          </div>
+          <a class="manager-report-export" href="?workspace=reports&range={{ report_range }}&start={{ report_start|date:'Y-m-d' }}&end={{ report_end|date:'Y-m-d' }}&export=csv">↓ Xuất Excel</a>
+        </nav>
+      </header>
+
+      <section class="manager-product-stats manager-report-stats" aria-label="Chỉ số doanh thu">
+        <article>
+          <span>Doanh thu hàng hóa</span>
+          <strong class="is-green">{{ report_revenue_display }}₫</strong>
+          <small class="manager-report-trend is-{{ report_revenue_comparison.direction }}">{% if report_revenue_comparison.direction == "up" %}▲ +{% elif report_revenue_comparison.direction == "down" %}▼ −{% endif %}{{ report_revenue_comparison.text }}</small>
+          <small>Kỳ trước: {{ report_previous_revenue_display }}₫</small>
+        </article>
+        <article>
+          <span>Đơn hoàn tất</span>
+          <strong>{{ report_completed_count }} / {{ report_order_count }} đơn</strong>
+          <small>{{ report_completion_percentage }}% số đơn đã hoàn tất trong kỳ</small>
+          <small>Phần còn lại đang xử lý hoặc đã hủy</small>
+        </article>
+        <article>
+          <span>Giá trị trung bình mỗi đơn</span>
+          <strong>{{ report_average_order_value_display }}₫</strong>
+          <small>Doanh thu hàng hóa ÷ đơn hoàn tất</small>
+          <small>Theo dõi để đặt ngưỡng miễn phí giao</small>
+        </article>
+        <article>
+          <span>Tỷ lệ hủy</span>
+          <strong {% if report_cancellation_percentage > 10 %}class="is-red"{% endif %}>{{ report_cancellation_percentage|floatformat:1 }}%</strong>
+          <small class="manager-report-trend is-{{ report_cancellation_direction }}">{{ report_cancellation_change }}</small>
+          <small>{{ report_cancelled_count }} đơn hủy · cảnh báo khi trên 10%</small>
+        </article>
       </section>
-      <section class="admin-panel manager-report-panel">
-        <div class="manager-panel-heading"><div><h2>Món bán chạy</h2><p>Số phần trong đơn đã hoàn tất, theo dữ liệu đơn hàng</p></div></div>
-        <div class="table-scroll"><table class="manager-catalog-table">
-          <thead><tr><th>MÓN</th><th>SỐ PHẦN ĐÃ BÁN</th></tr></thead>
-          <tbody>{% for item in report_popular_products %}<tr><td>{{ item.product_name }}</td><td><strong>{{ item.quantity }}</strong></td>{% empty %}<tr><td colspan="2" class="manager-empty-row">Chưa có đơn hoàn tất trong kỳ.</td></tr>{% endfor %}</tbody>
-        </table></div>
-        <p class="manager-inventory-note">Doanh thu chỉ cộng đơn hoàn tất; đơn bị hủy không được tính. Hệ thống chưa lưu chi phí vốn nên đây không phải lợi nhuận.</p>
-      </section>
+
+      <div class="manager-report-main-grid">
+        <section class="manager-report-card manager-report-chart-panel">
+          <div class="manager-report-card-heading">
+            <div>
+              <h2>{% if report_range == "today" %}Doanh thu đặt hàng theo khung giờ hôm nay{% else %}Doanh thu hàng hóa theo ngày{% endif %}</h2>
+              <p>{% if report_range == "today" %}Theo giờ khách đặt; tính cả đơn đang xử lý, không tính đơn hủy. Đơn ngoài khung 6–21h hiển thị riêng.{% else %}Theo ngày đặt của đơn hoàn tất; di chuột vào cột để xem số tiền.{% endif %}</p>
+            </div>
+          </div>
+          {% if report_chart_peak and report_chart_peak.amount %}
+            <p class="manager-report-chart-highlight">Cao nhất: <strong>{% if report_range == "today" %}{{ report_chart_peak.label }}{% else %}{{ report_chart_peak.day|date:"D j/n" }}{% endif %} · {{ report_chart_peak.amount_display }}₫</strong></p>
+          {% endif %}
+          {% if report_chart_has_data %}
+            <div class="manager-report-chart-wrap{% if report_period_days == 1 and report_range != 'today' %} is-single-day{% endif %}">
+              <div class="manager-report-chart{% if report_period_days == 1 and report_range != 'today' %} is-single-day{% endif %}" style="--report-days:{{ report_chart_points|length }};{% if report_period_days != 1 or report_range == 'today' %}min-width:{{ report_chart_min_width }}px{% endif %}" role="img" aria-label="{% if report_range == 'today' %}Biểu đồ doanh thu theo khung giờ hôm nay{% else %}Biểu đồ doanh thu theo ngày{% endif %}">
+                {% for point in report_chart_points %}
+                  <div class="manager-report-chart-column" title="{{ point.tooltip }}: {{ point.amount_display }}₫">
+                    {% if point.amount %}<span style="bottom:{{ point.label_bottom }}px">{{ point.amount_display }}</span>{% endif %}
+                    <div class="manager-report-chart-track"><i style="height:{{ point.height_px }}px"></i></div>
+                    <time>{% if point.label %}{{ point.label }}{% endif %}</time>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          {% else %}
+            <div class="manager-report-empty"><strong>Chưa có doanh thu trong kỳ này</strong><span>Doanh thu được tính từ các đơn đã hoàn tất.</span></div>
+          {% endif %}
+        </section>
+
+        <section class="manager-report-card manager-report-cancellations">
+          <div class="manager-report-card-heading">
+            <div><h2>Lý do hủy đơn</h2></div>
+            <strong class="manager-report-badge">{{ report_cancelled_count }} / {{ report_order_count }} đơn</strong>
+          </div>
+          {% if report_cancellation_reason_rows %}
+            <div class="manager-report-reason-list">
+              {% for row in report_cancellation_reason_rows %}
+                <div class="manager-report-reason-row">
+                  <div><span>{{ row.label }}</span><strong>{{ row.count }} đơn</strong></div>
+                  <i><b style="width:{{ row.percentage }}%"></b></i>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="manager-report-empty"><strong>Không có đơn hủy trong kỳ</strong></div>
+          {% endif %}
+          <p class="manager-report-card-note">Lý do đã hủy được lưu theo nhóm để bảo vệ thông tin khách hàng. Đơn cũ chưa phân loại sẽ hiện là “Chưa phân loại”.</p>
+        </section>
+      </div>
+
+      <div class="manager-report-breakdown-grid">
+        <section class="manager-report-card manager-report-breakdown">
+          <h2>Doanh thu theo nhóm món</h2>
+          <div class="manager-report-stacked-bar">
+            {% for row in report_category_rows %}<i class="is-{{ row.color }}" style="width:{{ row.percentage }}%" title="{{ row.label }}: {{ row.percentage }}%"></i>{% endfor %}
+          </div>
+          {% for row in report_category_rows %}
+            <div class="manager-report-breakdown-row"><i class="is-{{ row.color }}"></i><span>{{ row.label }}</span><strong>{{ row.amount_display }}₫ · {{ row.percentage }}%</strong></div>
+          {% empty %}
+            <p class="manager-report-card-note">Chưa có doanh thu hàng hóa đã hoàn tất trong kỳ.</p>
+          {% endfor %}
+        </section>
+
+        <section class="manager-report-card manager-report-breakdown">
+          <h2>Theo khu vực giao</h2>
+          <div class="manager-report-stacked-bar">
+            {% for row in report_delivery_rows %}<i class="is-{{ row.color }}" style="width:{{ row.percentage }}%" title="{{ row.label }}: {{ row.percentage }}%"></i>{% endfor %}
+          </div>
+          {% for row in report_delivery_rows %}
+            <div class="manager-report-breakdown-row"><i class="is-{{ row.color }}"></i><span>{{ row.label }}</span><strong>{{ row.amount_display }}₫ · {{ row.percentage }}%</strong></div>
+          {% endfor %}
+        </section>
+
+        <section class="manager-report-card manager-report-breakdown">
+          <h2>Theo cách thanh toán</h2>
+          <div class="manager-report-stacked-bar">
+            {% for row in report_payment_rows %}<i class="is-{{ row.color }}" style="width:{{ row.percentage }}%" title="{{ row.label }}: {{ row.percentage }}%"></i>{% endfor %}
+          </div>
+          {% for row in report_payment_rows %}
+            <div class="manager-report-breakdown-row"><i class="is-{{ row.color }}"></i><span>{{ row.label }}</span><strong>{{ row.amount_display }}₫ · {{ row.percentage }}%</strong></div>
+          {% endfor %}
+          <p class="manager-report-card-note">Hệ thống chưa theo dõi đối soát tiền COD với đơn vị giao hàng.</p>
+        </section>
+      </div>
 
     {% elif active_workspace == "activity" %}
       <header class="employee-workspace-heading"><div><span class="store-kicker">LỊCH SỬ THAY ĐỔI</span><h1>Nhật ký hoạt động</h1><p>Các thao tác thay đổi món, giá và tồn kho đã được lưu.</p></div></header>
@@ -387,32 +523,73 @@
       </section>
 
     {% elif active_workspace == "menu" %}
-      <header class="employee-workspace-heading">
-        <div><span class="store-kicker">DANH MỤC CỬA HÀNG</span><h1>Thực đơn</h1><p>Nhân viên có thể tạm ngưng món khi hết hàng và mở bán lại khi đã có hàng. Thao tác này không thay đổi giá hoặc số tồn kho.</p></div>
+      <header class="employee-workspace-heading employee-menu-heading">
+        <div>
+          <span class="store-kicker">DANH MỤC CỬA HÀNG</span>
+          <h1>Sản phẩm</h1>
+          <p>{{ employee_menu_stats.total }} sản phẩm · {{ employee_menu_stats.selling }} đang bán · {{ employee_menu_stats.low_or_out }} cần nhập thêm</p>
+        </div>
+        <form class="employee-menu-search" method="get">
+          <input type="hidden" name="workspace" value="menu">
+          <input type="hidden" name="filter" value="{{ product_filter }}">
+          <label for="employee-menu-search">Tìm món</label>
+          <div>
+            <input id="employee-menu-search" type="search" name="q" value="{{ query }}" placeholder="Tên hoặc mã sản phẩm">
+            <button type="submit">Tìm</button>
+          </div>
+        </form>
       </header>
+      {% include "orders/_inventory_restock_alerts.html" %}
+      <nav class="employee-menu-filters" aria-label="Lọc sản phẩm">
+        <a href="?workspace=menu&filter=all&q={{ query|urlencode }}" {% if product_filter == "all" %}aria-current="page"{% endif %}>Tất cả <b>{{ employee_menu_stats.total }}</b></a>
+        <a href="?workspace=menu&filter=fresh&q={{ query|urlencode }}" {% if product_filter == "fresh" %}aria-current="page"{% endif %}>Đồ tươi <b>{{ employee_menu_stats.fresh }}</b></a>
+        <a href="?workspace=menu&filter=dry&q={{ query|urlencode }}" {% if product_filter == "dry" %}aria-current="page"{% endif %}>Đồ khô <b>{{ employee_menu_stats.dry }}</b></a>
+        <a href="?workspace=menu&filter=low&q={{ query|urlencode }}" {% if product_filter == "low" %}aria-current="page"{% endif %}>Sắp hết / hết hàng <b>{{ employee_menu_stats.low_or_out }}</b></a>
+        <a href="?workspace=menu&filter=paused&q={{ query|urlencode }}" {% if product_filter == "paused" %}aria-current="page"{% endif %}>Tạm ngừng <b>{{ employee_menu_stats.paused }}</b></a>
+      </nav>
       <section class="employee-menu-grid">
         {% for product in menu_products %}
           <article class="employee-menu-card">
-            {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}">{% else %}<span class="employee-menu-placeholder">FitMeal</span>{% endif %}
-            <div>
+            <div class="employee-menu-card-image{% if product.category == 'dry_goods' %} is-dry{% else %} is-fresh{% endif %}">
+              {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}">{% else %}<span>Ảnh sản phẩm</span>{% endif %}
+              <span class="employee-menu-category">{% if product.category == "dry_goods" %}Đồ khô · giao toàn quốc{% else %}Đồ tươi · chỉ TP.HCM{% endif %}</span>
+              {% if product.tracks_inventory %}
+                {% if product.stock_quantity == 0 %}<span class="employee-menu-stock-badge is-out">Hết hàng</span>
+                {% elif product.stock_quantity != None and product.stock_quantity <= product.low_stock_threshold %}<span class="employee-menu-stock-badge is-low">Sắp hết</span>{% endif %}
+              {% endif %}
+            </div>
+            <div class="employee-menu-card-body">
               <small>{{ product.get_category_display }} · {{ product.sku }}</small>
               <h2>{{ product.name }}</h2>
               <p>{{ product.description }}</p>
-              <strong>{{ product.price|floatformat:0 }}₫</strong>
-              <span class="employee-menu-availability {% if product.is_available %}is-available{% else %}is-unavailable{% endif %}">
-                {% if product.is_available %}Đang bán{% else %}Tạm hết hàng{% endif %}
-              </span>
-              <form class="employee-menu-availability-form" action="{% url 'staff_orders:toggle_product_availability' product.pk %}" method="post">
+              <div class="employee-menu-nutrition">
+                <span>{{ product.calories }} kcal</span>
+                <span>{{ product.protein|floatformat:0 }}g đạm</span>
+              </div>
+              <div class="employee-menu-stock-panel">
+                <strong>{{ product.price|floatformat:0 }}₫</strong>
+                {% if product.tracks_inventory %}
+                  <span class="employee-menu-stock{% if product.stock_quantity == 0 %} is-out{% elif product.stock_quantity != None and product.stock_quantity <= product.low_stock_threshold %} is-low{% endif %}">
+                    {% if product.stock_quantity != None %}Kho còn {{ product.stock_quantity }}{% else %}Kho chưa cập nhật{% endif %}
+                  </span>
+                {% else %}
+                  <span class="employee-menu-stock is-made-to-order">Làm sau khi đặt</span>
+                {% endif %}
+              </div>
+              <form class="employee-menu-availability-form" data-employee-availability-form action="{% url 'staff_orders:toggle_product_availability' product.pk %}?workspace=menu&filter={{ product_filter }}&q={{ query|urlencode }}" method="post">
                 {% csrf_token %}
-                <input type="hidden" name="is_available" value="{% if product.is_available %}false{% else %}true{% endif %}">
-                <button type="submit">
-                  {% if product.is_available %}Tạm hết hàng{% else %}Mở bán lại{% endif %}
-                </button>
+                <input type="hidden" name="is_available" value="false">
+                <label class="employee-menu-availability-toggle">
+                  <input type="checkbox" name="is_available" value="true" {% if product.is_available %}checked{% endif %} aria-label="{% if product.is_available %}Tạm ngưng bán {{ product.name }}{% else %}Mở bán lại {{ product.name }}{% endif %}">
+                  <span class="employee-menu-availability-switch" aria-hidden="true"></span>
+                  <strong>{% if product.is_available %}Đang bán{% else %}Tạm hết hàng{% endif %}</strong>
+                </label>
+                <noscript><button type="submit">Lưu trạng thái</button></noscript>
               </form>
             </div>
           </article>
         {% empty %}
-          <p class="employee-empty-state">Chưa có món đang bán.</p>
+          <p class="employee-empty-state">Không tìm thấy sản phẩm phù hợp.</p>
         {% endfor %}
       </section>
 

@@ -874,15 +874,12 @@ function initializeCheckout() {
     renderCart();
   });
 
-  const modal = document.querySelector("[data-order-modal]");
-  const dialog = createDialogController(modal, "[data-close-modal]");
   const dateInput = form.elements["delivery-date"];
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   dateInput.min = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`;
   dateInput.value = dateInput.min;
 
-  const closeModal = dialog.close;
   form.elements.city.addEventListener("input", () => {
     updateCheckoutDeliveryFields();
     renderCart();
@@ -903,9 +900,15 @@ function initializeCheckout() {
     }
 
     const values = new FormData(form);
-    const payment = values.get("payment").toString();
     const checkoutError = document.querySelector("[data-checkout-error]");
     checkoutError.hidden = true;
+    const paymentValue = values.get("payment");
+    if (!paymentValue) {
+      checkoutError.textContent = "Hiện chưa có phương thức thanh toán khả dụng.";
+      checkoutError.hidden = false;
+      return;
+    }
+    const payment = paymentValue.toString();
     const cart = readCart();
     const city = values.get("city").toString();
     if (!dryGoodsOnly(cart) && !isHoChiMinhCity(city)) {
@@ -965,24 +968,21 @@ function initializeCheckout() {
       return;
     }
 
-    const resultMessage = document.querySelector("[data-order-result-message]");
-    const modalTitle = document.querySelector("#confirmation-title");
-    const confirmationIcon = document.querySelector(".confirmation-check");
-    const orderLink = document.querySelector("[data-order-cart-link]");
-    document.querySelector("[data-demo-order-id]").textContent = order.order_number;
-    modalTitle.textContent = "Đơn hàng đã được ghi nhận";
-    resultMessage.textContent = "Cửa hàng đã nhận đơn COD. Bạn có thể theo dõi trạng thái bằng liên kết riêng tư bên dưới.";
-    orderLink.href = `/orders/track/?token=${encodeURIComponent(order.tracking_token)}`;
-    confirmationIcon.textContent = "✓";
-    confirmationIcon.classList.remove("is-payment-failed");
-    dialog.open();
     writeCart([]);
-    renderCart();
-  });
-
-  document.querySelector("[data-close-modal]").addEventListener("click", closeModal);
-  modal.addEventListener("click", (event) => {
-    if (event.target === modal) closeModal();
+    submitButton.disabled = true;
+    const successPage = document.querySelector("[data-checkout-success]");
+    const checkoutPage = document.querySelector("[data-checkout-page]");
+    const orderLink = document.querySelector("[data-order-history-link]");
+    if (form.dataset.orderHistoryUrl) {
+      orderLink.href = form.dataset.orderHistoryUrl;
+    } else {
+      const trackingUrl = new URL(form.dataset.orderTrackingUrl, window.location.href);
+      trackingUrl.searchParams.set("token", order.tracking_token);
+      orderLink.href = trackingUrl.toString();
+    }
+    checkoutPage.hidden = true;
+    successPage.hidden = false;
+    document.querySelector(".checkout-shell").classList.add("is-order-success");
   });
 }
 
@@ -1044,16 +1044,13 @@ function initializeTracking() {
       details.append(line);
     });
     details.hidden = false;
-    const steps = order.delivery_type === "nationwide"
+    let steps = order.delivery_type === "nationwide"
       ? [
           ["pending", "Đã tiếp nhận đơn"],
           ["confirmed", "Đã xác nhận"],
           ["packing", "Đang đóng gói"],
           ["shipped", "Đã bàn giao đơn vị vận chuyển"],
           ["delivering", "Đang giao hàng"],
-          ["awaiting_confirmation", "Chờ khách xác nhận đã nhận"],
-          ["delivery_issue", "Quản lý đang xử lý khiếu nại"],
-          ["delivered", "Giao hàng thành công"],
         ]
       : [
           ["pending", "Đã tiếp nhận đơn"],
@@ -1061,21 +1058,28 @@ function initializeTracking() {
           ["preparing", "Đang chuẩn bị"],
           ["ready", "Sẵn sàng giao"],
           ["delivering", "Đang giao hàng"],
-          ["awaiting_confirmation", "Chờ khách xác nhận đã nhận"],
-          ["delivery_issue", "Quản lý đang xử lý khiếu nại"],
-          ["delivered", "Giao hàng thành công"],
         ];
-    if (order.status === "cancelled") {
+    if (order.status === "delivery_issue") {
+      steps.push(["delivery_issue", "Giao hàng không thành công"]);
+    } else if (order.status === "cancelled") {
       steps.push(["cancelled", "Đơn hàng đã hủy"]);
+    } else {
+      steps.push(["delivered", "Giao hàng thành công"]);
     }
-    const currentStep = steps.findIndex(([status]) => status === order.status);
+    const timelineStatus = order.status === "awaiting_confirmation" ? "delivering" : order.status;
+    let currentStep = steps.findIndex(([status]) => status === timelineStatus);
+    if (order.cancellation_requested) {
+      if (currentStep >= 0) steps = steps.slice(0, currentStep + 1);
+      steps.push(["cancellation_requested", "Quản lý đang xử lý khiếu nại"]);
+      currentStep = steps.length - 1;
+    }
     steps.forEach(([status, title], index) => {
       const item = document.createElement("li");
       if (index < currentStep) item.className = "is-complete";
       if (index === currentStep) item.className = "is-current";
       const dot = document.createElement("span");
       dot.className = "timeline-dot";
-      dot.textContent = index < currentStep ? "✓" : status === "cancelled" ? "×" : String(index + 1);
+      dot.textContent = index < currentStep ? "✓" : ["cancelled", "delivery_issue"].includes(status) ? "×" : String(index + 1);
       const content = document.createElement("div");
       const heading = document.createElement("strong");
       heading.textContent = title;
@@ -1496,6 +1500,14 @@ function initializeMobileNavigation() {
   });
 }
 
+function initializeAnnouncementBanner() {
+  const banner = document.querySelector("[data-announcement-banner]");
+  const closeButton = document.querySelector("[data-close-announcement]");
+  closeButton?.addEventListener("click", () => {
+    banner.hidden = true;
+  });
+}
+
 function initializeLanguages() {
   document.querySelectorAll("[data-language]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -1554,6 +1566,211 @@ function initializeEmployeeWorkspaceRefresh() {
   refreshWhenSafe();
 }
 
+function initializeEmployeeAvailabilityToggles() {
+  document.querySelectorAll("[data-employee-availability-form]").forEach((form) => {
+    const toggle = form.querySelector('input[type="checkbox"][name="is_available"]');
+    if (!toggle) return;
+    toggle.addEventListener("change", () => form.requestSubmit());
+  });
+}
+
+function initializeBankTransferStatus() {
+  const page = document.querySelector("[data-bank-transfer-status]");
+  const liveStatus = page && page.querySelector("[data-payment-live-status]");
+  if (!page || !liveStatus) return;
+
+  const checkStatus = async () => {
+    try {
+      const response = await fetch(page.dataset.statusUrl, {
+        headers: { Accept: "application/json" },
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Không kiểm tra được trạng thái chuyển khoản.");
+      const status = page.querySelector("[data-payment-status]");
+      status.textContent = result.status_display;
+      if (result.paid) {
+        liveStatus.textContent = "FitMeal đã nhận được tiền và cập nhật trạng thái thanh toán.";
+        page.querySelector("h1").textContent = "Đã nhận được thanh toán.";
+        return;
+      }
+      if (result.status === "expired" || result.status === "failed") {
+        liveStatus.textContent = "Mã thanh toán không còn hiệu lực. Vui lòng liên hệ cửa hàng.";
+        page.querySelector("h1").textContent = "Mã thanh toán đã hết hạn.";
+        return;
+      }
+      window.setTimeout(checkStatus, 5000);
+    } catch (error) {
+      liveStatus.textContent = `${error.message} Trang sẽ tự kiểm tra lại.`;
+      window.setTimeout(checkStatus, 10000);
+    }
+  };
+  window.setTimeout(checkStatus, 5000);
+}
+
+function initializeMomoPaymentStatus() {
+  const page = document.querySelector("[data-momo-payment-status]");
+  const liveStatus = page && page.querySelector("[data-payment-live-status]");
+  if (!page || !liveStatus) return;
+
+  const checkStatus = async () => {
+    try {
+      const response = await fetch(page.dataset.statusUrl, {
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Không kiểm tra được trạng thái MoMo.");
+      const status = page.querySelector("[data-payment-status]");
+      status.textContent = result.status_display;
+      if (result.status !== "pending") {
+        window.location.reload();
+        return;
+      }
+      liveStatus.textContent = "Đang chờ MoMo xác nhận; FitMeal tự kiểm tra lại sau 2 giây.";
+      window.setTimeout(checkStatus, 2000);
+    } catch (error) {
+      liveStatus.textContent = `${error.message} Trang sẽ tự kiểm tra lại.`;
+      window.setTimeout(checkStatus, 5000);
+    }
+  };
+  window.setTimeout(checkStatus, 2000);
+}
+
+function initializeProductCreateForm() {
+  const form = document.querySelector("[data-product-create-form]");
+  if (!form) return;
+
+  const field = (name) => form.elements[name];
+  const category = field("category");
+  const kindOptions = [...form.querySelectorAll("[data-product-kind]")];
+  const dryFields = [...form.querySelectorAll(".product-create-dry-field")];
+  const inventoryFields = [...form.querySelectorAll(".product-create-inventory-field")];
+  const checks = [...document.querySelectorAll("[data-product-check]")];
+  const publishButton = document.querySelector("[data-product-publish]");
+  const checkCount = document.querySelector("[data-product-check-count]");
+  const previewImage = document.querySelector("[data-product-preview-image]");
+  const uploadPreview = document.querySelector("[data-product-upload-preview]");
+  const deliveryNote = document.querySelector("[data-product-delivery-note]");
+  let previewUrl = null;
+
+  const selectedKind = () =>
+    kindOptions.find((option) => option.checked)?.value || "fresh";
+  const updateCategoryOptions = () => {
+    const dry = selectedKind() === "dry";
+    [...category.options].forEach((option) => {
+      if (!option.value) return;
+      option.hidden = dry ? option.value !== "dry_goods" : option.value === "dry_goods";
+      option.disabled = option.hidden;
+    });
+    if (dry && category.value !== "dry_goods") category.value = "dry_goods";
+    if (!dry && category.value === "dry_goods") category.value = "meal";
+    dryFields.forEach((element) => { element.hidden = !dry; });
+    inventoryFields.forEach((element) => { element.hidden = !dry; });
+    field("stock_quantity").required = dry;
+    if (deliveryNote) {
+      deliveryNote.textContent = dry
+        ? "Đồ khô giao toàn quốc. Cần khai báo khối lượng để tính phí vận chuyển; tồn kho được cập nhật thủ công."
+        : "Đồ tươi giao trong TP. Hồ Chí Minh và được làm sau khi khách đặt; không quản lý tồn kho.";
+    }
+    updatePreview();
+    updateChecklist();
+  };
+
+  const updatePreview = () => {
+    const name = field("name").value.trim();
+    const description = field("description").value.trim();
+    const calories = field("calories").value.trim();
+    const protein = field("protein").value.trim();
+    const serving = field("serving").value.trim();
+    const price = Number(field("price").value);
+    const isDry = selectedKind() === "dry";
+    const previewName = document.querySelector("[data-product-preview-name]");
+    const previewDescription = document.querySelector("[data-product-preview-description]");
+    const previewCalories = document.querySelector("[data-product-preview-calories]");
+    const previewProtein = document.querySelector("[data-product-preview-protein]");
+    const previewServing = document.querySelector("[data-product-preview-serving]");
+    const previewPrice = document.querySelector("[data-product-preview-price]");
+    const previewCategory = document.querySelector("[data-product-preview-category]");
+    if (previewName) previewName.textContent = name || "Tên món";
+    if (previewDescription) previewDescription.textContent = description || field("ingredients").value.trim() || "Thành phần chính";
+    if (previewCalories) previewCalories.textContent = `${calories || "—"} kcal`;
+    if (previewProtein) previewProtein.textContent = `${protein || "—"} g đạm`;
+    if (previewServing) previewServing.textContent = serving || "Khẩu phần";
+    if (previewPrice) {
+      previewPrice.textContent = price > 0
+        ? new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(price)
+        : "—";
+    }
+    if (previewCategory) previewCategory.textContent = isDry ? "ĐỒ KHÔ · GIAO TOÀN QUỐC" : "ĐỒ TƯƠI · TRONG NGÀY";
+  };
+
+  const updateChecklist = () => {
+    const validPrice = Number(field("price").value) > 0;
+    const stock = field("stock_quantity").value.trim();
+    const isDry = selectedKind() === "dry";
+    const checksPassed = {
+      identity: Boolean(field("name").value.trim() && category.value),
+      details: Boolean(
+        field("description").value.trim()
+        && field("ingredients").value.trim()
+        && (selectedKind() !== "dry" || Number(field("shipping_weight_grams").value) > 0),
+      ),
+      nutrition: Boolean(
+        Number(field("calories").value) > 0
+        && Number(field("protein").value) > 0
+        && field("serving").value.trim(),
+      ),
+      image: Boolean(field("image").files?.length),
+      price: validPrice,
+      stock: !isDry || (stock !== "" && Number(stock) >= 0),
+    };
+    const completed = checks.reduce((count, item) => {
+      const isComplete = checksPassed[item.dataset.productCheck];
+      item.classList.toggle("is-complete", isComplete);
+      return count + Number(isComplete);
+    }, 0);
+    if (checkCount) checkCount.textContent = String(completed);
+    if (publishButton) publishButton.disabled = completed !== checks.length;
+  };
+
+  kindOptions.forEach((option) => option.addEventListener("change", updateCategoryOptions));
+  category.addEventListener("change", () => {
+    const dry = category.value === "dry_goods";
+    const matchingKind = kindOptions.find((option) => option.value === (dry ? "dry" : "fresh"));
+    if (matchingKind) matchingKind.checked = true;
+    updateCategoryOptions();
+  });
+  ["name", "description", "ingredients", "calories", "protein", "serving", "price", "stock_quantity"].forEach((name) => {
+    field(name).addEventListener("input", () => {
+      updatePreview();
+      updateChecklist();
+    });
+    field(name).addEventListener("change", updateChecklist);
+  });
+  field("image").addEventListener("change", () => {
+    const file = field("image").files?.[0];
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    previewUrl = file ? URL.createObjectURL(file) : null;
+    [previewImage, uploadPreview].forEach((container) => {
+      if (!container) return;
+      container.replaceChildren();
+      if (previewUrl) {
+        const image = document.createElement("img");
+        image.src = previewUrl;
+        image.alt = "Xem trước ảnh món";
+        container.append(image);
+      } else {
+        container.textContent = "Chưa có ảnh";
+      }
+    });
+    updateChecklist();
+  });
+
+  updateCategoryOptions();
+  updatePreview();
+  updateChecklist();
+}
+
 cartDrawerController = initializeCartDrawer();
 updateCartCounts();
 renderCart();
@@ -1569,6 +1786,11 @@ initializeTracking();
 initializeAccount();
 initializePasswordVisibility();
 initializeEmployeeWorkspaceRefresh();
+initializeEmployeeAvailabilityToggles();
+initializeBankTransferStatus();
+initializeMomoPaymentStatus();
+initializeProductCreateForm();
 initializeAdmin();
+initializeAnnouncementBanner();
 initializeMobileNavigation();
 initializeLanguages();

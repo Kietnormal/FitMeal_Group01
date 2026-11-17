@@ -1,0 +1,47 @@
+{% extends "core/store_base.html" %}
+{% block title %}Thanh toán MoMo bằng thẻ — FitMeal{% endblock %}
+{% block store_content %}
+  <section
+    class="page-heading compact-heading"
+    {% if payment.status == "pending" %}
+      data-momo-payment-status
+      data-status-url="{{ payment_status_url }}"
+    {% endif %}
+  >
+    <span class="store-kicker">THANH TOÁN MOMO SANDBOX</span>
+    {% if payment.status == "paid" %}
+      <span class="checkout-success-icon" aria-hidden="true">✓</span>
+      <h1>Thanh toán thành công.</h1>
+      <p>Đã nhận thanh toán cho đơn {{ payment.order.order_number }}.</p>
+    {% elif payment.status == "expired" %}
+      <h1>Mã thanh toán đã hết hạn.</h1>
+      <p>Vui lòng tạo đơn thanh toán mới hoặc liên hệ cửa hàng để được hỗ trợ.</p>
+    {% elif payment.status == "failed" %}
+      <h1>Thanh toán chưa hoàn tất.</h1>
+      <p>Giao dịch MoMo không thành công. Vui lòng tạo đơn thanh toán mới.</p>
+    {% elif qr_data_url %}
+      <h1>Quét mã bằng camera điện thoại.</h1>
+      <p>Điện thoại sẽ mở trang MoMo sandbox để thanh toán bằng thẻ ATM.</p>
+      <div class="bank-transfer-instructions momo-payment-instructions">
+        <img src="{{ qr_data_url }}" alt="Mã QR mở trang thanh toán MoMo ATM">
+        <div>
+          <p>Đơn hàng: <strong>{{ payment.order.order_number }}</strong></p>
+          <p>Số tiền: <strong>{{ payment.amount|floatformat:0 }}₫</strong></p>
+          <p>Quét mã QR bằng camera, sau đó làm theo hướng dẫn trên trang MoMo sandbox.</p>
+          <p>Giao dịch sẽ tự cập nhật sau khi FitMeal xác nhận thông báo IPN từ MoMo.</p>
+          <a class="solid-button" href="{{ gateway_payment_url }}" target="_blank" rel="noopener">
+            Mở trang thanh toán trên thiết bị này →
+          </a>
+        </div>
+      </div>
+      <p class="bank-transfer-live-status" data-payment-live-status role="status">
+        Đang chờ MoMo xác nhận; FitMeal tự kiểm tra lại sau 2 giây.
+      </p>
+    {% else %}
+      <h1>Không thể mở mã thanh toán.</h1>
+      <p>Liên kết thanh toán không còn trong phiên trình duyệt này. Vui lòng quay lại cửa hàng và tạo đơn mới.</p>
+    {% endif %}
+    <p>Trạng thái thanh toán: <strong data-payment-status>{{ payment.get_status_display }}</strong></p>
+    <a class="solid-button" href="{% url 'core:home' %}">Quay về cửa hàng →</a>
+  </section>
+{% endblock %}

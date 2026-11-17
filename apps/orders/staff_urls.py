@@ -51,6 +51,16 @@ urlpatterns = [
         views.manager_resolve_delivery_issue,
         name="resolve_delivery_issue",
     ),
+    path(
+        "products/<int:product_id>/request-restock/",
+        views.staff_request_inventory_restock,
+        name="request_inventory_restock",
+    ),
+    path(
+        "inventory-restock-requests/<int:restock_request_id>/fulfill/",
+        views.manager_fulfill_inventory_restock,
+        name="fulfill_inventory_restock",
+    ),
     path("products/create/", views.staff_create_product, name="create_product"),
     path(
         "products/<int:product_id>/availability/",

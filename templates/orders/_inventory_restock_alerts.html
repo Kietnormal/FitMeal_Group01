@@ -1,0 +1,25 @@
+{% if inventory_restock_requests %}
+  <section class="inventory-restock-alerts" aria-label="Cảnh báo tồn kho">
+    <header>
+      <div><h2>Cảnh báo tồn kho</h2><p>Đơn vẫn được ghi nhận; gửi yêu cầu để bổ sung hàng trước khi đóng gói.</p></div>
+      <b>{{ inventory_restock_alert_count }}</b>
+    </header>
+    {% for restock_request in inventory_restock_requests %}
+      <article>
+        <div>
+          <strong>{{ restock_request.product_name }}</strong>
+          <span>Đơn chờ cần {{ restock_request.requested_quantity }} · Lúc báo còn {{ restock_request.available_quantity }} · {{ restock_request.attempt_count }} lần báo</span>
+        </div>
+        {% if restock_request.status == "staff_alert" and not is_manager and restock_request.product %}
+          <form action="{% url 'staff_orders:request_inventory_restock' restock_request.product.pk %}" method="post">
+            {% csrf_token %}<button type="submit">Gửi yêu cầu bổ sung cho quản lý</button>
+          </form>
+        {% elif restock_request.status == "manager_review" %}
+          <span class="inventory-restock-status">Đã gửi quản lý</span>
+        {% else %}
+          <span class="inventory-restock-status">Chờ nhân viên gửi quản lý</span>
+        {% endif %}
+      </article>
+    {% endfor %}
+  </section>
+{% endif %}

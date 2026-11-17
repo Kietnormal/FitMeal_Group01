@@ -49,8 +49,8 @@ class CoreViewsTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "data-product-grid")
-        self.assertContains(response, "storefront.js?v=20261116-sold-out-status-2")
-        self.assertContains(response, "storefront.css?v=20261116-sold-out-status-2")
+        self.assertContains(response, "storefront.js?v=20261117-momo-bank-payments-1")
+        self.assertContains(response, "storefront.css?v=20261117-payments-1")
         self.assertNotContains(response, "Banana Whey")
         self.assertNotContains(response, "Granola Crunch")
 
@@ -146,6 +146,9 @@ class CoreViewsTests(TestCase):
         response = self.client.get(reverse("core:shop"))
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Nhận đơn 6:00 – 21:00 mỗi ngày")
+        self.assertContains(response, 'data-close-announcement aria-label="Đóng thông báo"')
+        self.assertContains(response, f'href="{reverse("core:policies")}#delivery">Xem khung giờ')
         self.assertContains(response, reverse("core:policies"))
         self.assertContains(response, 'href="mailto:hello@fitmeal.vn"')
         self.assertContains(response, 'data-catalog-status role="status"')
@@ -158,11 +161,21 @@ class CoreViewsTests(TestCase):
         response = self.client.get("/demo-admin/")
         self.assertEqual(response.status_code, 404)
 
+    def test_checkout_offers_momo_bank_transfer_and_cod(self):
+        response = self.client.get(reverse("core:checkout"))
+
+        self.assertContains(response, 'name="payment" value="momo"')
+        self.assertContains(response, 'name="payment" value="bank_transfer"')
+        self.assertContains(response, 'name="payment" value="cod"')
+        self.assertNotContains(response, 'name="payment" value="vnpay"')
+        self.assertNotContains(response, "VNPay")
+        self.assertNotContains(response, 'class="solid-button submit-order" type="submit" disabled')
+
     def test_customer_demo_has_shopping_account_and_order_controls(self):
         pages = {
             "shop": ("data-price-min", "data-calorie-filter", "data-product-modal", "data-detail-ingredients", "data-detail-image"),
             "account": ("data-account-form=\"login\"", "data-account-form=\"register\"", "Đăng ký công khai chỉ tạo tài khoản khách hàng"),
-            "checkout": ("name=\"address\"", "delivery-date", "name=\"accept_policy\"", "data-order-result-message", "data-order-cart-link", "data-checkout-error"),
+            "checkout": ("name=\"address\"", "delivery-date", "name=\"accept_policy\"", "data-order-tracking-url", "data-checkout-success", "Bạn đã đặt đơn thành công!", "Xem đơn hàng của bạn tại đây", "data-checkout-error"),
             "tracking": ("data-tracking-form", "data-cancel-order", "data-tracking-timeline"),
         }
 
@@ -172,6 +185,22 @@ class CoreViewsTests(TestCase):
                 self.assertEqual(response.status_code, 200)
                 for content in expected_content:
                     self.assertContains(response, content)
+
+    def test_authenticated_checkout_links_to_the_customer_order_history(self):
+        user = get_user_model().objects.create_user(
+            username="checkout-order-history",
+            email="checkout-order-history@example.com",
+            password="Customer-Strong-2026!",
+        )
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("core:checkout"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            f'data-order-history-url="{reverse("core:account")}?tab=orders#orders"',
+        )
 
 
 class DatabaseBackupTests(TestCase):

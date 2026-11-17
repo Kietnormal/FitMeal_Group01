@@ -43,9 +43,22 @@ class Order(models.Model):
         AUTOMATIC = "automatic", "Tự xác nhận sau thời hạn"
         MANAGER = "manager", "Quản lý xác nhận"
 
+    class DeliveryRegion(models.TextChoices):
+        HO_CHI_MINH_CITY = "hcm", "TP. Hồ Chí Minh"
+        OTHER_PROVINCES = "other", "Các tỉnh khác"
+
+    class CancellationReasonCategory(models.TextChoices):
+        CUSTOMER_CHANGED_MIND = "changed_mind", "Khách đổi ý"
+        OUT_OF_STOCK = "out_of_stock", "Hết món"
+        NO_CONTACT = "no_contact", "Không liên lạc được"
+        PAYMENT_EXPIRED = "payment_expired", "Thanh toán hết hạn"
+        OTHER = "other", "Lý do khác"
+
     class PaymentMethod(models.TextChoices):
-        COD = "cod", "Thanh toán khi nhận hàng"
-        VNPAY = "vnpay", "VNPay"
+        MOMO = "momo", "MoMo"
+        BANK_TRANSFER = "bank_transfer", "Chuyển khoản ngân hàng"
+        COD = "cod", "Thanh toán khi nhận hàng (COD)"
+        VNPAY = "vnpay", "VNPay (đơn cũ)"
 
     class RefundStatus(models.TextChoices):
         NOT_REQUIRED = "not_required", "Không cần hoàn tiền"
@@ -68,6 +81,12 @@ class Order(models.Model):
     address = models.CharField("Địa chỉ", max_length=250)
     district = models.CharField("Quận / Huyện", max_length=100)
     city = models.CharField("Tỉnh / Thành phố", max_length=100)
+    delivery_region = models.CharField(
+        "Khu vực giao hàng",
+        max_length=8,
+        choices=DeliveryRegion.choices,
+        blank=True,
+    )
     customer_pii_encrypted = models.TextField(
         "Thông tin khách hàng đã mã hóa",
         blank=True,
@@ -78,7 +97,7 @@ class Order(models.Model):
     note = models.TextField("Ghi chú", blank=True)
     payment_method = models.CharField(
         "Phương thức thanh toán",
-        max_length=12,
+        max_length=16,
         choices=PaymentMethod.choices,
         default=PaymentMethod.COD,
     )
@@ -109,6 +128,12 @@ class Order(models.Model):
         related_name="cancelled_orders",
     )
     cancellation_reason = models.TextField("Lý do hủy", blank=True, max_length=1000)
+    cancellation_reason_category = models.CharField(
+        "Nhóm lý do hủy",
+        max_length=20,
+        choices=CancellationReasonCategory.choices,
+        blank=True,
+    )
     refund_status = models.CharField(
         "Trạng thái hoàn tiền",
         max_length=20,
@@ -348,6 +373,7 @@ class OrderItem(models.Model):
     product_name = models.CharField("Tên sản phẩm", max_length=120)
     product_category = models.CharField("Danh mục sản phẩm", max_length=16, blank=True)
     shipping_weight_grams = models.PositiveIntegerField("Khối lượng giao hàng (g)", default=0)
+    inventory_deducted = models.BooleanField("Đã trừ kho", default=False, editable=False)
     unit_price = models.DecimalField(
         "Đơn giá", max_digits=10, decimal_places=2, validators=[MinValueValidator(0)]
     )

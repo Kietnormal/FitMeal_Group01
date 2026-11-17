@@ -2,6 +2,11 @@ from django.db import models
 
 
 class PaymentTransaction(models.Model):
+    class Provider(models.TextChoices):
+        VNPAY = "vnpay", "VNPay (đơn cũ)"
+        MOMO = "momo", "MoMo"
+        BANK_TRANSFER = "bank_transfer", "Chuyển khoản ngân hàng"
+
     class Status(models.TextChoices):
         PENDING = "pending", "Chờ thanh toán"
         PAID = "paid", "Đã thanh toán"
@@ -14,6 +19,17 @@ class PaymentTransaction(models.Model):
         related_name="payment_transaction",
     )
     transaction_ref = models.CharField(max_length=32, unique=True)
+    provider = models.CharField(
+        max_length=16,
+        choices=Provider.choices,
+        default=Provider.VNPAY,
+    )
+    bank_transfer_code = models.CharField(
+        max_length=16,
+        unique=True,
+        null=True,
+        blank=True,
+    )
     amount = models.DecimalField(max_digits=14, decimal_places=2)
     status = models.CharField(
         max_length=10,

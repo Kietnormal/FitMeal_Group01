@@ -65,16 +65,37 @@ class Product(models.Model):
             models.Index(fields=["category", "is_available"]),
             models.Index(fields=["is_featured", "is_available"]),
         ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(category="dry_goods")
+                | models.Q(stock_quantity__isnull=True),
+                name="product_inventory_only_for_dry_goods",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.name} ({self.sku})"
 
+    @property
+    def tracks_inventory(self):
+        return self.category == self.Category.DRY_GOODS
+
     def clean(self):
         super().clean()
-        if self.category == self.Category.DRY_GOODS and self.shipping_weight_grams < 1:
+        if not self.tracks_inventory:
+            self.stock_quantity = None
+        if self.tracks_inventory and self.shipping_weight_grams < 1:
             raise ValidationError(
                 {"shipping_weight_grams": "Đồ khô cần khai báo khối lượng giao hàng."}
             )
+
+    def save(self, *args, **kwargs):
+        if not self.tracks_inventory:
+            self.stock_quantity = None
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None:
+                kwargs["update_fields"] = set(update_fields) | {"stock_quantity"}
+        super().save(*args, **kwargs)
 
 
 class ProductActivity(models.Model):
@@ -113,3 +134,65 @@ class ProductActivity(models.Model):
 
     def __str__(self):
         return f"{self.get_action_display()}: {self.product_name}"
+
+
+class InventoryRestockRequest(models.Model):
+    class Status(models.TextChoices):
+        STAFF_ALERT = "staff_alert", "Chờ nhân viên gửi quản lý"
+        MANAGER_REVIEW = "manager_review", "Chờ quản lý bổ sung"
+        FULFILLED = "fulfilled", "Đã bổ sung"
+        CANCELLED = "cancelled", "Không còn đơn chờ"
+
+    product = models.ForeignKey(
+        Product,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="restock_requests",
+    )
+    product_name = models.CharField(max_length=120)
+    product_sku = models.CharField(max_length=32)
+    requested_quantity = models.PositiveIntegerField()
+    available_quantity = models.PositiveIntegerField()
+    attempt_count = models.PositiveIntegerField(default=1)
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.STAFF_ALERT,
+    )
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="inventory_restock_requests",
+    )
+    fulfilled_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="fulfilled_inventory_restock_requests",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    fulfilled_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-updated_at", "-pk"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["product"],
+                condition=models.Q(
+                    product__isnull=False,
+                    status__in=["staff_alert", "manager_review"],
+                ),
+                name="products_one_open_restock_per_product",
+            ),
+        ]
+        indexes = [models.Index(fields=["status", "updated_at"])]
+        verbose_name = "Yêu cầu bổ sung tồn kho"
+        verbose_name_plural = "Yêu cầu bổ sung tồn kho"
+
+    def __str__(self):
+        return f"{self.product_name} · {self.get_status_display()}"

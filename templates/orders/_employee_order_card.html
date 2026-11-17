@@ -3,6 +3,11 @@
     <strong>#{{ order.order_number }}</strong>
     <span>{{ order.created_at|timesince }} trước</span>
   </header>
+  {% if order.status == "delivered" %}
+    <p class="employee-order-terminal-status is-completed">Hoàn tất</p>
+  {% elif order.status == "cancelled" %}
+    <p class="employee-order-terminal-status is-cancelled">Đơn hủy</p>
+  {% endif %}
   <div class="employee-order-customer">
     {% if order.customer_info_redacted %}
       <strong>Thông tin khách hàng đã được mã hóa và ẩn sau khi đơn kết thúc.</strong>
@@ -61,6 +66,9 @@
     {% elif order.status == "delivering" %}
       <form action="{% url 'staff_orders:update_status' order.pk %}?workspace={{ active_workspace }}" method="post">
         {% csrf_token %}<input type="hidden" name="status" value="awaiting_confirmation"><button type="submit">Đã giao · chờ khách xác nhận</button>
+      </form>
+      <form action="{% url 'staff_orders:update_status' order.pk %}?workspace={{ active_workspace }}" method="post">
+        {% csrf_token %}<input type="hidden" name="status" value="delivery_issue"><button class="is-delivery-failed" type="submit">Không liên lạc được với khách</button>
       </form>
     {% elif order.status == "awaiting_confirmation" %}
       <p>Đã báo giao xong · đang chờ khách xác nhận nhận hàng.</p>

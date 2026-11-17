@@ -7,7 +7,7 @@
   <p>Giá, tình trạng bán và phí giao hàng sẽ được kiểm tra lại trước khi ghi nhận đơn.</p>
 </section>
 <div class="checkout-layout" data-checkout-page>
-  <form class="checkout-form" data-checkout-form>
+  <form class="checkout-form" data-checkout-form data-order-tracking-url="{% url 'core:tracking' %}" data-order-history-url="{% if user.is_authenticated %}{% url 'core:account' %}?tab=orders#orders{% endif %}">
     {% csrf_token %}
     <section class="form-panel">
       <div class="form-section-heading"><span>01</span><div><h2>Người nhận và địa chỉ</h2><p>Chọn địa chỉ đã lưu hoặc nhập địa chỉ giao hàng mới.</p></div></div>
@@ -69,9 +69,11 @@
     <section class="form-panel">
       <div class="form-section-heading"><span>03</span><div><h2>Thanh toán</h2><p>Chọn cách thanh toán cho đơn hàng.</p></div></div>
       <div class="payment-options">
-        <label class="payment-option"><input type="radio" name="payment" value="cod" checked><span class="payment-icon">₫</span><span><strong>Thanh toán khi nhận hàng (COD)</strong><small>Trả tiền mặt cho người giao hàng</small></span></label>
-        <label class="payment-option"><input type="radio" name="payment" value="vnpay" {% if not vnpay_enabled %}disabled{% endif %}><span class="payment-icon">↗</span><span><strong>VNPay (thẻ ATM, QR ngân hàng)</strong><small>{% if vnpay_enabled %}Chuyển sang cổng VNPay; giao dịch phải hoàn tất trong 15 phút{% else %}Chưa cấu hình kết nối VNPay{% endif %}</small></span></label>
+        <label class="payment-option"><input type="radio" name="payment" value="momo" {% if momo_enabled %}checked{% else %}disabled{% endif %}><span class="payment-icon">M</span><span><strong>Ví MoMo</strong><small>{% if momo_enabled %}Thanh toán qua ứng dụng MoMo; xác nhận tự động{% else %}Chưa cấu hình kết nối MoMo{% endif %}</small></span></label>
+        <label class="payment-option"><input type="radio" name="payment" value="bank_transfer" {% if not bank_transfer_enabled %}disabled{% elif not momo_enabled %}checked{% endif %}><span class="payment-icon">₫</span><span><strong>Chuyển khoản ngân hàng</strong><small>{% if bank_transfer_enabled %}Quét mã QR; hệ thống tự đối soát giao dịch{% else %}Chưa cấu hình tài khoản ngân hàng và webhook SePay{% endif %}</small></span></label>
+        <label class="payment-option"><input type="radio" name="payment" value="cod" {% if not momo_enabled and not bank_transfer_enabled %}checked{% endif %}><span class="payment-icon">COD</span><span><strong>Thanh toán khi nhận hàng</strong><small>Thanh toán trực tiếp khi nhận đơn</small></span></label>
       </div>
+      {% if not momo_enabled and not bank_transfer_enabled %}<p class="form-disclaimer" role="status">MoMo và chuyển khoản chưa được cấu hình; bạn vẫn có thể chọn thanh toán khi nhận hàng.</p>{% endif %}
     </section>
     <label class="checkout-policy-consent"><input type="checkbox" name="accept_policy" required><span>Tôi đồng ý với <a href="{% url 'core:policies' %}" target="_blank" rel="noopener">chính sách giao hàng và đổi trả</a>. Đồ tươi không áp dụng đổi trả.</span></label>
     <p class="form-disclaimer" data-checkout-error role="alert" hidden></p>
@@ -87,14 +89,9 @@
     <a class="back-to-cart" href="{% url 'core:cart' %}">← Quay lại giỏ hàng</a>
   </aside>
 </div>
-<div class="modal-backdrop" data-order-modal hidden>
-  <section class="confirmation-modal" role="dialog" aria-modal="true" aria-labelledby="confirmation-title">
-    <button class="modal-close" type="button" aria-label="Đóng" data-close-modal>×</button>
-    <span class="confirmation-check">✓</span><span class="store-kicker">XÁC NHẬN ĐƠN HÀNG</span>
-    <h2 id="confirmation-title">Đơn hàng đã được ghi nhận</h2>
-    <p>Mã đơn hàng: <strong data-demo-order-id>FM-0000</strong></p>
-    <p data-order-result-message>Đơn hàng đã được lưu.</p>
-    <a class="solid-button" data-order-cart-link href="{% url 'core:tracking' %}">Theo dõi đơn hàng →</a>
-  </section>
-</div>
+<section class="checkout-success" data-checkout-success hidden aria-live="polite">
+  <h2>Bạn đã đặt đơn thành công!</h2>
+  <span class="checkout-success-icon" aria-hidden="true">✓</span>
+  <a class="solid-button" data-order-history-link href="#">Xem đơn hàng của bạn tại đây <span>→</span></a>
+</section>
 {% endblock %}

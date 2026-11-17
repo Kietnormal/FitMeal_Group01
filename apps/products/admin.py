@@ -11,7 +11,7 @@ class ProductAdmin(admin.ModelAdmin):
         "sku",
         "category",
         "price",
-        "stock_quantity",
+        "inventory_display",
         "low_stock_threshold",
         "is_available",
         "is_featured",
@@ -30,10 +30,18 @@ class ProductAdmin(admin.ModelAdmin):
             "Thông tin dinh dưỡng",
             {"fields": ("calories", "protein", "carbs", "fat", "serving")},
         ),
-        ("Tồn kho", {"fields": ("stock_quantity", "low_stock_threshold")}),
+        ("Tồn kho (chỉ đồ khô)", {"fields": ("stock_quantity", "low_stock_threshold")}),
         ("Thành phần và dị ứng", {"fields": ("ingredients", "allergens")}),
         ("Thời gian", {"fields": ("created_at", "updated_at")}),
     )
+
+    @admin.display(description="Tồn kho")
+    def inventory_display(self, obj):
+        if not obj.tracks_inventory:
+            return "Làm sau khi đặt"
+        if obj.stock_quantity is None:
+            return "Chưa nhập"
+        return obj.stock_quantity
 
     def save_model(self, request, obj, form, change):
         previous = (
@@ -49,7 +57,7 @@ class ProductAdmin(admin.ModelAdmin):
                 action=ProductActivity.Action.CREATED,
                 new_value=format(obj.price, ".2f"),
             )
-            if obj.stock_quantity is not None:
+            if obj.tracks_inventory and obj.stock_quantity is not None:
                 record_product_activity(
                     product=obj,
                     actor=request.user,
@@ -68,7 +76,7 @@ class ProductAdmin(admin.ModelAdmin):
                 old_value=format(previous.price, ".2f"),
                 new_value=format(obj.price, ".2f"),
             )
-        if (
+        if obj.tracks_inventory and (
             previous.stock_quantity != obj.stock_quantity
             or previous.low_stock_threshold != obj.low_stock_threshold
         ):

@@ -17,12 +17,15 @@ class OrderStatusUpdateForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["status"].choices = [
-            (value, label)
+            (
+                value,
+                "Không liên lạc được với khách"
+                if value == Order.Status.DELIVERY_ISSUE
+                else label,
+            )
             for value, label in Order.Status.choices
-            if value
-            not in {
+            if value not in {
                 Order.Status.CANCELLED,
-                Order.Status.DELIVERY_ISSUE,
                 Order.Status.DELIVERED,
             }
         ]

@@ -47,7 +47,7 @@ Mở http://127.0.0.1:8000 (trang chủ) và http://127.0.0.1:8000/admin (quản
   truy cập website, tạo tác vụ trong Windows Task Scheduler chạy mỗi phút; dùng `python.exe` trong
   môi trường ảo ở **Program/script**, `manage.py finalize_delivery_confirmations` ở **Add arguments**,
   và thư mục dự án ở **Start in**.
-- Sao lưu và hết hạn VNPay: để tác vụ chạy kể cả khi không có người truy cập, tạo hai lịch riêng
+- Sao lưu và hết hạn thanh toán: để tác vụ chạy kể cả khi không có người truy cập, tạo hai lịch riêng
   trong Windows Task Scheduler. Chạy `manage.py backup_database` mỗi ngày lúc 03:00 và
   `manage.py expire_pending_payments` mỗi phút; đặt `python.exe` trong môi trường ảo ở
   **Program/script**, các lệnh trên ở **Add arguments**, thư mục dự án ở **Start in**. Giữ
@@ -57,7 +57,7 @@ Mở http://127.0.0.1:8000 (trang chủ) và http://127.0.0.1:8000/admin (quản
 - Sau khi áp dụng migration, tồn kho của sản phẩm cũ mặc định là chưa nhập; hệ thống chưa tự trừ kho khi khách đặt hàng.
 - `/policies/`: chính sách và thông tin hỗ trợ; xác nhận nội dung chính sách trước khi mở bán.
 
-Dashboard `/demo-admin/` đã được gỡ. Không dùng trang demo để xử lý dữ liệu. Checkout hỗ trợ COD và VNPay khi đã cấu hình `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET` cùng IPN URL `/payments/vnpay/ipn/` tại cổng VNPay. Tích hợp hãng vận chuyển tự động chưa được cấu hình.
+Dashboard `/demo-admin/` đã được gỡ. Không dùng trang demo để xử lý dữ liệu. Checkout có ba phương thức: MoMo ATM sandbox, chuyển khoản ngân hàng và thanh toán khi nhận hàng (COD). Cấu hình `MOMO_PARTNER_CODE`, `MOMO_ACCESS_KEY`, `MOMO_SECRET_KEY` để bật MoMo; checkout tạo QR nội bộ từ `payUrl`, còn IPN đã xác thực mới đánh dấu đơn đã thanh toán. Để thử callback, mở checkout bằng hostname HTTPS công khai đã khai báo trong `ALLOWED_HOSTS`; MoMo dùng hostname đó cho `redirectUrl` và `ipnUrl`. Khi chạy sau reverse proxy HTTPS đáng tin cậy, đặt `DEBUG=False`, dùng `SECRET_KEY` riêng, bật `USE_PROXY_SSL_HEADER=True`, và chỉ đưa hostname của phiên demo vào `ALLOWED_HOSTS`. Không đưa máy chủ `DEBUG=True` hoặc dữ liệu khách hàng thật ra Internet; ưu tiên staging riêng. Đăng ký IPN URL công khai `/payments/momo/ipn/` trong MoMo. Để tự đối soát chuyển khoản, cấu hình `BANK_TRANSFER_BANK_CODE`, `BANK_TRANSFER_ACCOUNT_NUMBER`, `BANK_TRANSFER_ACCOUNT_NAME`, `SEPAY_API_KEY` và webhook SePay tại URL công khai `/payments/bank/sepay-webhook/` với xác thực API Key (`Authorization: Apikey ...`) và sự kiện tiền vào. Dùng sandbox credentials trước khi bật production. Chạy `manage.py expire_pending_payments` mỗi phút để hủy giao dịch quá hạn. Tích hợp hãng vận chuyển tự động chưa được cấu hình.
 
 Các trang prototype đã có bố cục responsive và hộp thoại hỗ trợ bàn phím cơ bản (giữ tiêu điểm trong hộp thoại, đóng bằng Escape, trả tiêu điểm về nút đã mở). Cần kiểm thử lại trên thiết bị và trình đọc màn hình thực tế trước khi triển khai.
 

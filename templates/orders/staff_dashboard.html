@@ -83,7 +83,7 @@
           </a>
           <div class="dashboard-attention-item dashboard-attention-static">
             <span class="dashboard-attention-icon attention-green">₫</span>
-            <span><strong>COD</strong><b>Thanh toán khả dụng</b><small>Chưa tích hợp thanh toán online</small></span>
+            <span><strong>MoMo · Ngân hàng</strong><b>Thanh toán trực tuyến</b><small>Tự xác nhận qua callback và webhook</small></span>
           </div>
         </div>
       </section>
@@ -183,8 +183,8 @@
           <div class="dashboard-panel-heading"><div><h2>Tình trạng hệ thống</h2><p>Trạng thái tích hợp hiện tại</p></div></div>
           <ul>
             <li><span class="system-dot is-ok"></span><span>Cơ sở dữ liệu</span><strong>Đang hoạt động</strong></li>
-            <li><span class="system-dot is-warning"></span><span>Tồn kho số lượng</span><strong>Chưa theo dõi</strong></li>
-            <li><span class="system-dot is-warning"></span><span>Cổng thanh toán</span><strong>Chỉ hỗ trợ COD</strong></li>
+            <li><span class="system-dot is-ok"></span><span>Tồn kho</span><strong>Chỉ theo dõi đồ khô</strong></li>
+            <li><span class="system-dot is-warning"></span><span>Cổng thanh toán</span><strong>MoMo · Chuyển khoản</strong></li>
             <li><span class="system-dot is-muted"></span><span>Sao lưu tự động</span><strong>Chưa cấu hình</strong></li>
           </ul>
         </section>
@@ -339,12 +339,7 @@
 
     {% elif active_section == "products" %}
       <section class="admin-panel full-admin-panel live-admin-panel" id="products">
-        <div class="admin-panel-heading"><div><span class="store-kicker">DANH MỤC CỬA HÀNG</span><h2>Quản lý món ăn</h2></div><details class="admin-add-product"><summary class="admin-primary">+ Thêm món</summary>
-          <form action="{% url 'staff_orders:create_product' %}" method="post" enctype="multipart/form-data" class="admin-product-form">{% csrf_token %}
-            {{ product_form.as_p }}
-            <button type="submit" class="admin-primary">Lưu sản phẩm</button>
-          </form>
-        </details></div>
+        <div class="admin-panel-heading"><div><span class="store-kicker">DANH MỤC CỬA HÀNG</span><h2>Quản lý món ăn</h2></div><a class="admin-primary" href="{% url 'staff_orders:create_product' %}">+ Thêm món</a></div>
         {% if product_rows %}
           <div class="table-scroll"><table class="admin-table live-product-table"><thead><tr><th>MÓN ĂN</th><th>MÃ SẢN PHẨM</th><th>DANH MỤC</th><th>GIÁ BÁN</th><th>TRẠNG THÁI</th><th>THAO TÁC</th></tr></thead><tbody>
             {% for row in product_rows %}
@@ -377,37 +372,37 @@
 
     {% elif active_section == "payments" %}
       <section class="admin-panel full-admin-panel live-admin-panel">
-        <div class="admin-panel-heading"><div><span class="store-kicker">COD · VNPAY</span><h2>Tổng hợp thanh toán</h2><p>Giá trị đơn theo phương thức và trạng thái giao dịch VNPay được lấy trực tiếp từ cơ sở dữ liệu.</p></div></div>
+        <div class="admin-panel-heading"><div><span class="store-kicker">MOMO · CHUYỂN KHOẢN</span><h2>Tổng hợp thanh toán</h2><p>Giá trị đơn theo phương thức và trạng thái giao dịch được lấy trực tiếp từ cơ sở dữ liệu.</p></div></div>
         <div class="payment-summary-cards">
           {% for payment in payment_summaries %}
-            <article><span>{% if payment.payment_method == "cod" %}THANH TOÁN KHI NHẬN HÀNG{% elif payment.payment_method == "vnpay" %}VNPAY{% else %}{{ payment.payment_method }}{% endif %}</span><strong>{{ payment.order_value|default:0|floatformat:0 }}₫</strong><small>{{ payment.order_count }} đơn trong database</small></article>
+            <article><span>{% if payment.payment_method == "momo" %}MOMO{% elif payment.payment_method == "bank_transfer" %}CHUYỂN KHOẢN NGÂN HÀNG{% elif payment.payment_method == "cod" %}COD (ĐƠN CŨ){% elif payment.payment_method == "vnpay" %}VNPAY (ĐƠN CŨ){% else %}{{ payment.payment_method }}{% endif %}</span><strong>{{ payment.order_value|default:0|floatformat:0 }}₫</strong><small>{{ payment.order_count }} đơn trong database</small></article>
           {% empty %}
             <article><span>CHƯA CÓ THANH TOÁN</span><strong>0₫</strong><small>Chưa có đơn hàng</small></article>
           {% endfor %}
           <article><span>GIÁ TRỊ ĐÃ HOÀN TẤT</span><strong>{{ completed_revenue|floatformat:0 }}₫</strong><small>Giá trị đơn có trạng thái hoàn tất</small></article>
           <article><span>GIÁ TRỊ ĐANG XỬ LÝ</span><strong>{{ outstanding_order_value|floatformat:0 }}₫</strong><small>Đơn chưa hoàn tất hoặc hủy</small></article>
         </div>
-        <h3>Giao dịch VNPay</h3>
+        <h3>Giao dịch thanh toán</h3>
         <div class="payment-summary-cards">
           {% for payment in payment_transaction_summaries %}
             <article><span>{{ payment.label }}</span><strong>{{ payment.transaction_value|default:0|floatformat:0 }}₫</strong><small>{{ payment.transaction_count }} giao dịch</small></article>
           {% empty %}
-            <article><span>CHƯA CÓ GIAO DỊCH VNPAY</span><strong>0₫</strong><small>Chưa phát sinh giao dịch</small></article>
+            <article><span>CHƯA CÓ GIAO DỊCH</span><strong>0₫</strong><small>Chưa phát sinh giao dịch</small></article>
           {% endfor %}
         </div>
         <div class="table-scroll">
           <table class="admin-table system-table">
-            <thead><tr><th>MÃ ĐƠN</th><th>MÃ GIAO DỊCH</th><th>SỐ TIỀN</th><th>TRẠNG THÁI</th><th>MÃ PHẢN HỒI</th><th>CẬP NHẬT</th></tr></thead>
+            <thead><tr><th>MÃ ĐƠN</th><th>PHƯƠNG THỨC</th><th>MÃ GIAO DỊCH</th><th>SỐ TIỀN</th><th>TRẠNG THÁI</th><th>MÃ PHẢN HỒI</th><th>CẬP NHẬT</th></tr></thead>
             <tbody>
               {% for payment in recent_payment_transactions %}
-                <tr><td>{{ payment.order.order_number }}</td><td>{{ payment.transaction_ref }}</td><td>{{ payment.amount|floatformat:0 }}₫</td><td>{{ payment.get_status_display }}</td><td>{{ payment.response_code|default:"—" }}</td><td>{{ payment.updated_at|date:"d/m/Y H:i" }}</td></tr>
+                <tr><td>{{ payment.order.order_number }}</td><td>{{ payment.get_provider_display }}</td><td>{{ payment.transaction_ref }}</td><td>{{ payment.amount|floatformat:0 }}₫</td><td>{{ payment.get_status_display }}</td><td>{{ payment.response_code|default:"—" }}</td><td>{{ payment.updated_at|date:"d/m/Y H:i" }}</td></tr>
               {% empty %}
-                <tr><td colspan="6">Chưa có giao dịch VNPay.</td></tr>
+                <tr><td colspan="7">Chưa có giao dịch.</td></tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
-        <p class="admin-footnote">Tổng theo phương thức là giá trị đơn; phần VNPay phản ánh trạng thái giao dịch đã nhận từ cổng thanh toán.</p>
+        <p class="admin-footnote">Thanh toán MoMo được xác nhận qua IPN; chuyển khoản ngân hàng được đối soát qua webhook SePay.</p>
       </section>
 
     {% elif active_section == "shipping" %}
@@ -517,7 +512,8 @@
             <article><span class="system-check-icon is-pending">i</span><span><strong>CPU và bộ nhớ RAM</strong><small>Chưa cài bộ thu thập chỉ số hệ điều hành; không hiển thị số liệu giả.</small></span><b>CHƯA ĐO</b></article>
             <article><span class="system-check-icon is-pending">i</span><span><strong>Lỗi HTTP 5xx</strong><small>Chưa cấu hình nơi tập trung log ứng dụng để thống kê lỗi.</small></span><b>CHƯA THU THẬP</b></article>
             <article><span class="system-check-icon {% if disk_available and disk_percent < 80 %}is-passed{% else %}is-pending{% endif %}">i</span><span><strong>Ổ đĩa</strong><small>{% if disk_available %}{{ disk_percent }}% đã sử dụng; cảnh báo ở ngưỡng 80%.{% else %}{{ disk_error }}{% endif %}</small></span><b>{% if disk_available and disk_percent < 80 %}BÌNH THƯỜNG{% else %}KIỂM TRA{% endif %}</b></article>
-            <article><span class="system-check-icon {% if vnpay_configured %}is-passed{% else %}is-pending{% endif %}">{% if vnpay_configured %}✓{% else %}!{% endif %}</span><span><strong>Cổng thanh toán VNPay</strong><small>{% if vnpay_configured %}Đã có mã điểm bán và khóa chữ ký.{% else %}Chưa khai báo VNPAY_TMN_CODE và VNPAY_HASH_SECRET.{% endif %}</small></span><b>{% if vnpay_configured %}ĐÃ CẤU HÌNH{% else %}CHƯA CẤU HÌNH{% endif %}</b></article>
+            <article><span class="system-check-icon {% if momo_configured %}is-passed{% else %}is-pending{% endif %}">{% if momo_configured %}✓{% else %}!{% endif %}</span><span><strong>Thanh toán MoMo</strong><small>{% if momo_configured %}Đã khai báo thông tin kết nối MoMo.{% else %}Chưa khai báo MOMO_PARTNER_CODE, MOMO_ACCESS_KEY và MOMO_SECRET_KEY.{% endif %}</small></span><b>{% if momo_configured %}ĐÃ CẤU HÌNH{% else %}CHƯA CẤU HÌNH{% endif %}</b></article>
+            <article><span class="system-check-icon {% if bank_transfer_configured %}is-passed{% else %}is-pending{% endif %}">{% if bank_transfer_configured %}✓{% else %}!{% endif %}</span><span><strong>Chuyển khoản ngân hàng</strong><small>{% if bank_transfer_configured %}Đã khai báo tài khoản nhận và khóa webhook SePay.{% else %}Chưa khai báo tài khoản ngân hàng và SEPAY_API_KEY.{% endif %}</small></span><b>{% if bank_transfer_configured %}ĐÃ CẤU HÌNH{% else %}CHƯA CẤU HÌNH{% endif %}</b></article>
           </div>
         </section>
         <section class="admin-panel system-panel">

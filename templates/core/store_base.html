@@ -1,8 +1,14 @@
 {% extends "base.html" %}
 {% load static %}
-{% block extra_css %}<link rel="stylesheet" href="{% static 'css/storefront.css' %}?v=20261116-sold-out-status-2">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/storefront.css' %}?v=20261117-payments-1">{% endblock %}
 {% block content %}
-<div class="store-shell">
+<div class="store-shell{% if active_page == 'checkout' %} checkout-shell{% endif %}">
+  <div class="demo-notice" data-announcement-banner>
+    <span class="announcement-clock" aria-hidden="true">◷</span>
+    <p><strong>Nhận đơn 6:00 – 21:00 mỗi ngày</strong><span> · Đơn đồ tươi giao theo khung giờ bạn chọn</span></p>
+    <a href="{% url 'core:policies' %}#delivery">Xem khung giờ <span aria-hidden="true">→</span></a>
+    <button type="button" data-close-announcement aria-label="Đóng thông báo">×</button>
+  </div>
   <header class="store-header">
     <a class="store-brand" href="{% url 'core:home' %}">
       <span class="store-brand-icon" aria-hidden="true">F</span>
@@ -32,29 +38,28 @@
       </div>
     </div>
     <button class="store-menu-toggle" type="button" aria-label="Mở điều hướng" aria-expanded="false" aria-controls="store-nav"><span></span><span></span></button>
+    <nav class="store-mobile-nav" id="store-nav" aria-label="Điều hướng di động">
+      <a href="{% url 'core:home' %}">Trang chủ</a>
+      <a href="{% url 'core:shop' %}">Cửa hàng</a>
+      <a href="{% url 'core:cart' %}">Giỏ hàng <span data-cart-count>0</span></a>
+      {% if user.is_authenticated %}
+        <a href="{% url 'core:account' %}">Tài khoản ({{ user.first_name|default:user.username }})</a>
+        {% if user.is_staff %}<a href="{% url 'staff_orders:dashboard' %}">Quản trị đơn hàng</a>{% endif %}
+      {% else %}
+        <a href="{% url 'core:account' %}#login">Đăng nhập</a>
+        <a href="{% url 'core:account' %}#register">Đăng ký</a>
+      {% endif %}
+      <a href="{% url 'core:policies' %}">Chính sách & hỗ trợ</a>
+      <div class="mobile-languages" aria-label="Ngôn ngữ giao diện"><button type="button" aria-pressed="false" data-language="en">EN</button><span>/</span><button type="button" class="is-active" aria-pressed="true" data-language="vi">VI</button><span class="visually-hidden" role="status" data-language-status>Giao diện hiện hiển thị tiếng Việt.</span></div>
+    </nav>
   </header>
-  <nav class="store-mobile-nav" id="store-nav" aria-label="Điều hướng di động">
-    <a href="{% url 'core:home' %}">Trang chủ</a>
-    <a href="{% url 'core:shop' %}">Cửa hàng</a>
-    <a href="{% url 'core:cart' %}">Giỏ hàng <span data-cart-count>0</span></a>
-    {% if user.is_authenticated %}
-      <a href="{% url 'core:account' %}">Tài khoản ({{ user.first_name|default:user.username }})</a>
-      {% if user.is_staff %}<a href="{% url 'staff_orders:dashboard' %}">Quản trị đơn hàng</a>{% endif %}
-    {% else %}
-      <a href="{% url 'core:account' %}#login">Đăng nhập</a>
-      <a href="{% url 'core:account' %}#register">Đăng ký</a>
-    {% endif %}
-    <a href="{% url 'core:policies' %}">Chính sách & hỗ trợ</a>
-    <div class="mobile-languages" aria-label="Ngôn ngữ giao diện"><button type="button" aria-pressed="false" data-language="en">EN</button><span>/</span><button type="button" class="is-active" aria-pressed="true" data-language="vi">VI</button><span class="visually-hidden" role="status" data-language-status>Giao diện hiện hiển thị tiếng Việt.</span></div>
-  </nav>
-  <div class="demo-notice"><span>FITMEAL.VN</span> Đơn hàng được xác nhận sau khi hệ thống kiểm tra giá, tình trạng bán và phí giao.</div>
 
   <main class="store-main">
     {% block store_content %}{% endblock %}
   </main>
   <footer class="store-footer">
     <a class="store-brand" href="{% url 'core:home' %}"><span class="store-brand-icon">F</span><span><strong>FitMeal</strong><small>ĂN KHỎE · SỐNG CHẤT</small></span></a>
-    <p>Tài khoản, sản phẩm và đơn hàng được lưu trong hệ thống. Thanh toán VNPay chỉ mở khi cửa hàng cấu hình cổng thanh toán.</p>
+    <p>Tài khoản, sản phẩm và đơn hàng được lưu trong hệ thống. Thanh toán MoMo và chuyển khoản sẽ mở khi cửa hàng cấu hình cổng thanh toán.</p>
     <nav class="store-footer-links" aria-label="Thông tin và hỗ trợ">
       <a href="{% url 'core:policies' %}">Chính sách & hỗ trợ</a>
       <a href="mailto:hello@fitmeal.vn">Liên hệ</a>

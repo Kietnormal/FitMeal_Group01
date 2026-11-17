@@ -17,7 +17,8 @@ def serialize_product(product, request):
         "shipping_weight_grams": product.shipping_weight_grams,
         "expiry_date": product.expiry_date.isoformat() if product.expiry_date else "",
         "image": request.build_absolute_uri(product.image.url) if product.image else "",
-        "available": product.is_available,
+        "available": product.is_available
+        and (not product.tracks_inventory or product.stock_quantity is not None),
         "featured": product.is_featured,
         "calories": product.calories,
         "protein": str(product.protein),

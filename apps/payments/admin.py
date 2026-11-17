@@ -8,8 +8,10 @@ class PaymentTransactionAdmin(admin.ModelAdmin):
     list_display = (
         "transaction_ref",
         "order",
+        "provider",
         "amount",
         "status",
+        "bank_transfer_code",
         "response_code",
         "expires_at",
         "paid_at",

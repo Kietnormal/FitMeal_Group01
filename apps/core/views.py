@@ -37,7 +37,8 @@ def checkout(request):
             "active_page": "checkout",
             "saved_addresses": saved_addresses,
             "default_address": default_address,
-            "vnpay_enabled": settings.VNPAY_ENABLED,
+            "momo_enabled": settings.MOMO_ENABLED,
+            "bank_transfer_enabled": settings.BANK_TRANSFER_ENABLED,
         },
     )
 
