@@ -2,11 +2,16 @@ from django.conf import settings
 from django.db.models import Prefetch, Sum
 from django.http import JsonResponse
 from django.shortcuts import render
+from django.utils import timezone
 from allauth.account.models import EmailAddress
 
 from apps.accounts.forms import OrderReviewForm
 from apps.accounts.models import PendingEmailChange, User
-from apps.orders.delivery import finalize_expired_delivery_confirmations
+from apps.orders.delivery import (
+    earliest_delivery_date,
+    finalize_expired_delivery_confirmations,
+    latest_dry_goods_delivery_date,
+)
 from apps.orders.models import Order, OrderCareRequest, OrderCancellationRequest
 from apps.orders.privacy import purge_expired_order_pii
 from apps.products.models import Product
@@ -31,11 +36,16 @@ def checkout(request):
     if request.user.is_authenticated:
         saved_addresses = list(request.user.saved_addresses.all())
         default_address = next((address for address in saved_addresses if address.is_default), None)
+    # Delivery dates are validated against the shop's timezone, so the server provides
+    # them instead of letting the browser derive "tomorrow" from its own local clock.
+    today = timezone.localdate()
     return render(
         request,
         "core/checkout.html",
         {
             "active_page": "checkout",
+            "delivery_min_date": earliest_delivery_date(today=today),
+            "dry_goods_max_delivery_date": latest_dry_goods_delivery_date(today=today),
             "saved_addresses": saved_addresses,
             "default_address": default_address,
             "momo_enabled": settings.MOMO_ENABLED,

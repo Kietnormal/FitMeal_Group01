@@ -7,6 +7,19 @@ from .models import Order
 
 
 DELIVERY_CONFIRMATION_MINUTES = 3
+DRY_GOODS_MAX_DELIVERY_DAYS = 5
+
+
+def earliest_delivery_date(*, today=None):
+    """First delivery date customers may pick: tomorrow in the shop's timezone (TIME_ZONE)."""
+    today = today or timezone.localdate()
+    return today + timedelta(days=1)
+
+
+def latest_dry_goods_delivery_date(*, today=None):
+    """Last delivery date allowed for dry-goods-only orders (1–5 days from today)."""
+    today = today or timezone.localdate()
+    return today + timedelta(days=DRY_GOODS_MAX_DELIVERY_DAYS)
 
 
 def begin_customer_delivery_confirmation(order, *, now=None):

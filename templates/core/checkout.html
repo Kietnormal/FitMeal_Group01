@@ -48,7 +48,11 @@
       <div class="form-section-heading"><span>02</span><div><h2>Giao hàng</h2><p>Chọn ngày và khung giờ. Đồ khô giao theo lịch của đơn vị vận chuyển.</p></div></div>
       <div class="form-grid">
         <label>Ngày giao dự kiến
-          <input name="delivery-date" type="date" required>
+          <input name="delivery-date" type="date" required
+            min="{{ delivery_min_date|date:'Y-m-d' }}"
+            value="{{ delivery_min_date|date:'Y-m-d' }}"
+            data-min-date="{{ delivery_min_date|date:'Y-m-d' }}"
+            data-dry-goods-max-date="{{ dry_goods_max_delivery_date|date:'Y-m-d' }}">
         </label>
         <label>Khung giờ giao
           <select name="delivery-slot" required>

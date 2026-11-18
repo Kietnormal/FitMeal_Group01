@@ -1,6 +1,7 @@
 import json
+import re
 from importlib import import_module
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone as dt_timezone
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -441,6 +442,31 @@ class OrderApiTests(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(Order.objects.count(), 0)
+
+    def test_checkout_delivery_dates_are_accepted_by_order_api_after_midnight_in_vietnam(self):
+        dry_product = self.create_dry_product(slug="dry-midnight", stock_quantity=10)
+        just_after_midnight_in_vietnam = datetime(2026, 11, 18, 17, 30, tzinfo=dt_timezone.utc)
+
+        with patch("django.utils.timezone.now", return_value=just_after_midnight_in_vietnam):
+            checkout = self.client.get(reverse("core:checkout")).content.decode()
+            min_date = re.search(r'data-min-date="([0-9-]+)"', checkout).group(1)
+            dry_max_date = re.search(r'data-dry-goods-max-date="([0-9-]+)"', checkout).group(1)
+
+            fresh_response = self.post_order({**self.payload, "delivery_date": min_date})
+            dry_response = self.post_order({
+                **self.payload,
+                "delivery_slot": Order.DeliverySlot.COURIER,
+                "delivery_date": dry_max_date,
+                "items": [{"id": dry_product.slug, "quantity": 1}],
+            })
+            too_early_response = self.post_order({**self.payload, "delivery_date": "2026-11-19"})
+
+        self.assertEqual(fresh_response.status_code, 201, fresh_response.content)
+        self.assertEqual(fresh_response.json()["delivery_date"], "2026-11-20")
+        self.assertEqual(dry_response.status_code, 201, dry_response.content)
+        self.assertEqual(dry_response.json()["delivery_date"], "2026-11-24")
+        self.assertEqual(too_early_response.status_code, 400)
+        self.assertIn("Ngày giao phải từ ngày mai trở đi.", too_early_response.json()["error"])
 
     def test_invalid_order_data_is_rejected(self):
         invalid_payloads = [

@@ -1,6 +1,8 @@
 import base64
 import hashlib
+from datetime import datetime, timezone as dt_timezone
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from cryptography.fernet import Fernet
 from django.contrib.auth import get_user_model
@@ -170,6 +172,19 @@ class CoreViewsTests(TestCase):
         self.assertNotContains(response, 'name="payment" value="vnpay"')
         self.assertNotContains(response, "VNPay")
         self.assertNotContains(response, 'class="solid-button submit-order" type="submit" disabled')
+
+    def test_checkout_renders_delivery_dates_in_shop_timezone(self):
+        # 17:30 UTC on Nov 18 is already 00:30 on Nov 19 in Asia/Ho_Chi_Minh, so
+        # "tomorrow" is Nov 20 regardless of the browser's timezone.
+        just_after_midnight_in_vietnam = datetime(2026, 11, 18, 17, 30, tzinfo=dt_timezone.utc)
+        with patch("django.utils.timezone.now", return_value=just_after_midnight_in_vietnam):
+            response = self.client.get(reverse("core:checkout"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'min="2026-11-20"')
+        self.assertContains(response, 'value="2026-11-20"')
+        self.assertContains(response, 'data-min-date="2026-11-20"')
+        self.assertContains(response, 'data-dry-goods-max-date="2026-11-24"')
 
     def test_customer_demo_has_shopping_account_and_order_controls(self):
         pages = {

@@ -65,7 +65,12 @@ from .models import (
     OrderItem,
     OrderPiiAccessLog,
 )
-from .delivery import begin_customer_delivery_confirmation, finalize_expired_delivery_confirmations
+from .delivery import (
+    begin_customer_delivery_confirmation,
+    earliest_delivery_date,
+    finalize_expired_delivery_confirmations,
+    latest_dry_goods_delivery_date,
+)
 from .privacy import decrypt_order_pii_snapshot, purge_expired_order_pii
 from apps.payments.gateway import (
     PaymentGatewayError,
@@ -379,7 +384,8 @@ def create_order(request):
         delivery_date = date.fromisoformat(delivery_date_value)
     except ValueError:
         return _error("Ngày giao không đúng định dạng.")
-    if delivery_date < timezone.localdate() + timedelta(days=1):
+    today = timezone.localdate()
+    if delivery_date < earliest_delivery_date(today=today):
         return _error("Ngày giao phải từ ngày mai trở đi.")
 
     delivery_slot = payload.get("delivery_slot")
@@ -453,7 +459,7 @@ def create_order(request):
         if not dry_goods_only and not is_ho_chi_minh_city(city):
             return _error("Đồ ăn và thức uống tươi chỉ giao trong khu vực TP. Hồ Chí Minh.")
         if dry_goods_only:
-            if delivery_date > timezone.localdate() + timedelta(days=5):
+            if delivery_date > latest_dry_goods_delivery_date(today=today):
                 return _error("Đồ khô có thời gian giao dự kiến từ 1 đến 5 ngày.")
             if delivery_slot != Order.DeliverySlot.COURIER:
                 return _error("Đồ khô được giao theo lịch của đơn vị vận chuyển.")

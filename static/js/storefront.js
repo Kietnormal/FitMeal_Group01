@@ -67,6 +67,31 @@ function shippingFeeFor(subtotal, cart = readCart(), city = "") {
   return subtotal >= 300000 ? 0 : 20000;
 }
 
+// Delivery dates are validated by the server in the shop's timezone (Django TIME_ZONE),
+// not the browser's. The checkout template renders the allowed range as data attributes;
+// the Intl-based fallback only exists for pages that lack them.
+const shopTimeZone = "Asia/Ho_Chi_Minh";
+
+function addDaysToIsoDate(isoDate, days) {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+function shopTodayIsoDate() {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", { timeZone: shopTimeZone, year: "numeric", month: "2-digit", day: "2-digit" })
+      .formatToParts(new Date())
+      .map((part) => [part.type, part.value]),
+  );
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function checkoutDeliveryDateBounds(dateInput) {
+  const min = dateInput.dataset.minDate || addDaysToIsoDate(shopTodayIsoDate(), 1);
+  const dryGoodsMax = dateInput.dataset.dryGoodsMaxDate || addDaysToIsoDate(min, 4);
+  return { min, dryGoodsMax };
+}
+
 function updateCheckoutDeliveryFields(cart = readCart()) {
   const form = document.querySelector("[data-checkout-form]");
   if (!form) return;
@@ -76,14 +101,10 @@ function updateCheckoutDeliveryFields(cart = readCart()) {
   const cityInput = form.elements.city;
   const note = document.querySelector("[data-delivery-mode]");
   const warning = document.querySelector("[data-delivery-area-warning]");
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const formatDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-  dateInput.min = formatDate(tomorrow);
+  const deliveryDates = checkoutDeliveryDateBounds(dateInput);
+  dateInput.min = deliveryDates.min;
   if (dryOnly) {
-    const latestDate = new Date(tomorrow);
-    latestDate.setDate(latestDate.getDate() + 4);
-    dateInput.max = formatDate(latestDate);
+    dateInput.max = deliveryDates.dryGoodsMax;
     if (!dateInput.value || dateInput.value < dateInput.min || dateInput.value > dateInput.max) {
       dateInput.value = dateInput.min;
     }
@@ -875,9 +896,7 @@ function initializeCheckout() {
   });
 
   const dateInput = form.elements["delivery-date"];
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  dateInput.min = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`;
+  dateInput.min = checkoutDeliveryDateBounds(dateInput).min;
   dateInput.value = dateInput.min;
 
   form.elements.city.addEventListener("input", () => {
