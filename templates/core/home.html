@@ -1,180 +1,191 @@
-{% extends "base.html" %}
-{% block content %}
-<div class="page-shell">
-  <header class="site-header">
-    <a class="brand" href="{% url 'core:home' %}" aria-label="FitMeal - Trang chủ">
-      <span class="brand-mark" aria-hidden="true">F</span>
-      <span class="brand-copy">
-        <strong>FITMEAL.VN</strong>
-        <small>ĂN KHỎE · SỐNG CHẤT</small>
-      </span>
-    </a>
-
-    <button class="menu-toggle" type="button" aria-label="Mở menu" aria-expanded="false" aria-controls="primary-navigation">
-      <span></span><span></span><span></span>
-    </button>
-
-    <nav class="primary-navigation" id="primary-navigation" aria-label="Điều hướng chính">
-      <a class="is-current" href="{% url 'core:home' %}">Trang chủ</a>
-      <a href="{% url 'core:shop' %}">Thực đơn</a>
-      <a href="#menu">Dinh dưỡng</a>
-      <a href="#contact">Liên hệ</a>
-      <a class="mobile-account-link" href="{% url 'core:policies' %}">Chính sách & hỗ trợ</a>
-      {% if user.is_authenticated %}
-        <a class="mobile-account-link" href="{% url 'core:account' %}">Tài khoản ({{ user.first_name|default:user.username }})</a>
-        {% if user.is_staff %}<a class="mobile-account-link" href="{% url 'staff_orders:dashboard' %}">Quản trị đơn hàng</a>{% endif %}
-      {% else %}
-        <a class="mobile-account-link" href="{% url 'core:account' %}#register">Đăng ký</a>
-        <a class="mobile-account-link" href="{% url 'core:account' %}#login">Đăng nhập</a>
-      {% endif %}
-      <div class="mobile-home-languages" aria-label="Ngôn ngữ giao diện">
-        <button type="button" aria-pressed="false" data-language="en">EN</button><span>/</span><button type="button" class="is-active" aria-pressed="true" data-language="vi">VI</button>
-        <span class="visually-hidden" role="status" data-language-status>Giao diện hiện hiển thị tiếng Việt.</span>
+{% extends "core/store_base.html" %}
+{% load static fitmeal %}
+{% block title %}FitMeal — Bữa ăn giàu protein, giao trong ngày tại TP.HCM{% endblock %}
+{% block store_content %}
+<div class="fm-home" data-home-products>
+  <section class="fm-wrap fm-hero" aria-labelledby="hero-title">
+    <div class="fm-hero-card">
+      <div class="fm-hero-copy">
+        <h1 class="fm-display" id="hero-title">Bữa ăn giàu protein, <em>đã tính sẵn</em> từng gram.</h1>
+        <p>Ức gà sous-vide, thức uống và bánh protein với bảng dinh dưỡng rõ ràng. Chọn theo mục tiêu, đặt trước 21:00, nhận trong ngày tại TP.HCM.</p>
+        <div class="fm-hero-actions">
+          <a class="fm-btn fm-btn-yolk fm-btn-lg" href="{% url 'core:shop' %}">Xem thực đơn</a>
+          <a class="fm-btn fm-btn-ghost-light fm-btn-lg" href="#muc-tieu">Chọn theo mục tiêu</a>
+        </div>
+        <ul class="fm-hero-facts">
+          <li><svg class="fm-i" aria-hidden="true"><use href="#fm-truck"/></svg>Giao trong ngày</li>
+          <li><svg class="fm-i" aria-hidden="true"><use href="#fm-card"/></svg>COD, MoMo, chuyển khoản</li>
+          <li><svg class="fm-i" aria-hidden="true"><use href="#fm-return"/></svg>Hỗ trợ đổi trả 7 ngày</li>
+        </ul>
       </div>
-    </nav>
-    <div class="header-actions">
-      {% if user.is_authenticated %}
-        <a class="header-account-link" href="{% url 'core:account' %}">Xin chào, {{ user.first_name|default:user.username }}</a>
-        {% if user.is_staff %}<a class="header-account-link" href="{% url 'staff_orders:dashboard' %}">Quản trị đơn hàng</a>{% endif %}
-      {% else %}
-        <a class="header-account-link" href="{% url 'core:account' %}#register">Đăng ký</a>
-        <a class="header-account-link" href="{% url 'core:account' %}#login">Đăng nhập</a>
-      {% endif %}
-      <a class="header-cart-link" href="{% url 'core:cart' %}" aria-label="Giỏ hàng">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l1 13H4L5 8Z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/></svg>
-        <span class="header-cart-count" data-cart-count>0</span>
-      </a>
-      <div class="header-languages" aria-label="Ngôn ngữ giao diện">
-        <button type="button" aria-pressed="false" data-language="en">EN</button><span>/</span><button type="button" class="is-active" aria-pressed="true" data-language="vi">VI</button>
-        <span class="visually-hidden" role="status" data-language-status>Giao diện hiện hiển thị tiếng Việt.</span>
+      <div class="fm-hero-media">
+        <img src="{% static 'img/food/hero.webp' %}" alt="Ức gà áp chảo cùng rau củ" width="1400" height="933" fetchpriority="high">
+        {% if hero_product %}
+          <aside class="fm-label" aria-label="Thông tin dinh dưỡng của {{ hero_product.name }}">
+            <h2>Thông tin dinh dưỡng</h2>
+            <p class="fm-label-serving">{% if hero_product.serving %}{{ hero_product.serving }}{% else %}1 phần{% endif %}</p>
+            <p class="fm-label-kcal"><span>Năng lượng</span><strong>{{ hero_product.calories }}<small>kcal</small></strong></p>
+            <p class="fm-label-row fm-label-protein"><span><b>Protein</b> {{ hero_product.protein|floatformat:"-1" }} g</span><b>{% energy_share hero_product "protein" %}%</b></p>
+            <p class="fm-label-row"><span><b>Carb</b> {{ hero_product.carbs|floatformat:"-1" }} g</span><span>{% energy_share hero_product "carbs" %}%</span></p>
+            <p class="fm-label-row"><span><b>Chất béo</b> {{ hero_product.fat|floatformat:"-1" }} g</span><span>{% energy_share hero_product "fat" %}%</span></p>
+            <p class="fm-label-note">{{ hero_product.name }}<br>% là tỷ lệ năng lượng đến từ mỗi chất</p>
+          </aside>
+        {% endif %}
       </div>
     </div>
-  </header>
+  </section>
 
-  <main>
-    <section class="nutrition-hero" aria-labelledby="goal-title">
-      <div class="announcement-marquee" aria-label="Cuộc cách mạng dinh dưỡng chức năng">
-        <div class="announcement-track" aria-hidden="true">
-          <span>Cuộc cách mạng dinh dưỡng chức năng <b>★</b> Nạp năng lượng cho buổi tập <b>★</b> Ăn ngon, sống khỏe <b>★</b></span>
-          <span>Cuộc cách mạng dinh dưỡng chức năng <b>★</b> Nạp năng lượng cho buổi tập <b>★</b> Ăn ngon, sống khỏe <b>★</b></span>
-        </div>
+  <section class="fm-wrap fm-section" id="muc-tieu" aria-labelledby="goals-title">
+    <div class="fm-section-head">
+      <div>
+        <h2 class="fm-display" id="goals-title">Bạn đang tập cho mục tiêu nào?</h2>
+        <p>Mở thực đơn đã lọc sẵn theo lượng protein và calo phù hợp với từng giai đoạn tập.</p>
       </div>
+    </div>
+    <div class="fm-goals">
+      <a class="fm-goal" href="{% url 'core:shop' %}?protein=30"><span class="fm-goal-icon"><svg class="fm-i" aria-hidden="true"><use href="#fm-dumbbell"/></svg></span><span><strong>Tăng cơ</strong><small>Từ 30 g protein mỗi phần</small></span></a>
+      <a class="fm-goal fm-goal-warm" href="{% url 'core:shop' %}?calories=500"><span class="fm-goal-icon"><svg class="fm-i" aria-hidden="true"><use href="#fm-flame"/></svg></span><span><strong>Giảm mỡ</strong><small>Tối đa 500 kcal mỗi phần</small></span></a>
+      <a class="fm-goal" href="{% url 'core:shop' %}?category=drink"><span class="fm-goal-icon"><svg class="fm-i" aria-hidden="true"><use href="#fm-cup"/></svg></span><span><strong>Nạp nhanh</strong><small>Thức uống protein mang đi</small></span></a>
+      <a class="fm-goal fm-goal-warm" href="{% url 'core:shop' %}?category=dry_goods"><span class="fm-goal-icon"><svg class="fm-i" aria-hidden="true"><use href="#fm-box"/></svg></span><span><strong>Đồ khô</strong><small>Giao toàn quốc 1–5 ngày</small></span></a>
+    </div>
+    <nav class="fm-chips" aria-label="Danh mục thực đơn">
+      <a class="fm-chip" href="{% url 'core:shop' %}?category=meal">Bữa ăn</a>
+      <a class="fm-chip" href="{% url 'core:shop' %}?category=rice">Cơm</a>
+      <a class="fm-chip" href="{% url 'core:shop' %}?category=salad">Salad</a>
+      <a class="fm-chip" href="{% url 'core:shop' %}?category=drink">Thức uống</a>
+      <a class="fm-chip" href="{% url 'core:shop' %}?category=snack">Ăn nhẹ</a>
+      <a class="fm-chip" href="{% url 'core:shop' %}?category=combo">Combo</a>
+      <a class="fm-chip" href="{% url 'core:shop' %}?category=dry_goods">Đồ khô</a>
+    </nav>
+  </section>
 
-      <div class="outline-marquees" aria-hidden="true">
-        <div class="outline-marquee">
-          <div class="outline-track">
-            <span>DINH DƯỠNG THEO MỤC TIÊU · TẬP LUYỆN HẾT MÌNH · </span>
-            <span>DINH DƯỠNG THEO MỤC TIÊU · TẬP LUYỆN HẾT MÌNH · </span>
-          </div>
-        </div>
-        <div class="outline-marquee outline-marquee-reverse">
-          <div class="outline-track">
-            <span>NẠP NĂNG LƯỢNG CHO BUỔI TẬP · ĂN NGON SỐNG KHỎE · </span>
-            <span>NẠP NĂNG LƯỢNG CHO BUỔI TẬP · ĂN NGON SỐNG KHỎE · </span>
-          </div>
-        </div>
+  <section class="fm-wrap fm-section" aria-labelledby="featured-title">
+    <div class="fm-section-head">
+      <div>
+        <h2 class="fm-display" id="featured-title">Món nổi bật</h2>
+        <p>Giá và thông tin dinh dưỡng lấy trực tiếp từ thực đơn.</p>
       </div>
-
-      <div class="goal-content">
-        <div class="goal-copy">
-          <span class="hero-eyebrow"><span></span> DINH DƯỠNG THEO CÁCH CỦA BẠN</span>
-          <h1 id="goal-title">Dinh dưỡng<br>theo <span>mục tiêu.</span></h1>
-          <p>Hành trình của bạn là duy nhất. Chọn nguồn dinh dưỡng phù hợp để tăng cơ, phục hồi sau vận động hay thêm năng lượng cho ngày dài.</p>
-          <a class="hero-button" href="{% url 'core:shop' %}">Tìm món dành cho bạn <span aria-hidden="true">↘</span></a>
-        </div>
-
-        <div class="goal-cards" aria-label="Lựa chọn theo mục tiêu">
-          <a class="goal-card goal-card-strength" href="#menu">
-            <span class="goal-card-symbol" aria-hidden="true">↗</span>
-            <span class="goal-card-index">01 / HIỆU SUẤT</span>
-            <strong>Tăng cơ</strong>
-          </a>
-          <a class="goal-card goal-card-recovery" href="#menu">
-            <span class="goal-card-symbol" aria-hidden="true">✳</span>
-            <span class="goal-card-index">02 / CÂN BẰNG</span>
-            <strong>Phục hồi</strong>
-          </a>
-          <a class="goal-card goal-card-energy" href="#menu">
-            <span class="goal-card-symbol" aria-hidden="true">ϟ</span>
-            <span class="goal-card-index">03 / MỖI NGÀY</span>
-            <strong>Năng lượng</strong>
-          </a>
-        </div>
-      </div>
-      <a class="scroll-cue" href="#menu"><span></span> CUỘN XUỐNG KHÁM PHÁ</a>
-    </section>
-
-    <section class="menu-section" id="menu" aria-labelledby="menu-title">
-      <div class="section-intro" id="about">
-        <span class="eyebrow"><span class="eyebrow-dot"></span> NGON LÀNH, ĐỦ CHẤT</span>
-        <h1 id="menu-title">Nạp năng lượng.<br><span>Sống hết mình.</span></h1>
-        <p class="intro-copy">Bữa ăn giàu protein, ngon miệng và tiện lợi — tiếp thêm năng lượng cho mọi mục tiêu mỗi ngày.</p>
-        <a class="primary-button" href="{% url 'core:shop' %}">Khám phá thực đơn <span aria-hidden="true">→</span></a>
-        <div class="intro-note">
-          <span class="note-icon" aria-hidden="true">✳</span>
-          <span>Chọn món ngon<br><strong>theo cách của bạn</strong></span>
-        </div>
-      </div>
-
-      <div class="product-showcase" id="menu-products">
-        <div class="showcase-topline">
-          <div>
-            <span class="eyebrow">MÓN ĐƯỢC YÊU THÍCH</span>
-            <p class="showcase-hint">Một chút ngon lành cho ngày năng động.</p>
-          </div>
-          <div class="carousel-controls" aria-label="Điều khiển danh sách món">
-            <button class="carousel-button" type="button" data-carousel-direction="-1" aria-label="Xem món trước">←</button>
-            <button class="carousel-button carousel-button-next" type="button" data-carousel-direction="1" aria-label="Xem món tiếp theo">→</button>
-          </div>
-        </div>
-
-        <div class="product-track" id="nutrition" tabindex="0" aria-label="Các món FitMeal">
-          {% for product in featured_products %}
-            <article class="product-card">
-              <div class="product-art product-art-banana{% if product.image %} has-product-image{% endif %}" role="img" aria-label="{{ product.name }}">
-                {% if product.image %}<img class="product-photo" src="{{ product.image.url }}" alt="{{ product.name }}">{% endif %}
-                <span class="product-badge{% if not product.is_available %} badge-red{% endif %}">
-                  {% if product.is_available %}MÓN NỔI BẬT{% else %}TẠM HẾT MÓN{% endif %}
-                </span>
-                <span class="art-fruit" aria-hidden="true">✳</span>
-                <div class="drink-cup">
-                  <span class="cup-lid"></span><span class="cup-straw"></span>
-                  <span class="cup-logo">fit<br><b>meal</b></span>
-                  <span class="cup-shine"></span>
-                </div>
-                <span class="art-sparkle sparkle-one" aria-hidden="true">✳</span>
-                <span class="art-sparkle sparkle-two" aria-hidden="true">✦</span>
+      <a class="fm-link" href="{% url 'core:shop' %}">Xem cả thực đơn</a>
+    </div>
+    {% if featured_products %}
+      <div class="fm-product-grid">
+        {% for product in featured_products|slice:":4" %}
+          <article class="fm-product{% if not product.is_available %} is-sold-out{% endif %}">
+            <div class="fm-product-photo">
+              <img src="{{ product|food_image }}" alt="" loading="lazy" width="900" height="600">
+              <span class="fm-tag">{{ product.get_category_display }}</span>
+              {% if not product.is_available %}<span class="fm-tag fm-tag-alert">TẠM HẾT MÓN</span>{% endif %}
+            </div>
+            <div class="fm-product-body">
+              <div>
+                <h3>{{ product.name }}</h3>
+                {% if product.description %}<p class="fm-product-desc">{{ product.description|truncatechars:80 }}</p>{% endif %}
               </div>
-              <div class="product-info">
-                <div class="product-heading">
-                  <div><h2>{{ product.name }}</h2><p>{{ product.description }}</p></div>
-                  <span class="product-arrow" aria-hidden="true">↗</span>
-                </div>
-                <div class="nutrition-grid">
-                  <div><strong>{{ product.calories }}</strong><span>CALORIES</span></div>
-                  <div><strong>{{ product.carbs|floatformat:"-2" }}g</strong><span>CARB</span></div>
-                  <div><strong>{{ product.protein|floatformat:"-2" }}g</strong><span>PROTEIN</span></div>
-                  <div><strong>{{ product.fat|floatformat:"-2" }}g</strong><span>FAT</span></div>
-                </div>
+              <dl class="fm-macros">
+                <div class="fm-macro-protein"><dt>protein</dt><dd>{{ product.protein|floatformat:"-1" }}g</dd></div>
+                <div><dt>kcal</dt><dd>{{ product.calories }}</dd></div>
+                <div><dt>carb</dt><dd>{{ product.carbs|floatformat:"-1" }}g</dd></div>
+                <div><dt>béo</dt><dd>{{ product.fat|floatformat:"-1" }}g</dd></div>
+              </dl>
+              <div class="fm-product-buy">
+                <strong class="fm-price">{{ product.price|vnd }}</strong>
+                {% if product.is_available %}
+                  <button class="fm-btn fm-btn-primary fm-btn-sm" type="button" data-add-to-cart-id="{{ product.slug }}" aria-label="Thêm {{ product.name }} vào giỏ"><svg class="fm-i" aria-hidden="true"><use href="#fm-plus"/></svg>Thêm</button>
+                {% else %}
+                  <span class="fm-sold-out-note">Tạm hết món</span>
+                {% endif %}
               </div>
-            </article>
-          {% empty %}
-            <p class="nutrition-note">Chưa có sản phẩm nổi bật từ thực đơn.</p>
-          {% endfor %}
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="fm-empty-panel">
+        <p>Chưa có món nổi bật. Quản lý có thể đánh dấu "Sản phẩm nổi bật" trong trang quản trị để món xuất hiện ở đây.</p>
+        <a class="fm-btn fm-btn-primary" href="{% url 'core:shop' %}">Xem cả thực đơn</a>
+      </div>
+    {% endif %}
+  </section>
+
+  <section class="fm-wrap fm-section" aria-label="Nhóm sản phẩm">
+    <div class="fm-promos">
+      <a class="fm-promo" href="{% url 'core:shop' %}?category=meal">
+        <img src="{% static 'img/food/promo-meals.webp' %}" alt="" loading="lazy" width="1100" height="733">
+        <span class="fm-promo-text"><strong class="fm-display">Bữa chính đủ chất</strong><span>Cơm, salad và bowl với ức gà sous-vide làm nguồn protein chính.</span><span class="fm-promo-link">Xem bữa ăn</span></span>
+      </a>
+      <a class="fm-promo" href="{% url 'core:shop' %}?category=drink">
+        <img src="{% static 'img/food/promo-drinks.webp' %}" alt="" loading="lazy" width="900" height="507">
+        <span class="fm-promo-text"><strong class="fm-display">Thức uống protein</strong><span>Clear whey, cold brew và trà sữa protein.</span><span class="fm-promo-link">Xem thức uống</span></span>
+      </a>
+      <a class="fm-promo" href="{% url 'core:shop' %}?category=snack">
+        <img src="{% static 'img/food/promo-snacks.webp' %}" alt="" loading="lazy" width="900" height="600">
+        <span class="fm-promo-text"><strong class="fm-display">Bánh và thanh năng lượng</strong><span>Brownie, muffin whey, biscotti nguyên cám, granola bar.</span><span class="fm-promo-link">Xem ăn nhẹ</span></span>
+      </a>
+    </div>
+  </section>
+
+  <section class="fm-wrap fm-section" aria-labelledby="process-title">
+    <div class="fm-process">
+      <div class="fm-process-media"><img src="{% static 'img/food/kitchen.webp' %}" alt="Chuẩn bị bữa ăn lành mạnh trong bếp" loading="lazy" width="1100" height="733"></div>
+      <div class="fm-process-text">
+        <h2 class="fm-display" id="process-title">Vì sao ức gà của FitMeal không khô</h2>
+        <p>Sous-vide là nấu chậm trong túi hút chân không ở nhiệt độ ổn định, giúp thịt chín đều và giữ được độ ẩm tự nhiên.</p>
+        <ol class="fm-steps">
+          <li><span class="fm-step-n" aria-hidden="true">1</span><div><strong>Ướp và hút chân không</strong><p>Gia vị thấm đều, không cần thêm nhiều dầu mỡ.</p></div></li>
+          <li><span class="fm-step-n" aria-hidden="true">2</span><div><strong>Nấu chậm ở nhiệt độ chính xác</strong><p>Thịt chín đều từ ngoài vào trong, mềm và mọng.</p></div></li>
+          <li><span class="fm-step-n" aria-hidden="true">3</span><div><strong>Làm lạnh nhanh và giao trong ngày</strong><p>Đóng gói theo phần, ghi rõ protein, carb, chất béo và calo.</p></div></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  {% if reviews %}
+    <section class="fm-wrap fm-section" aria-labelledby="reviews-title">
+      <div class="fm-section-head">
+        <div>
+          <h2 class="fm-display" id="reviews-title">Khách hàng nói gì</h2>
+          <p>Nhận xét từ những đơn đã giao thành công.</p>
         </div>
-        <p class="nutrition-note">Thông tin dinh dưỡng được lấy từ dữ liệu sản phẩm trong hệ thống.</p>
+        {% if review_average %}<p class="fm-score"><strong>{{ review_average|floatformat:1 }}</strong>/5 từ {{ review_total }} đánh giá</p>{% endif %}
+      </div>
+      <div class="fm-reviews">
+        {% for review in reviews %}
+          <figure class="fm-review">
+            <div class="fm-stars" role="img" aria-label="{{ review.rating }} trên 5 sao">
+              {% for star in "12345" %}<svg class="{% if forloop.counter > review.rating %}is-off{% endif %}" aria-hidden="true"><use href="#fm-star"/></svg>{% endfor %}
+            </div>
+            <blockquote>{{ review.comment|truncatechars:220 }}</blockquote>
+            <figcaption>
+              <span class="fm-avatar" aria-hidden="true"><svg class="fm-i"><use href="#fm-user"/></svg></span>
+              <span>Khách hàng FitMeal{% with item=review.order.items.all|first %}{% if item %}<small>Đã đặt {{ item.product_name }}</small>{% endif %}{% endwith %}</span>
+            </figcaption>
+          </figure>
+        {% endfor %}
       </div>
     </section>
+  {% endif %}
 
-    <footer class="site-footer" id="contact">
-      <a class="footer-brand" href="{% url 'core:home' %}">FitMeal<span>®</span></a>
-      <p>Ăn ngon, đủ chất, sống trọn từng ngày.</p>
-      <nav class="site-footer-links" aria-label="Thông tin và hỗ trợ">
-        <a href="{% url 'core:policies' %}">Chính sách & hỗ trợ</a>
-        <a href="mailto:hello@fitmeal.vn">hello@fitmeal.vn</a>
-        <a href="{% url 'staff_orders:dashboard' %}">Quản trị demo ↗</a>
-      </nav>
-    </footer>
-  </main>
+  <section class="fm-wrap fm-section" aria-labelledby="account-title">
+    <div class="fm-band">
+      <div>
+        <h2 class="fm-display" id="account-title">{% if user.is_authenticated %}Điểm thưởng đang chờ bạn{% else %}Tạo tài khoản để tích điểm mỗi đơn{% endif %}</h2>
+        <p>Lưu địa chỉ giao hàng, xem lại đơn cũ, đánh giá món đã nhận và dùng điểm thưởng cho lần sau.</p>
+      </div>
+      {% if user.is_authenticated %}
+        <a class="fm-btn fm-btn-yolk fm-btn-lg" href="{% url 'core:account' %}">Mở tài khoản</a>
+      {% else %}
+        <a class="fm-btn fm-btn-yolk fm-btn-lg" href="{% url 'core:account' %}#register">Tạo tài khoản</a>
+      {% endif %}
+    </div>
+  </section>
+
+  <div class="fm-wrap">
+    <ul class="fm-trust">
+      <li><svg class="fm-i" aria-hidden="true"><use href="#fm-truck"/></svg><span><strong>Giao trong ngày</strong><small>Đồ tươi nội thành TP.HCM</small></span></li>
+      <li><svg class="fm-i" aria-hidden="true"><use href="#fm-box"/></svg><span><strong>Đồ khô toàn quốc</strong><small>Dự kiến 1–5 ngày</small></span></li>
+      <li><svg class="fm-i" aria-hidden="true"><use href="#fm-return"/></svg><span><strong>Đổi trả 7 ngày</strong><small>Gửi yêu cầu ngay trong tài khoản</small></span></li>
+      <li><svg class="fm-i" aria-hidden="true"><use href="#fm-card"/></svg><span><strong>Thanh toán linh hoạt</strong><small>COD, MoMo, chuyển khoản</small></span></li>
+    </ul>
+  </div>
 </div>
 {% endblock %}

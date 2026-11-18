@@ -1,7 +1,7 @@
 {% extends "core/store_base.html" %}
 {% block title %}Theo dõi đơn hàng — FitMeal{% endblock %}
 {% block store_content %}
-<section class="page-heading compact-heading"><span class="store-kicker">ĐỒNG HÀNH CÙNG BẠN</span><h1>Theo dõi đơn hàng.</h1><p>Dùng mã tra cứu được cấp sau khi đặt hàng để xem trạng thái cập nhật từ cửa hàng.</p></section>
+<section class="page-heading compact-heading"><h1>Theo dõi đơn hàng.</h1><p>Dùng mã tra cứu được cấp sau khi đặt hàng để xem trạng thái cập nhật từ cửa hàng.</p></section>
 <section class="tracking-layout">
   <form class="tracking-search-panel" data-tracking-form>
     <span class="tracking-icon">⌕</span><h2>Đơn hàng của bạn đang ở đâu?</h2>
@@ -11,7 +11,7 @@
     <small>Thông tin cá nhân và địa chỉ giao hàng không hiển thị trên trang tra cứu.</small>
   </form>
   <section class="tracking-result" data-tracking-result>
-    <div class="tracking-result-top"><div><span class="store-kicker">TRẠNG THÁI HIỆN TẠI</span><h2 data-tracking-status-heading>Đơn hàng đang được chuẩn bị</h2></div><span class="status-pill status-preparing" data-tracking-status>ĐANG XỬ LÝ</span></div>
+    <div class="tracking-result-top"><div><span class="store-kicker">Trạng thái hiện tại</span><h2 data-tracking-status-heading>Đơn hàng đang được chuẩn bị</h2></div><span class="status-pill status-preparing" data-tracking-status>Đang xử lý</span></div>
     <div class="tracking-meta"><span>Mã đơn <strong data-tracking-order>Nhập mã đơn để tra cứu</strong></span><span>Ngày đặt <strong data-tracking-date>—</strong></span></div>
     <section class="customer-delivery-confirmation tracking-delivery-actions" data-tracking-delivery-actions aria-label="Phản hồi về việc nhận hàng" hidden>
       <p>Vui lòng phản hồi trong 3 phút. Nếu bạn chưa phản hồi, đơn sẽ tự động được xác nhận đã nhận.</p>

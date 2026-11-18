@@ -2750,7 +2750,7 @@ class StaffOrderDashboardTests(TestCase):
             {"workspace": "menu", "product": product.pk},
         )
         self.assertContains(page, "Lịch sử giá")
-        self.assertContains(page, "129000₫ → 139000₫")
+        self.assertContains(page, "129.000₫ → 139.000₫")
         self.assertContains(page, "Làm sau khi đặt")
         self.assertNotIn("stock_quantity", page.context["selected_product_form"].fields)
 

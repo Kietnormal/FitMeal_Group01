@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static fitmeal %}
 {% block title %}Thanh toán MoMo — FitMeal{% endblock %}
 {% block extra_css %}
   <link rel="stylesheet" href="{% static 'css/storefront.css' %}?v=20261117-momo-payment-page">
@@ -97,14 +97,14 @@
               {% for item in payment.order.items.all %}
                 <li>
                   <span>{{ item.quantity }} × {{ item.product_name }}</span>
-                  <strong>{{ item.line_total|floatformat:0 }}₫</strong>
+                  <strong>{{ item.line_total|vnd }}</strong>
                 </li>
               {% endfor %}
             </ul>
             <div class="momo-order-totals">
-              <p><span>Tạm tính</span><span>{{ payment.order.subtotal|floatformat:0 }}₫</span></p>
-              <p><span>Phí giao hàng</span><span>{{ payment.order.shipping_fee|floatformat:0 }}₫</span></p>
-              <p class="momo-order-total"><strong>Cần thanh toán</strong><strong>{{ payment.amount|floatformat:0 }}₫</strong></p>
+              <p><span>Tạm tính</span><span>{{ payment.order.subtotal|vnd }}</span></p>
+              <p><span>Phí giao hàng</span><span>{{ payment.order.shipping_fee|vnd }}</span></p>
+              <p class="momo-order-total"><strong>Cần thanh toán</strong><strong>{{ payment.amount|vnd }}</strong></p>
             </div>
             <div class="momo-order-delivery">
               <strong>Giao {{ payment.order.delivery_date|date:"d/m/Y" }} · {{ payment.order.get_delivery_slot_display }}</strong>

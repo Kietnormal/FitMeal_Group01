@@ -1,47 +1,60 @@
 {% extends "base.html" %}
 {% load static %}
-{% block extra_css %}<link rel="stylesheet" href="{% static 'css/storefront.css' %}?v=20261117-payments-1">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/storefront.css' %}?v=20261118-redesign-1">{% endblock %}
 {% block content %}
-<div class="store-shell{% if active_page == 'checkout' %} checkout-shell{% endif %}">
-  <div class="demo-notice" data-announcement-banner>
-    <span class="announcement-clock" aria-hidden="true">◷</span>
-    <p><strong>Nhận đơn 6:00 – 21:00 mỗi ngày</strong><span> · Đơn đồ tươi giao theo khung giờ bạn chọn</span></p>
-    <a href="{% url 'core:policies' %}#delivery">Xem khung giờ <span aria-hidden="true">→</span></a>
-    <button type="button" data-close-announcement aria-label="Đóng thông báo">×</button>
+<div class="store-shell{% if active_page == 'checkout' %} checkout-shell{% endif %}" data-food-images="{% static 'img/food/' %}">
+  <a class="fm-skip" href="#noi-dung">Bỏ qua điều hướng</a>
+  <div class="fm-util" data-announcement-banner>
+    <div class="fm-wrap fm-util-row">
+      <p><svg class="fm-i" aria-hidden="true"><use href="#fm-clock"/></svg>Nhận đơn 6:00–21:00 mỗi ngày</p>
+      <p><svg class="fm-i" aria-hidden="true"><use href="#fm-truck"/></svg>Miễn phí giao đồ tươi cho đơn từ 300.000₫</p>
+      <p><svg class="fm-i" aria-hidden="true"><use href="#fm-box"/></svg>Đồ khô giao toàn quốc</p>
+      <a href="{% url 'core:policies' %}#delivery">Xem khung giờ giao</a>
+    </div>
+    <button class="fm-util-close" type="button" data-close-announcement aria-label="Đóng thông báo"><svg class="fm-i" aria-hidden="true"><use href="#fm-x"/></svg></button>
   </div>
-  <header class="store-header">
-    <a class="store-brand" href="{% url 'core:home' %}">
-      <span class="store-brand-icon" aria-hidden="true">F</span>
-      <span><strong>FITMEAL.VN</strong><small>ĂN KHỎE · SỐNG CHẤT</small></span>
-    </a>
-    <nav class="store-nav" aria-label="Điều hướng cửa hàng">
-      <a href="{% url 'core:home' %}">Trang chủ</a>
-      <a href="{% url 'core:shop' %}" {% if active_page == "shop" %}aria-current="page"{% endif %}>Thực đơn</a>
-      <a href="{% url 'core:home' %}#about">Dinh dưỡng</a>
-      <a href="{% url 'core:home' %}#contact">FAQs</a>
-    </nav>
-    <div class="store-header-actions">
-      {% if user.is_authenticated %}
-        <a class="store-account-login" href="{% url 'core:account' %}">Xin chào, {{ user.first_name|default:user.username }}</a>
-        {% if user.is_staff %}<a class="store-account-register" href="{% url 'staff_orders:dashboard' %}">Quản trị đơn hàng</a>{% endif %}
-      {% else %}
-        <a class="store-account-register" href="{% url 'core:account' %}#register">Đăng ký</a>
-        <a class="store-account-login" href="{% url 'core:account' %}#login">Đăng nhập</a>
-      {% endif %}
-      <a class="store-cart-link" href="{% url 'core:cart' %}" aria-label="Giỏ hàng">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l1 13H4L5 8Z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/></svg>
-        <span class="cart-count" data-cart-count>0</span>
+
+  <header class="fm-header">
+    <div class="fm-wrap fm-header-row">
+      <a class="fm-brand" href="{% url 'core:home' %}" aria-label="FitMeal, về trang chủ">
+        <span class="fm-brand-mark" aria-hidden="true"><svg class="fm-i"><use href="#fm-leaf"/></svg></span>
+        <span class="fm-brand-name">FitMeal</span>
       </a>
-      <div class="store-languages" aria-label="Ngôn ngữ giao diện">
-        <button type="button" aria-pressed="false" data-language="en">EN</button><span>/</span><button type="button" class="is-active" aria-pressed="true" data-language="vi">VI</button>
-        <span class="visually-hidden" role="status" data-language-status>Giao diện hiện hiển thị tiếng Việt.</span>
+      <form class="fm-search" role="search" action="{% url 'core:shop' %}" method="get">
+        <label class="visually-hidden" for="fm-header-search">Tìm món trong thực đơn</label>
+        <input id="fm-header-search" type="search" name="q" placeholder="Tìm ức gà, whey, bánh protein…" autocomplete="off">
+        <button type="submit" aria-label="Tìm kiếm"><svg class="fm-i" aria-hidden="true"><use href="#fm-search"/></svg></button>
+      </form>
+      <div class="fm-actions">
+        {% if user.is_authenticated %}
+          {% if user.is_staff %}<a class="fm-action fm-action-staff" href="{% url 'staff_orders:dashboard' %}"><svg class="fm-i" aria-hidden="true"><use href="#fm-grid"/></svg><span>Quản trị đơn hàng</span></a>{% endif %}
+          <a class="fm-action" href="{% url 'core:account' %}"><svg class="fm-i" aria-hidden="true"><use href="#fm-user"/></svg><span>Xin chào, {{ user.first_name|default:user.username }}</span></a>
+        {% else %}
+          <a class="fm-action" href="{% url 'core:account' %}#login"><svg class="fm-i" aria-hidden="true"><use href="#fm-user"/></svg><span>Đăng nhập</span></a>
+        {% endif %}
+        <a class="fm-action fm-action-cart" href="{% url 'core:cart' %}" aria-label="Giỏ hàng"{% if active_page == "cart" %} aria-current="page"{% endif %}>
+          <svg class="fm-i" aria-hidden="true"><use href="#fm-bag"/></svg><span>Giỏ hàng</span>
+          <span class="fm-count cart-count" data-cart-count>0</span>
+        </a>
+        <button class="store-menu-toggle" type="button" aria-label="Mở điều hướng" aria-expanded="false" aria-controls="store-nav"><span></span><span></span></button>
       </div>
     </div>
-    <button class="store-menu-toggle" type="button" aria-label="Mở điều hướng" aria-expanded="false" aria-controls="store-nav"><span></span><span></span></button>
+    <div class="fm-wrap fm-nav-row">
+      <nav class="fm-nav" aria-label="Điều hướng cửa hàng">
+        <a href="{% url 'core:home' %}"{% if active_page == "home" %} aria-current="page"{% endif %}>Trang chủ</a>
+        <a href="{% url 'core:shop' %}"{% if active_page == "shop" %} aria-current="page"{% endif %}>Thực đơn</a>
+        <a href="{% url 'core:shop' %}?category=meal">Bữa ăn</a>
+        <a href="{% url 'core:shop' %}?category=drink">Thức uống</a>
+        <a href="{% url 'core:shop' %}?category=snack">Ăn nhẹ</a>
+        <a href="{% url 'core:shop' %}?category=combo">Combo</a>
+        <a href="{% url 'core:shop' %}?category=dry_goods">Đồ khô</a>
+        <a href="{% url 'core:policies' %}"{% if active_page == "policies" %} aria-current="page"{% endif %}>Chính sách</a>
+      </nav>
+    </div>
     <nav class="store-mobile-nav" id="store-nav" aria-label="Điều hướng di động">
       <a href="{% url 'core:home' %}">Trang chủ</a>
-      <a href="{% url 'core:shop' %}">Cửa hàng</a>
-      <a href="{% url 'core:cart' %}">Giỏ hàng <span data-cart-count>0</span></a>
+      <a href="{% url 'core:shop' %}">Thực đơn</a>
+      <a href="{% url 'core:cart' %}">Giỏ hàng <span class="fm-count-inline" data-cart-count>0</span></a>
       {% if user.is_authenticated %}
         <a href="{% url 'core:account' %}">Tài khoản ({{ user.first_name|default:user.username }})</a>
         {% if user.is_staff %}<a href="{% url 'staff_orders:dashboard' %}">Quản trị đơn hàng</a>{% endif %}
@@ -50,39 +63,80 @@
         <a href="{% url 'core:account' %}#register">Đăng ký</a>
       {% endif %}
       <a href="{% url 'core:policies' %}">Chính sách & hỗ trợ</a>
-      <div class="mobile-languages" aria-label="Ngôn ngữ giao diện"><button type="button" aria-pressed="false" data-language="en">EN</button><span>/</span><button type="button" class="is-active" aria-pressed="true" data-language="vi">VI</button><span class="visually-hidden" role="status" data-language-status>Giao diện hiện hiển thị tiếng Việt.</span></div>
     </nav>
   </header>
 
-  <main class="store-main">
+  <main class="store-main" id="noi-dung">
     {% block store_content %}{% endblock %}
   </main>
-  <footer class="store-footer">
-    <a class="store-brand" href="{% url 'core:home' %}"><span class="store-brand-icon">F</span><span><strong>FitMeal</strong><small>ĂN KHỎE · SỐNG CHẤT</small></span></a>
-    <p>Tài khoản, sản phẩm và đơn hàng được lưu trong hệ thống. Thanh toán MoMo và chuyển khoản sẽ mở khi cửa hàng cấu hình cổng thanh toán.</p>
-    <nav class="store-footer-links" aria-label="Thông tin và hỗ trợ">
-      <a href="{% url 'core:policies' %}">Chính sách & hỗ trợ</a>
-      <a href="mailto:hello@fitmeal.vn">Liên hệ</a>
-      <a href="{% url 'staff_orders:dashboard' %}">Quản trị demo ↗</a>
-    </nav>
+
+  <footer class="fm-footer">
+    <div class="fm-wrap">
+      <div class="fm-footer-grid">
+        <div class="fm-footer-about">
+          <a class="fm-brand" href="{% url 'core:home' %}"><span class="fm-brand-mark" aria-hidden="true"><svg class="fm-i"><use href="#fm-leaf"/></svg></span><span class="fm-brand-name">FitMeal</span></a>
+          <p>Thực phẩm giàu protein cho người tập luyện và người bận rộn. Ăn đủ chất mà không cần tự nấu.</p>
+          <ul class="fm-pay" aria-label="Phương thức thanh toán"><li>COD</li><li>MoMo</li><li>Chuyển khoản</li></ul>
+        </div>
+        <nav aria-label="Mua sắm">
+          <h2>Mua sắm</h2>
+          <ul>
+            <li><a href="{% url 'core:shop' %}">Toàn bộ thực đơn</a></li>
+            <li><a href="{% url 'core:shop' %}?category=meal">Bữa ăn</a></li>
+            <li><a href="{% url 'core:shop' %}?category=drink">Thức uống</a></li>
+            <li><a href="{% url 'core:shop' %}?category=snack">Ăn nhẹ</a></li>
+            <li><a href="{% url 'core:shop' %}?category=dry_goods">Đồ khô giao toàn quốc</a></li>
+          </ul>
+        </nav>
+        <nav aria-label="Hỗ trợ">
+          <h2>Hỗ trợ</h2>
+          <ul>
+            <li><a href="{% url 'core:policies' %}#delivery">Giao hàng</a></li>
+            <li><a href="{% url 'core:policies' %}#returns">Đổi trả và hoàn tiền</a></li>
+            <li><a href="{% url 'core:policies' %}#privacy">Quyền riêng tư</a></li>
+            <li><a href="{% url 'core:account' %}">Tài khoản của tôi</a></li>
+          </ul>
+        </nav>
+        <div>
+          <h2>Liên hệ</h2>
+          <ul>
+            <li><a href="mailto:hello@fitmeal.vn">hello@fitmeal.vn</a></li>
+            <li>Nhận đơn 6:00–21:00</li>
+            <li>TP. Hồ Chí Minh</li>
+          </ul>
+        </div>
+      </div>
+      <div class="fm-footer-legal">
+        <p>© 2026 FITMEAL.VN. Dự án học tập của Nhóm 1, môn Thương mại điện tử.</p>
+        <div class="fm-footer-tools">
+          <div class="store-languages" aria-label="Ngôn ngữ giao diện">
+            <button type="button" aria-pressed="false" data-language="en">EN</button><span aria-hidden="true">/</span><button type="button" class="is-active" aria-pressed="true" data-language="vi">VI</button>
+            <span class="visually-hidden" role="status" data-language-status>Giao diện hiện hiển thị tiếng Việt.</span>
+          </div>
+          <a href="{% url 'staff_orders:dashboard' %}">Quản trị demo</a>
+        </div>
+      </div>
+    </div>
   </footer>
+
   <div class="store-toast" role="status" aria-live="polite" data-toast></div>
   <div class="cart-drawer-backdrop" data-cart-drawer hidden>
     <aside class="cart-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="cart-drawer-title" aria-describedby="cart-drawer-description">
       <header class="cart-drawer-header">
-        <button class="cart-drawer-close" type="button" aria-label="Đóng giỏ hàng" data-close-cart-drawer>×</button>
-        <div><h2 id="cart-drawer-title">GIỎ HÀNG</h2><p id="cart-drawer-description" data-cart-line-count>0 món</p></div>
+        <div><h2 id="cart-drawer-title">Giỏ hàng</h2><p id="cart-drawer-description" data-cart-line-count>0 món</p></div>
+        <button class="cart-drawer-close" type="button" aria-label="Đóng giỏ hàng" data-close-cart-drawer><svg class="fm-i" aria-hidden="true"><use href="#fm-x"/></svg></button>
       </header>
       <div class="cart-drawer-items" data-cart-drawer-items></div>
       <div class="cart-drawer-empty" data-cart-drawer-empty hidden>
-        <span aria-hidden="true">🛒</span><p>Giỏ hàng đang trống.</p>
-        <a href="{% url 'core:shop' %}">Khám phá thực đơn</a>
+        <span class="fm-empty-icon" aria-hidden="true"><svg class="fm-i"><use href="#fm-bag"/></svg></span>
+        <p>Giỏ hàng đang trống.</p>
+        <a class="fm-btn fm-btn-primary" href="{% url 'core:shop' %}">Khám phá thực đơn</a>
       </div>
       <footer class="cart-drawer-footer">
         <div class="cart-drawer-summary-row"><span>Tạm tính</span><strong data-cart-subtotal>0₫</strong></div>
         <div class="cart-drawer-summary-row"><span>Phí giao hàng</span><strong data-shipping-fee>—</strong></div>
         <div class="cart-drawer-summary-row cart-drawer-total"><span>Tổng cộng</span><strong data-cart-total>0₫</strong></div>
-        <a class="cart-drawer-checkout" href="{% url 'core:checkout' %}" data-checkout-link aria-disabled="true" tabindex="-1">Đặt hàng <span aria-hidden="true">→</span></a>
+        <a class="cart-drawer-checkout" href="{% url 'core:checkout' %}" data-checkout-link aria-disabled="true" tabindex="-1">Đặt hàng</a>
       </footer>
     </aside>
   </div>

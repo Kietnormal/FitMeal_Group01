@@ -18,8 +18,29 @@ function categoryName(category) {
   return { dry_goods: "Đồ khô", drink: "Thức uống", meal: "Bữa ăn", snack: "Ăn nhẹ", rice: "Cơm", salad: "Salad", combo: "Combo" }[category];
 }
 
-function productPlaceholderIcon(category) {
-  return { dry_goods: "📦", drink: "🥤", meal: "🍱", snack: "🍪", rice: "🍚", salad: "🥗", combo: "🍱" }[category] || "🥗";
+const foodImageBase = document.querySelector("[data-food-images]")?.dataset.foodImages || "/static/img/food/";
+const foodImageCategories = ["dry_goods", "drink", "meal", "snack", "rice", "salad", "combo"];
+
+function productFallbackImage(category) {
+  return `${foodImageBase}${foodImageCategories.includes(category) ? category : "meal"}.webp`;
+}
+
+function productImage(product) {
+  return product.image || productFallbackImage(product.category);
+}
+
+function fillProductArt(art, product) {
+  art.replaceChildren();
+  const image = document.createElement("img");
+  image.src = productImage(product);
+  image.alt = "";
+  image.loading = "lazy";
+  if (product.image) {
+    image.addEventListener("error", () => {
+      image.src = productFallbackImage(product.category);
+    }, { once: true });
+  }
+  art.append(image);
 }
 
 function getOrders() {
@@ -194,19 +215,7 @@ function renderCart() {
       art.className = "mini-product-art";
       art.dataset.category = product.category;
       art.setAttribute("aria-hidden", "true");
-      if (product.image) {
-        const image = document.createElement("img");
-        image.src = product.image;
-        image.alt = "";
-        image.loading = "lazy";
-        image.addEventListener("error", () => {
-          image.remove();
-          art.textContent = product.icon || productPlaceholderIcon(product.category);
-        }, { once: true });
-        art.append(image);
-      } else {
-        art.textContent = product.icon || productPlaceholderIcon(product.category);
-      }
+      fillProductArt(art, product);
 
       const info = document.createElement("div");
       info.className = "cart-drawer-item-info";
@@ -224,7 +233,7 @@ function renderCart() {
       removeButton.type = "button";
       removeButton.dataset.cartRemove = item.id;
       removeButton.setAttribute("aria-label", `Xóa ${product.name} khỏi giỏ`);
-      removeButton.textContent = "×";
+      removeButton.append(createIcon("fm-x"));
 
       const quantity = document.createElement("div");
       quantity.className = "cart-drawer-quantity";
@@ -234,7 +243,7 @@ function renderCart() {
       decrease.dataset.cartChange = "-1";
       decrease.dataset.productId = item.id;
       decrease.setAttribute("aria-label", `Giảm số lượng ${product.name}`);
-      decrease.textContent = "−";
+      decrease.append(createIcon("fm-minus"));
       const count = document.createElement("span");
       count.textContent = String(item.quantity);
       const increase = document.createElement("button");
@@ -242,7 +251,7 @@ function renderCart() {
       increase.dataset.cartChange = "1";
       increase.dataset.productId = item.id;
       increase.setAttribute("aria-label", `Tăng số lượng ${product.name}`);
-      increase.textContent = "＋";
+      increase.append(createIcon("fm-plus"));
       quantity.append(decrease, count, increase);
       row.append(art, info, removeButton, quantity);
       drawerItems.append(row);
@@ -269,19 +278,7 @@ function renderCart() {
         <strong class="cart-line-price">${currency.format(product.price * item.quantity)}</strong>
         <button class="remove-item" type="button" data-cart-remove="${item.id}" aria-label="Xóa ${product.name}">×</button>`;
       const productArt = row.querySelector(".mini-product-art");
-      if (product.image) {
-        const image = document.createElement("img");
-        image.src = product.image;
-        image.alt = "";
-        image.loading = "lazy";
-        image.addEventListener("error", () => {
-          image.remove();
-          productArt.textContent = product.icon || productPlaceholderIcon(product.category);
-        }, { once: true });
-        productArt.append(image);
-      } else {
-        productArt.textContent = product.icon || productPlaceholderIcon(product.category);
-      }
+      fillProductArt(productArt, product);
       row.querySelector("h3").textContent = product.name;
       row.querySelector(".cart-line-info p").textContent = product.description;
       cartItems.append(row);
@@ -319,41 +316,38 @@ function createCatalogCard(product) {
   card.dataset.category = product.category;
 
   const art = document.createElement("div");
-  art.className = "catalog-art catalog-art-granola";
+  art.className = "catalog-art";
   const tag = document.createElement("span");
   tag.className = "catalog-tag";
-  tag.textContent = "ĐANG BÁN";
-  const icon = document.createElement("span");
-  icon.className = "catalog-fruit";
-  icon.textContent = product.icon || "FM";
-  const illustration = document.createElement("div");
-  illustration.className = "granola-illustration";
-  illustration.textContent = "FM";
-  const caption = document.createElement("span");
-  caption.className = "art-caption";
-  caption.textContent = "FITMEAL / DAILY";
-  art.append(tag, icon, illustration, caption);
+  tag.textContent = categoryName(product.category) || "FitMeal";
+  art.append(tag);
 
   const details = document.createElement("div");
   details.className = "catalog-details";
   const info = document.createElement("div");
   const name = document.createElement("h3");
   const description = document.createElement("p");
+  const deliveryNote = document.createElement("small");
+  deliveryNote.className = "catalog-delivery-note";
+  info.append(name, description, deliveryNote);
+
+  const macros = document.createElement("dl");
+  macros.className = "catalog-macros";
+  [["protein", "protein"], ["calories", "kcal"], ["carbs", "carb"], ["fat", "béo"]].forEach(([key, label]) => {
+    const cell = document.createElement("div");
+    cell.dataset.macro = key;
+    const term = document.createElement("dt");
+    term.textContent = label;
+    const value = document.createElement("dd");
+    cell.append(term, value);
+    macros.append(cell);
+  });
   const detailButton = document.createElement("button");
   detailButton.className = "product-detail-link";
   detailButton.type = "button";
   detailButton.dataset.productDetails = product.id;
-  detailButton.textContent = "Xem dinh dưỡng";
-  const deliveryNote = document.createElement("small");
-  deliveryNote.className = "catalog-delivery-note";
-  info.append(name, description, deliveryNote, detailButton);
-  const protein = document.createElement("span");
-  protein.className = "catalog-protein";
-  protein.append(document.createTextNode(`${product.protein || 0}g `));
-  const proteinLabel = document.createElement("small");
-  proteinLabel.textContent = "PROTEIN";
-  protein.append(proteinLabel);
-  details.append(info, protein);
+  detailButton.textContent = "Xem thành phần và dinh dưỡng";
+  details.append(info, macros, detailButton);
 
   const buy = document.createElement("div");
   buy.className = "catalog-buy";
@@ -362,25 +356,41 @@ function createCatalogCard(product) {
   button.type = "button";
   button.dataset.addToCart = "";
   button.className = "catalog-cart-button";
-  button.setAttribute("aria-label", `Thêm ${product.name} vào giỏ`);
-  button.append(createCartIcon());
   buy.append(price, button);
   card.append(art, details, buy);
   return card;
 }
 
-function createCartIcon() {
+function createIcon(symbol) {
   const namespace = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(namespace, "svg");
-  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("class", "fm-i");
   svg.setAttribute("aria-hidden", "true");
   svg.setAttribute("focusable", "false");
-  const path = document.createElementNS(namespace, "path");
-  path.setAttribute("d", "M3 4h2l2.2 11.1a2 2 0 0 0 2 1.6h8.5a2 2 0 0 0 1.9-1.4L21 8H6");
-  const wheels = document.createElementNS(namespace, "path");
-  wheels.setAttribute("d", "M9 20h.01M18 20h.01");
-  svg.append(path, wheels);
+  const use = document.createElementNS(namespace, "use");
+  use.setAttribute("href", `#${symbol}`);
+  svg.append(use);
   return svg;
+}
+
+function formatGrams(value) {
+  const number = Number(value || 0);
+  return `${Number.isInteger(number) ? number : number.toLocaleString("vi-VN", { maximumFractionDigits: 1 })}g`;
+}
+
+function initializeHomeProducts() {
+  const home = document.querySelector("[data-home-products]");
+  if (!home) return;
+  home.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-add-to-cart-id]");
+    if (!button) return;
+    const productId = button.dataset.addToCartId;
+    if (!catalogProducts[productId]) {
+      showToast("Thực đơn đang tải, vui lòng thử lại sau giây lát.");
+      return;
+    }
+    addProductToCart(productId);
+  });
 }
 
 function renderCatalogInventory() {
@@ -411,34 +421,37 @@ function renderCatalogInventory() {
       );
     }
     if (product.category === "dry_goods") {
-      const details = ["Giao toàn quốc · dự kiến 1–5 ngày"];
+      const details = ["Giao toàn quốc, dự kiến 1–5 ngày"];
       if (product.shippingWeightGrams) details.push(`${product.shippingWeightGrams} g`);
       if (product.expiryDate) {
         details.push(`HSD ${new Date(`${product.expiryDate}T00:00:00`).toLocaleDateString("vi-VN")}`);
       }
-      deliveryNote.textContent = details.join(" · ");
+      deliveryNote.textContent = details.join(", ");
     } else {
       deliveryNote.textContent = "Chỉ giao tại TP. Hồ Chí Minh";
     }
     card.querySelector(".catalog-buy > strong").textContent = currency.format(product.price);
     let photo = card.querySelector(".catalog-product-photo");
-    if (product.image) {
-      if (!photo) {
-        photo = document.createElement("img");
-        photo.className = "catalog-product-photo";
-        photo.alt = "";
-        card.querySelector(".catalog-art").prepend(photo);
-      }
-      photo.src = product.image;
-      card.querySelector(".catalog-art").classList.add("has-product-image");
-    } else {
-      photo?.remove();
-      card.querySelector(".catalog-art").classList.remove("has-product-image");
+    if (!photo) {
+      photo = document.createElement("img");
+      photo.className = "catalog-product-photo";
+      photo.alt = "";
+      photo.loading = "lazy";
+      photo.addEventListener("error", () => {
+        photo.src = productFallbackImage(card.dataset.category);
+      }, { once: true });
+      card.querySelector(".catalog-art").prepend(photo);
     }
+    photo.src = productImage(product);
+    card.querySelector(".catalog-art").classList.toggle("has-product-image", Boolean(product.image));
     const detailButton = card.querySelector("[data-product-details]");
     if (detailButton) detailButton.dataset.productDetails = product.id;
-    const protein = card.querySelector(".catalog-protein");
-    if (protein) protein.firstChild.textContent = `${product.protein || 0}g `;
+    card.querySelectorAll("[data-macro]").forEach((cell) => {
+      const value = product[cell.dataset.macro];
+      cell.querySelector("dd").textContent = cell.dataset.macro === "calories"
+        ? String(Number(value || 0))
+        : formatGrams(value);
+    });
 
     const tag = card.querySelector(".catalog-tag");
     if (!tag.dataset.defaultTag) tag.dataset.defaultTag = tag.textContent;
@@ -453,7 +466,7 @@ function renderCatalogInventory() {
     button.setAttribute("aria-label", soldOut ? `${product.name} tạm hết món` : `Thêm ${product.name} vào giỏ`);
     button.replaceChildren();
     if (soldOut) button.textContent = "Tạm hết món";
-    else button.append(createCartIcon());
+    else button.append(createIcon("fm-plus"), document.createTextNode("Thêm"));
   });
 
   cards.forEach((card, id) => {
@@ -597,6 +610,25 @@ function initializeCatalog() {
     });
   });
 
+  const params = new URLSearchParams(window.location.search);
+  const requestedCategory = params.get("category");
+  const categoryButton = requestedCategory
+    ? document.querySelector(`.filter-chip[data-category="${CSS.escape(requestedCategory)}"]`)
+    : null;
+  if (categoryButton) {
+    selectedCategory = requestedCategory;
+    document.querySelectorAll(".filter-chip").forEach((chip) => {
+      chip.classList.toggle("is-active", chip === categoryButton);
+      chip.setAttribute("aria-pressed", String(chip === categoryButton));
+    });
+  }
+  const presetSelect = (select, value) => {
+    if (select && value && [...select.options].some((option) => option.value === value)) select.value = value;
+  };
+  presetSelect(proteinFilter, params.get("protein"));
+  presetSelect(calorieFilter, params.get("calories"));
+  if (params.get("q")) search.value = params.get("q");
+
   search.addEventListener("input", filterProducts);
   sort.addEventListener("change", filterProducts);
   proteinFilter?.addEventListener("change", filterProducts);
@@ -624,8 +656,8 @@ function showProductDetails(productId) {
   if (!product || !modal) return;
   const photo = modal.querySelector("[data-detail-image]");
   if (photo) {
-    photo.src = product.image || "";
-    photo.hidden = !product.image;
+    photo.src = productImage(product);
+    photo.hidden = false;
     photo.alt = product.image ? product.name : "";
   }
   modal.querySelector("[data-detail-name]").textContent = product.name;
@@ -1791,10 +1823,11 @@ updateCartCounts();
 renderCart();
 initializeProductModal();
 const refreshCatalog = initializeCatalog();
-if (document.querySelector("[data-product-grid], [data-cart-items], [data-checkout-items]")) {
+if (document.querySelector("[data-product-grid], [data-cart-items], [data-checkout-items], [data-home-products]")) {
   loadServerCatalog(refreshCatalog);
 }
 initializeCart();
+initializeHomeProducts();
 initializeCustomerOrderActions();
 initializeCheckout();
 initializeTracking();

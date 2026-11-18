@@ -1,20 +1,46 @@
 from django.conf import settings
-from django.db.models import Prefetch, Sum
+from django.db.models import Avg, Count, Prefetch, Sum
 from django.http import JsonResponse
 from django.shortcuts import render
 from allauth.account.models import EmailAddress
 
 from apps.accounts.forms import OrderReviewForm
-from apps.accounts.models import PendingEmailChange, User
+from apps.accounts.models import OrderReview, PendingEmailChange, User
 from apps.orders.delivery import finalize_expired_delivery_confirmations
-from apps.orders.models import Order, OrderCareRequest, OrderCancellationRequest
+from apps.orders.models import Order, OrderCareRequest, OrderCancellationRequest, OrderItem
 from apps.orders.privacy import purge_expired_order_pii
 from apps.products.models import Product
 
 
+HOME_REVIEW_LIMIT = 3
+
+
 def home(request):
-    featured_products = Product.objects.filter(is_featured=True)[:6]
-    return render(request, "core/home.html", {"featured_products": featured_products})
+    featured_products = list(Product.objects.filter(is_featured=True)[:8])
+    hero_product = next(
+        (product for product in featured_products if product.is_available and product.protein > 0),
+        None,
+    )
+    # Reviews are shown without customer names: order PII is encrypted after delivery.
+    reviews = list(
+        OrderReview.objects.exclude(comment="")
+        .filter(rating__gte=4)
+        .prefetch_related(Prefetch("order__items", queryset=OrderItem.objects.only("order_id", "product_name")))
+        .order_by("-created_at")[:HOME_REVIEW_LIMIT]
+    )
+    review_stats = OrderReview.objects.aggregate(average=Avg("rating"), total=Count("pk"))
+    return render(
+        request,
+        "core/home.html",
+        {
+            "active_page": "home",
+            "featured_products": featured_products,
+            "hero_product": hero_product,
+            "reviews": reviews,
+            "review_average": review_stats["average"],
+            "review_total": review_stats["total"],
+        },
+    )
 
 
 def shop(request):

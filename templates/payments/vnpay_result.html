@@ -1,9 +1,8 @@
-{% extends "base.html" %}
+{% extends "core/store_base.html" %}
 {% block title %}Kết quả thanh toán — FitMeal{% endblock %}
-{% block content %}
-<main class="store-main">
+{% block store_content %}
   <section class="page-heading compact-heading">
-    <span class="store-kicker">THANH TOÁN VNPAY</span>
+    <span class="store-kicker">Thanh toán VNPay</span>
     {% if not signature_valid %}
       <h1>Không thể xác thực kết quả.</h1>
       <p>Chữ ký phản hồi không hợp lệ. Đơn hàng chưa được xác nhận đã thanh toán.</p>
@@ -24,7 +23,6 @@
       <p>Mã giao dịch: <strong>{{ payment.transaction_ref }}</strong></p>
       <p>Trạng thái hiện tại: <strong>{{ payment.get_status_display }}</strong></p>
     {% endif %}
-    <a class="solid-button" href="{% url 'core:home' %}">Quay về cửa hàng →</a>
+    <a class="solid-button" href="{% url 'core:home' %}">Quay về cửa hàng</a>
   </section>
-</main>
 {% endblock %}

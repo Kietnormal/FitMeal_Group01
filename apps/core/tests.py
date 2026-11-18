@@ -49,8 +49,8 @@ class CoreViewsTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "data-product-grid")
-        self.assertContains(response, "storefront.js?v=20261117-momo-bank-payments-1")
-        self.assertContains(response, "storefront.css?v=20261117-payments-1")
+        self.assertContains(response, "storefront.js?v=20261118-redesign-1")
+        self.assertContains(response, "storefront.css?v=20261118-redesign-1")
         self.assertNotContains(response, "Banana Whey")
         self.assertNotContains(response, "Granola Crunch")
 
@@ -146,7 +146,7 @@ class CoreViewsTests(TestCase):
         response = self.client.get(reverse("core:shop"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Nhận đơn 6:00 – 21:00 mỗi ngày")
+        self.assertContains(response, "Nhận đơn 6:00–21:00 mỗi ngày")
         self.assertContains(response, 'data-close-announcement aria-label="Đóng thông báo"')
         self.assertContains(response, f'href="{reverse("core:policies")}#delivery">Xem khung giờ')
         self.assertContains(response, reverse("core:policies"))
@@ -154,7 +154,7 @@ class CoreViewsTests(TestCase):
         self.assertContains(response, 'data-catalog-status role="status"')
         self.assertContains(
             response,
-            f'href="{reverse("staff_orders:dashboard")}">Quản trị demo ↗</a>',
+            f'href="{reverse("staff_orders:dashboard")}">Quản trị demo</a>',
         )
 
     def test_demo_admin_route_is_removed(self):

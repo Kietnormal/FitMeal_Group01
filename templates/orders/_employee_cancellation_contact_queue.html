@@ -1,6 +1,6 @@
 {% if contact_cancellation_requests %}
   <section class="employee-cancellation-contact" aria-labelledby="cancellation-contact-title">
-    <div class="employee-cancellation-heading"><div><span class="store-kicker">CHĂM SÓC KHÁCH HÀNG</span><h2 id="cancellation-contact-title">Yêu cầu hủy cần gọi lại</h2></div><b>{{ contact_cancellation_count }}</b></div>
+    <div class="employee-cancellation-heading"><div><span class="store-kicker">Chăm sóc khách hàng</span><h2 id="cancellation-contact-title">Yêu cầu hủy cần gọi lại</h2></div><b>{{ contact_cancellation_count }}</b></div>
     <div class="employee-cancellation-contact-list">
       {% for cancellation in contact_cancellation_requests %}
         <article class="employee-cancellation-contact-card">

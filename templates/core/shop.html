@@ -1,19 +1,23 @@
 {% extends "core/store_base.html" %}
+{% load static %}
 {% block title %}Cửa hàng FitMeal — Thực phẩm giàu protein{% endblock %}
 {% block store_content %}
-<section class="shop-heading">
+<section class="shop-heading" aria-labelledby="shop-title">
   <div>
-    <span class="store-kicker">ĂN NGON · SỐNG KHỎE · TẬP HẾT MÌNH</span>
-    <h1>Chọn món hợp<br><span>với mục tiêu của bạn.</span></h1>
-    <p>Từ ly whey mát lạnh đến bữa ăn đủ chất — chọn món yêu thích cho ngày năng động.</p>
+    <h1 id="shop-title">Chọn món hợp <span>với mục tiêu của bạn.</span></h1>
+    <p>Từ ly whey mát lạnh đến bữa ăn đủ chất. Mỗi món đều ghi rõ protein, carb, chất béo và calo.</p>
+    <ul class="shop-heading-facts">
+      <li><svg class="fm-i" aria-hidden="true"><use href="#fm-truck"/></svg>Đồ tươi giao trong ngày tại TP.HCM</li>
+      <li><svg class="fm-i" aria-hidden="true"><use href="#fm-box"/></svg>Đồ khô giao toàn quốc</li>
+    </ul>
   </div>
-  <div class="shop-heading-stamp"><span>FIT</span><strong>FOOD<br>FORWARD</strong><small>GOOD ENERGY, EVERY DAY</small></div>
+  <div class="shop-heading-media"><img src="{% static 'img/food/promo-meals.webp' %}" alt="" width="1100" height="733"></div>
 </section>
 
 <section class="catalog-section" aria-labelledby="catalog-title">
   <div class="catalog-toolbar">
-    <div><span class="store-kicker">THỰC ĐƠN FITMEAL</span><h2 id="catalog-title">Món ngon mỗi ngày</h2></div>
-    <label class="catalog-search"><span aria-hidden="true">⌕</span><input type="search" placeholder="Tìm món bạn thích..." aria-label="Tìm sản phẩm" data-product-search></label>
+    <div><h2 id="catalog-title">Thực đơn FitMeal</h2><p>Lọc theo danh mục, giá, protein hoặc calo.</p></div>
+    <label class="catalog-search"><svg class="fm-i" aria-hidden="true"><use href="#fm-search"/></svg><input type="search" placeholder="Tìm món bạn thích…" aria-label="Tìm sản phẩm" data-product-search></label>
   </div>
   <div class="catalog-filters">
     <div class="catalog-category-filters" role="group" aria-label="Lọc theo danh mục">
@@ -24,7 +28,7 @@
       <button class="filter-chip" type="button" data-category="meal" aria-pressed="false">Bữa ăn</button>
       <button class="filter-chip" type="button" data-category="snack" aria-pressed="false">Ăn nhẹ</button>
       <button class="filter-chip" type="button" data-category="combo" aria-pressed="false">Combo</button>
-      <button class="filter-chip" type="button" data-category="dry_goods" aria-pressed="false">Đồ khô · giao toàn quốc</button>
+      <button class="filter-chip" type="button" data-category="dry_goods" aria-pressed="false">Đồ khô toàn quốc</button>
     </div>
     <div class="catalog-refinements" role="group" aria-label="Bộ lọc nâng cao">
       <label class="catalog-price-filter">Giá từ
@@ -60,14 +64,14 @@
   </div>
   <div class="catalog-grid" data-product-grid>
   </div>
-  <p class="catalog-empty" data-catalog-status role="status" aria-live="polite">Đang tải thực đơn từ hệ thống...</p>
-  <p class="catalog-empty" data-empty-results hidden>Không tìm thấy món phù hợp. Thử từ khóa hoặc danh mục khác nhé.</p>
+  <p class="catalog-empty" data-catalog-status role="status" aria-live="polite">Đang tải thực đơn…</p>
+  <p class="catalog-empty" data-empty-results hidden>Không có món nào khớp bộ lọc. Thử bỏ bớt điều kiện hoặc tìm bằng từ khóa khác.</p>
 </section>
 <div class="modal-backdrop" data-product-modal hidden>
   <section class="confirmation-modal product-detail-modal" role="dialog" aria-modal="true" aria-labelledby="product-detail-title">
-    <button class="modal-close" type="button" aria-label="Đóng" data-close-product-modal>×</button>
-    <span class="store-kicker">THÔNG TIN DINH DƯỠNG</span>
+    <button class="modal-close" type="button" aria-label="Đóng" data-close-product-modal><svg class="fm-i" aria-hidden="true"><use href="#fm-x"/></svg></button>
     <img class="product-detail-image" data-detail-image alt="" hidden>
+    <span class="store-kicker">Thông tin dinh dưỡng</span>
     <h2 id="product-detail-title" data-detail-name></h2>
     <p data-detail-description></p>
     <div class="nutrition-grid" data-detail-nutrition></div>
@@ -76,7 +80,7 @@
       <div><dt>Dị ứng</dt><dd data-detail-allergens></dd></div>
       <div><dt>Khẩu phần</dt><dd data-detail-serving></dd></div>
     </dl>
-    <button class="solid-button" type="button" data-detail-add>Thêm vào giỏ</button>
+    <button class="fm-btn fm-btn-primary fm-btn-lg solid-button" type="button" data-detail-add>Thêm vào giỏ</button>
   </section>
 </div>
 {% endblock %}

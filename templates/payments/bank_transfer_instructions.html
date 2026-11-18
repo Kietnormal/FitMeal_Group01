@@ -1,8 +1,9 @@
 {% extends "core/store_base.html" %}
+{% load fitmeal %}
 {% block title %}Chuyển khoản ngân hàng — FitMeal{% endblock %}
 {% block store_content %}
   <section class="page-heading compact-heading bank-transfer-page" data-bank-transfer-status data-status-url="{{ payment_status_url }}">
-    <span class="store-kicker">CHUYỂN KHOẢN NGÂN HÀNG</span>
+    <span class="store-kicker">Chuyển khoản ngân hàng</span>
     {% if payment.status == "paid" %}
       <h1>Đã nhận được thanh toán.</h1>
       <p>Đơn {{ payment.order.order_number }} đã được cập nhật thanh toán tự động.</p>
@@ -20,7 +21,7 @@
           <p>Ngân hàng: <strong>{{ bank_code }}</strong></p>
           <p>Số tài khoản: <strong>{{ account_number }}</strong></p>
           <p>Chủ tài khoản: <strong>{{ account_name }}</strong></p>
-          <p>Số tiền: <strong>{{ payment.amount|floatformat:0 }}₫</strong></p>
+          <p>Số tiền: <strong>{{ payment.amount|vnd }}</strong></p>
           <p>Nội dung chuyển khoản: <strong>{{ payment.bank_transfer_code }}</strong></p>
           <p>Mã này có hiệu lực trong 24 giờ. Vui lòng chuyển đúng số tiền và nội dung để hệ thống tự đối soát.</p>
         </div>
