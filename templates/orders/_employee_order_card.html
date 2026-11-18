@@ -33,6 +33,9 @@
     <strong>{{ order.total|floatformat:0 }}₫</strong>
   </div>
   <div class="employee-order-card-actions">
+    {% if can_cancel_orders and order.can_request_pii_access %}
+      <a class="employee-order-pii-access" href="{% url 'staff_orders:access_order_pii' order.pk %}">Mở thông tin có ghi nhật ký</a>
+    {% endif %}
     {% if order.status == "pending" %}
       <form action="{% url 'staff_orders:update_status' order.pk %}?workspace={{ active_workspace }}" method="post">
         {% csrf_token %}<input type="hidden" name="status" value="confirmed"><button type="submit">Xác nhận đơn</button>

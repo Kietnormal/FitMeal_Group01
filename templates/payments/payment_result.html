@@ -30,6 +30,10 @@
       <p>Mã giao dịch: <strong>{{ payment.transaction_ref }}</strong></p>
       <p>Trạng thái hiện tại: <strong data-payment-status>{{ payment.get_status_display }}</strong></p>
     {% endif %}
-    <a class="solid-button" href="{% url 'core:home' %}">Quay về cửa hàng →</a>
+    {% if payment %}
+      <a class="solid-button" href="{{ order_url }}">Đơn hàng của bạn →</a>
+    {% else %}
+      <a class="solid-button" href="{% url 'core:home' %}">Quay về cửa hàng →</a>
+    {% endif %}
   </section>
 {% endblock %}

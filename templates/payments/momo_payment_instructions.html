@@ -1,47 +1,126 @@
-{% extends "core/store_base.html" %}
-{% block title %}Thanh toán MoMo bằng thẻ — FitMeal{% endblock %}
-{% block store_content %}
-  <section
-    class="page-heading compact-heading"
-    {% if payment.status == "pending" %}
-      data-momo-payment-status
-      data-status-url="{{ payment_status_url }}"
-    {% endif %}
-  >
-    <span class="store-kicker">THANH TOÁN MOMO SANDBOX</span>
-    {% if payment.status == "paid" %}
-      <span class="checkout-success-icon" aria-hidden="true">✓</span>
-      <h1>Thanh toán thành công.</h1>
-      <p>Đã nhận thanh toán cho đơn {{ payment.order.order_number }}.</p>
-    {% elif payment.status == "expired" %}
-      <h1>Mã thanh toán đã hết hạn.</h1>
-      <p>Vui lòng tạo đơn thanh toán mới hoặc liên hệ cửa hàng để được hỗ trợ.</p>
-    {% elif payment.status == "failed" %}
-      <h1>Thanh toán chưa hoàn tất.</h1>
-      <p>Giao dịch MoMo không thành công. Vui lòng tạo đơn thanh toán mới.</p>
-    {% elif qr_data_url %}
-      <h1>Quét mã bằng camera điện thoại.</h1>
-      <p>Điện thoại sẽ mở trang MoMo sandbox để thanh toán bằng thẻ ATM.</p>
-      <div class="bank-transfer-instructions momo-payment-instructions">
-        <img src="{{ qr_data_url }}" alt="Mã QR mở trang thanh toán MoMo ATM">
-        <div>
-          <p>Đơn hàng: <strong>{{ payment.order.order_number }}</strong></p>
-          <p>Số tiền: <strong>{{ payment.amount|floatformat:0 }}₫</strong></p>
-          <p>Quét mã QR bằng camera, sau đó làm theo hướng dẫn trên trang MoMo sandbox.</p>
-          <p>Giao dịch sẽ tự cập nhật sau khi FitMeal xác nhận thông báo IPN từ MoMo.</p>
-          <a class="solid-button" href="{{ gateway_payment_url }}" target="_blank" rel="noopener">
-            Mở trang thanh toán trên thiết bị này →
-          </a>
-        </div>
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Thanh toán MoMo — FitMeal{% endblock %}
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'css/storefront.css' %}?v=20261117-momo-payment-page">
+{% endblock %}
+{% block content %}
+  <div class="momo-payment-shell">
+    <div class="momo-payment-topline" aria-hidden="true"></div>
+    <main
+      class="momo-payment-main"
+      {% if payment.status == "pending" %}
+        data-momo-payment-status
+        data-status-url="{{ payment_status_url }}"
+      {% endif %}
+    >
+      <div class="momo-payment-layout">
+        <section class="momo-payment-card">
+          <header class="momo-payment-card-header">
+            <div class="momo-payment-brand">
+              <span class="momo-payment-brand-mark" aria-hidden="true">M</span>
+              <span>THANH TOÁN QUA MOMO</span>
+            </div>
+            {% if payment.status == "pending" and qr_data_url %}
+              <div class="momo-payment-expiry">
+                <span>Hết hạn sau</span>
+                <strong data-momo-expiration data-expires-at="{{ payment.expires_at|date:'c' }}">--:--</strong>
+              </div>
+            {% endif %}
+          </header>
+
+          {% if payment.status == "paid" %}
+            <div class="momo-payment-final-state is-paid">
+              <span class="checkout-success-icon" aria-hidden="true">✓</span>
+              <h1>Thanh toán thành công</h1>
+              <p>FitMeal đã xác nhận thanh toán cho đơn {{ payment.order.order_number }}.</p>
+            </div>
+          {% elif payment.status == "expired" %}
+            <div class="momo-payment-final-state">
+              <span class="momo-payment-state-mark" aria-hidden="true">!</span>
+              <h1>Mã thanh toán đã hết hạn</h1>
+              <p>Vui lòng quay lại cửa hàng để tạo đơn thanh toán mới.</p>
+            </div>
+          {% elif payment.status == "failed" %}
+            <div class="momo-payment-final-state">
+              <span class="momo-payment-state-mark" aria-hidden="true">×</span>
+              <h1>Thanh toán chưa hoàn tất</h1>
+              <p>MoMo chưa xác nhận giao dịch này. Vui lòng liên hệ FitMeal nếu bạn đã bị trừ tiền.</p>
+            </div>
+          {% elif qr_data_url %}
+            <div class="momo-payment-heading">
+              <h1>Quét mã để thanh toán</h1>
+              <p>Dùng camera điện thoại để mở trang thanh toán MoMo bằng thẻ ATM.</p>
+            </div>
+            <div class="momo-payment-content">
+              <div class="momo-payment-qr-frame">
+                <img src="{{ qr_data_url }}" alt="Mã QR mở trang thanh toán MoMo">
+              </div>
+              <ol class="momo-payment-steps">
+                <li><span>1</span><p><strong>Mở camera điện thoại</strong> và quét mã bên cạnh.</p></li>
+                <li><span>2</span><p><strong>Thanh toán trên trang MoMo</strong> bằng thẻ ATM theo hướng dẫn.</p></li>
+                <li><span>3</span><p><strong>Giữ trang này mở.</strong> Trạng thái đơn sẽ tự cập nhật sau khi xác nhận.</p></li>
+              </ol>
+            </div>
+            <div class="momo-payment-waiting">
+              <span class="momo-payment-spinner" aria-hidden="true"></span>
+              <strong data-payment-live-status role="status">Đang chờ thanh toán…</strong>
+            </div>
+            <p class="momo-payment-safe-note">FitMeal không lưu thông tin thẻ của bạn. Giao dịch chỉ được xác nhận sau khi MoMo gửi thông báo bảo mật.</p>
+          {% else %}
+            <div class="momo-payment-final-state">
+              <span class="momo-payment-state-mark" aria-hidden="true">!</span>
+              <h1>Không thể mở mã thanh toán</h1>
+              <p>Liên kết thanh toán không còn trong phiên này. Vui lòng quay lại cửa hàng để đặt đơn mới.</p>
+            </div>
+          {% endif %}
+
+          <nav class="momo-payment-actions" aria-label="Hỗ trợ thanh toán">
+            <a href="{{ order_url }}">Đơn hàng của bạn</a>
+            <a href="mailto:hello@fitmeal.vn">Cần hỗ trợ?</a>
+          </nav>
+        </section>
+
+        <aside class="momo-payment-side">
+          <section class="momo-order-card" aria-label="Tóm tắt đơn hàng">
+            <header class="momo-order-header">
+              <div>
+                <span>Đơn</span>
+                <strong>{{ payment.order.order_number }}</strong>
+              </div>
+              <span
+                class="momo-order-status{% if payment.status == 'paid' %} is-paid{% elif payment.status == 'failed' or payment.status == 'expired' %} is-failed{% endif %}"
+                data-payment-status
+              >{{ payment.get_status_display }}</span>
+            </header>
+            <ul class="momo-order-items">
+              {% for item in payment.order.items.all %}
+                <li>
+                  <span>{{ item.quantity }} × {{ item.product_name }}</span>
+                  <strong>{{ item.line_total|floatformat:0 }}₫</strong>
+                </li>
+              {% endfor %}
+            </ul>
+            <div class="momo-order-totals">
+              <p><span>Tạm tính</span><span>{{ payment.order.subtotal|floatformat:0 }}₫</span></p>
+              <p><span>Phí giao hàng</span><span>{{ payment.order.shipping_fee|floatformat:0 }}₫</span></p>
+              <p class="momo-order-total"><strong>Cần thanh toán</strong><strong>{{ payment.amount|floatformat:0 }}₫</strong></p>
+            </div>
+            <div class="momo-order-delivery">
+              <strong>Giao {{ payment.order.delivery_date|date:"d/m/Y" }} · {{ payment.order.get_delivery_slot_display }}</strong>
+              <span>{{ payment.order.address }}, {{ payment.order.district }}, {{ payment.order.city }}</span>
+            </div>
+          </section>
+          <p class="momo-payment-help">Số tiền được gửi sang MoMo, bạn không cần nhập lại. Gặp sự cố khi thanh toán? <a href="mailto:hello@fitmeal.vn">Liên hệ FitMeal</a>.</p>
+        </aside>
       </div>
-      <p class="bank-transfer-live-status" data-payment-live-status role="status">
-        Đang chờ MoMo xác nhận; FitMeal tự kiểm tra lại sau 2 giây.
-      </p>
-    {% else %}
-      <h1>Không thể mở mã thanh toán.</h1>
-      <p>Liên kết thanh toán không còn trong phiên trình duyệt này. Vui lòng quay lại cửa hàng và tạo đơn mới.</p>
-    {% endif %}
-    <p>Trạng thái thanh toán: <strong data-payment-status>{{ payment.get_status_display }}</strong></p>
-    <a class="solid-button" href="{% url 'core:home' %}">Quay về cửa hàng →</a>
-  </section>
+    </main>
+    <footer class="momo-payment-footer">
+      <span>© {% now "Y" %} FitMeal · Thanh toán qua cổng MoMo, FitMeal không lưu thông tin thẻ.</span>
+      <nav aria-label="Liên kết hỗ trợ">
+        <a href="{% url 'core:policies' %}">Chính sách đổi trả</a>
+        <a href="mailto:hello@fitmeal.vn">Liên hệ</a>
+      </nav>
+    </footer>
+  </div>
 {% endblock %}

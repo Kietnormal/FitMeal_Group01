@@ -1,0 +1,30 @@
+[
+  {
+    "model": "products.product",
+    "pk": 1,
+    "fields": {
+      "sku": "PW-E2E-WHEY",
+      "slug": "playwright-whey",
+      "name": "Playwright Whey",
+      "category": "drink",
+      "description": "Sản phẩm kiểm thử trình duyệt, không dùng cho đơn hàng thật.",
+      "price": "120000.00",
+      "stock_quantity": null,
+      "shipping_weight_grams": 0,
+      "expiry_date": null,
+      "low_stock_threshold": 5,
+      "image": "",
+      "is_available": true,
+      "is_featured": true,
+      "calories": 180,
+      "protein": "25.00",
+      "carbs": "8.00",
+      "fat": "4.00",
+      "ingredients": "Dữ liệu kiểm thử",
+      "allergens": "",
+      "serving": "1 khẩu phần",
+      "created_at": "2026-11-17T00:00:00Z",
+      "updated_at": "2026-11-17T00:00:00Z"
+    }
+  }
+]

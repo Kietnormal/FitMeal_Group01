@@ -21,6 +21,7 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 from django.contrib.auth import get_user_model
 
@@ -49,11 +50,23 @@ from .forms import (
     CancellationReasonForm,
     CancellationResolutionForm,
     DeliveryIssueForm,
+    DeliveryFailureResolutionForm,
     DeliveryIssueResolutionForm,
+    OrderCareRequestForm,
+    OrderCareRequestResolutionForm,
+    OrderPiiAccessForm,
     OrderStatusUpdateForm,
 )
-from .models import DeliveryIssue, Order, OrderCancellationRequest, OrderItem
+from .models import (
+    DeliveryIssue,
+    Order,
+    OrderCareRequest,
+    OrderCancellationRequest,
+    OrderItem,
+    OrderPiiAccessLog,
+)
 from .delivery import begin_customer_delivery_confirmation, finalize_expired_delivery_confirmations
+from .privacy import decrypt_order_pii_snapshot, purge_expired_order_pii
 from apps.payments.gateway import (
     PaymentGatewayError,
     create_bank_transfer_payment,
@@ -186,6 +199,24 @@ def _serialize_order(order):
     }
 
 
+def _restore_order_pii_for_display(order):
+    if not order.customer_pii_encrypted or order.customer_pii_purged_at:
+        return False
+    snapshot = decrypt_order_pii_snapshot(order.customer_pii_encrypted)
+    order_data = snapshot.get("order", {})
+    for field in (
+        "customer_name",
+        "customer_email",
+        "customer_phone",
+        "address",
+        "district",
+        "city",
+    ):
+        if field in order_data:
+            setattr(order, field, order_data[field])
+    return True
+
+
 def _cancel_order(order, actor, reason):
     payment = (
         PaymentTransaction.objects.select_for_update().filter(order=order).first()
@@ -200,7 +231,7 @@ def _cancel_order(order, actor, reason):
     payment_is_paid = payment and payment.status == PaymentTransaction.Status.PAID
     if payment and payment.status == PaymentTransaction.Status.PENDING:
         payment.status = PaymentTransaction.Status.FAILED
-        payment.response_code = "ORDER_CANCELLED"
+        payment.response_code = "CANCELLED"
         payment.save(update_fields=["status", "response_code", "updated_at"])
     order.status = Order.Status.CANCELLED
     order.cancelled_at = timezone.now()
@@ -519,6 +550,7 @@ def create_order(request):
 
 @require_GET
 def track_order(request, token):
+    purge_expired_order_pii()
     expire_pending_payments()
     finalize_expired_delivery_confirmations()
     order = get_object_or_404(Order.objects.prefetch_related("items"), tracking_token=token)
@@ -713,6 +745,65 @@ def customer_report_delivery_issue(request, order_id):
             messages.error(request, "Đơn này không chờ phản hồi về việc nhận hàng.")
             return redirect(f"{reverse('core:account')}?tab=orders#orders")
     messages.success(request, "Đã chuyển khiếu nại giao hàng đến Quản lý để xử lý.")
+    return redirect(f"{reverse('core:account')}?tab=orders#orders")
+
+
+@login_required
+@require_POST
+def customer_submit_order_care_request(request, order_id):
+    form = OrderCareRequestForm(request.POST)
+    if not form.is_valid():
+        messages.error(
+            request,
+            "; ".join(
+                error for error_list in form.errors.values() for error in error_list
+            )
+            or "Thông tin khiếu nại / đổi trả không hợp lệ.",
+        )
+        return redirect(f"{reverse('core:account')}?tab=orders#orders")
+
+    with transaction.atomic():
+        order = get_object_or_404(
+            Order.objects.select_for_update(),
+            pk=order_id,
+            customer=request.user,
+        )
+        if OrderCareRequest.objects.filter(
+            order=order,
+            request_type=OrderCareRequest.RequestType.RETURN,
+            status=OrderCareRequest.Status.REJECTED,
+        ).exists():
+            messages.error(
+                request,
+                "Yêu cầu đổi/trả trước đó đã bị từ chối. Đơn này không thể gửi thêm khiếu nại hoặc yêu cầu đổi/trả.",
+            )
+            return redirect(f"{reverse('core:account')}?tab=orders#orders")
+        if not order.can_submit_customer_care_request():
+            messages.error(
+                request,
+                "Chỉ có thể gửi khiếu nại hoặc yêu cầu đổi/trả trong 7 ngày kể từ khi nhận hàng.",
+            )
+            return redirect(f"{reverse('core:account')}?tab=orders#orders")
+
+        request_type = form.cleaned_data["request_type"]
+        if OrderCareRequest.objects.filter(
+            order=order,
+            request_type=request_type,
+            status=OrderCareRequest.Status.PENDING,
+        ).exists():
+            messages.error(request, "Yêu cầu này đang chờ Quản lý xử lý.")
+            return redirect(f"{reverse('core:account')}?tab=orders#orders")
+
+        care_request = OrderCareRequest.objects.create(
+            order=order,
+            request_type=request_type,
+            details=form.cleaned_data["details"],
+            requested_by=request.user,
+        )
+    messages.success(
+        request,
+        f"Đã gửi {care_request.get_request_type_display().lower()} cho đơn {order.order_number}.",
+    )
     return redirect(f"{reverse('core:account')}?tab=orders#orders")
 
 
@@ -1295,6 +1386,7 @@ def _product_inventory_status(product):
 
 @login_required
 def staff_dashboard(request):
+    purge_expired_order_pii()
     if request.user.is_superuser:
         finalize_expired_delivery_confirmations()
         return admin_staff_dashboard(request)
@@ -1377,12 +1469,25 @@ def employee_workspace(request):
     if active_section not in allowed_sections:
         active_section = "work"
     orders_view = request.GET.get("view", "orders")
-    if not is_manager or orders_view not in {"orders", "cancellations", "delivery_issues"}:
+    if not is_manager or orders_view not in {
+        "orders",
+        "cancellations",
+        "delivery_failures",
+        "delivery_issues",
+        "customer_care",
+    }:
         orders_view = "orders"
+    pending_delivery_issues = DeliveryIssue.objects.filter(
+        status=DeliveryIssue.Status.PENDING,
+        order__status=Order.Status.DELIVERY_ISSUE,
+    )
 
     page_obj = None
     cancellation_request_rows = []
     delivery_issue_rows = []
+    selected_delivery_issue = None
+    care_request_rows = []
+    selected_care_request = None
     customer_rows = []
     menu_products = []
     product_rows = []
@@ -1459,10 +1564,18 @@ def employee_workspace(request):
                 )
             page_obj = Paginator(cancellation_search, 25).get_page(request.GET.get("page"))
             cancellation_request_rows = page_obj.object_list
-        elif is_manager and orders_view == "delivery_issues":
-            delivery_issue_search = DeliveryIssue.objects.filter(
-                status=DeliveryIssue.Status.PENDING
-            ).select_related("order", "order__customer", "reported_by")
+        elif is_manager and orders_view in {"delivery_failures", "delivery_issues"}:
+            delivery_issue_search = pending_delivery_issues.select_related(
+                "order", "order__customer", "reported_by"
+            ).prefetch_related("order__items")
+            if orders_view == "delivery_failures":
+                delivery_issue_search = delivery_issue_search.filter(
+                    source=DeliveryIssue.Source.STAFF_DELIVERY
+                )
+            else:
+                delivery_issue_search = delivery_issue_search.filter(
+                    source=DeliveryIssue.Source.CUSTOMER
+                )
             if query:
                 delivery_issue_search = delivery_issue_search.filter(
                     Q(details__icontains=query)
@@ -1474,6 +1587,56 @@ def employee_workspace(request):
                 request.GET.get("page")
             )
             delivery_issue_rows = page_obj.object_list
+            selected_issue_id = request.GET.get("issue")
+            selected_delivery_issue = next(
+                (
+                    issue
+                    for issue in delivery_issue_rows
+                    if str(issue.pk) == selected_issue_id
+                ),
+                None,
+            )
+            if selected_delivery_issue is None and delivery_issue_rows:
+                selected_delivery_issue = delivery_issue_rows[0]
+        elif is_manager and orders_view == "customer_care":
+            care_request_search = OrderCareRequest.objects.filter(
+                status=OrderCareRequest.Status.PENDING
+            ).select_related(
+                "order",
+                "order__customer",
+                "requested_by",
+            ).prefetch_related("order__items")
+            if query:
+                care_request_search = care_request_search.filter(
+                    Q(details__icontains=query)
+                    | Q(order__order_number__icontains=query)
+                    | Q(request_type__icontains=query)
+                )
+            page_obj = Paginator(care_request_search, 25).get_page(
+                request.GET.get("page")
+            )
+            care_request_rows = page_obj.object_list
+            selected_request_id = request.GET.get("care_request")
+            selected_care_request = next(
+                (
+                    care_request
+                    for care_request in care_request_rows
+                    if str(care_request.pk) == selected_request_id
+                ),
+                None,
+            )
+            if selected_care_request is None and care_request_rows:
+                selected_care_request = care_request_rows[0]
+            if selected_care_request:
+                selected_order = selected_care_request.order
+                selected_care_request.pii_visible_in_window = (
+                    selected_order.can_submit_customer_care_request()
+                )
+                if (
+                    selected_care_request.pii_visible_in_window
+                    and not selected_order.customer_pii_purged_at
+                ):
+                    _restore_order_pii_for_display(selected_order)
         else:
             order_search = orders.select_related("customer").prefetch_related("items")
             if query:
@@ -2099,8 +2262,22 @@ def employee_workspace(request):
         if is_manager
         else 0
     )
-    pending_delivery_issue_count = (
-        DeliveryIssue.objects.filter(status=DeliveryIssue.Status.PENDING).count()
+    pending_delivery_failure_count = (
+        pending_delivery_issues.filter(
+            source=DeliveryIssue.Source.STAFF_DELIVERY
+        ).count()
+        if is_manager
+        else 0
+    )
+    pending_customer_complaint_count = (
+        pending_delivery_issues.filter(
+            source=DeliveryIssue.Source.CUSTOMER
+        ).count()
+        if is_manager
+        else 0
+    )
+    pending_customer_care_count = (
+        OrderCareRequest.objects.filter(status=OrderCareRequest.Status.PENDING).count()
         if is_manager
         else 0
     )
@@ -2130,7 +2307,9 @@ def employee_workspace(request):
                 status=OrderCancellationRequest.Status.CONTACT_PENDING
             ).count(),
             "pending_cancellation_count": pending_cancellation_count,
-            "pending_delivery_issue_count": pending_delivery_issue_count,
+            "pending_delivery_failure_count": pending_delivery_failure_count,
+            "pending_customer_complaint_count": pending_customer_complaint_count,
+            "pending_customer_care_count": pending_customer_care_count,
             "today_order_count": today_orders.count(),
             "pending_count": pending_orders.count(),
             "preparing_count": preparing_orders.count(),
@@ -2153,6 +2332,9 @@ def employee_workspace(request):
             "orders_view": orders_view,
             "cancellation_request_rows": cancellation_request_rows,
             "delivery_issue_rows": delivery_issue_rows,
+            "selected_delivery_issue": selected_delivery_issue,
+            "care_request_rows": care_request_rows,
+            "selected_care_request": selected_care_request,
             "customer_rows": customer_rows,
             "menu_products": menu_products,
             "product_rows": product_rows,
@@ -2282,6 +2464,7 @@ def staff_update_order_status(request, order_id):
                 else:
                     DeliveryIssue.objects.create(
                         order=order,
+                        source=DeliveryIssue.Source.STAFF_DELIVERY,
                         details="Không liên lạc được với khách khi giao hàng.",
                         reported_by=request.user,
                     )
@@ -2571,63 +2754,305 @@ def manager_resolve_cancellation(request, cancellation_id):
 def manager_resolve_delivery_issue(request, issue_id):
     if not _can_manage_catalog(request.user):
         raise PermissionDenied
-    form = DeliveryIssueResolutionForm(request.POST)
+    issue_preview = get_object_or_404(
+        DeliveryIssue.objects.select_related("reported_by"),
+        pk=issue_id,
+        status=DeliveryIssue.Status.PENDING,
+    )
+    is_delivery_failure = (
+        issue_preview.source == DeliveryIssue.Source.STAFF_DELIVERY
+    )
+    queue_view = "delivery_failures" if is_delivery_failure else "delivery_issues"
+    form_class = (
+        DeliveryFailureResolutionForm
+        if is_delivery_failure
+        else DeliveryIssueResolutionForm
+    )
+    form = form_class(request.POST)
     if not form.is_valid():
         errors = "; ".join(
             error for error_list in form.errors.values() for error in error_list
         )
-        messages.error(request, errors or "Thông tin xử lý khiếu nại không hợp lệ.")
+        messages.error(request, errors or "Thông tin xử lý đơn hàng không hợp lệ.")
         return redirect(
-            f"{reverse('staff_orders:dashboard')}?workspace=orders&view=delivery_issues"
+            f"{reverse('staff_orders:dashboard')}?workspace=orders&view={queue_view}&issue={issue_id}"
         )
 
+    email_recipient = ""
+    cancelled = False
     with transaction.atomic():
         issue = get_object_or_404(
-            DeliveryIssue.objects.select_for_update(),
+            DeliveryIssue.objects.select_for_update().select_related("reported_by"),
             pk=issue_id,
             status=DeliveryIssue.Status.PENDING,
         )
+        issue_is_delivery_failure = (
+            issue.source == DeliveryIssue.Source.STAFF_DELIVERY
+        )
+        if issue_is_delivery_failure != is_delivery_failure:
+            messages.error(request, "Đơn hàng đã thay đổi trạng thái xử lý. Vui lòng tải lại.")
+            return redirect(
+                f"{reverse('staff_orders:dashboard')}?workspace=orders&view={queue_view}"
+            )
         order = get_object_or_404(
             Order.objects.select_for_update(),
             pk=issue.order_id,
             status=Order.Status.DELIVERY_ISSUE,
         )
-        issue.status = DeliveryIssue.Status.RESOLVED
-        issue.resolution_outcome = form.cleaned_data["decision"]
-        issue.resolution = form.cleaned_data["resolution"]
-        issue.resolved_by = request.user
-        issue.resolved_at = timezone.now()
-        issue.save(
+        decision = form.cleaned_data["decision"]
+        resolution = form.cleaned_data["resolution"]
+        if decision == DeliveryIssue.Resolution.CANCELLED:
+            email_recipient = order.customer_email
+            cancellation = (
+                OrderCancellationRequest.objects.select_for_update()
+                .filter(
+                    order=order,
+                    status__in=OPEN_CANCELLATION_STATUSES,
+                )
+                .first()
+            )
+            now = timezone.now()
+            reason = f"Giao hàng thất bại: {resolution}"
+            if cancellation:
+                cancellation.status = OrderCancellationRequest.Status.APPROVED
+                cancellation.manager_resolution_reason = resolution
+                cancellation.resolved_by = request.user
+                cancellation.resolved_at = now
+                cancellation.save(
+                    update_fields=[
+                        "status",
+                        "manager_resolution_reason",
+                        "resolved_by",
+                        "resolved_at",
+                        "updated_at",
+                    ]
+                )
+            else:
+                OrderCancellationRequest.objects.create(
+                    order=order,
+                    source=OrderCancellationRequest.Source.STAFF,
+                    status=OrderCancellationRequest.Status.APPROVED,
+                    reason=reason,
+                    requested_by=request.user,
+                    contact_outcome=OrderCancellationRequest.ContactOutcome.NOT_REQUIRED,
+                    manager_resolution_reason=resolution,
+                    resolved_by=request.user,
+                    resolved_at=now,
+                )
+            issue.status = DeliveryIssue.Status.RESOLVED
+            issue.resolution_outcome = decision
+            issue.resolution = resolution
+            issue.resolved_by = request.user
+            issue.resolved_at = now
+            issue.save(
+                update_fields=[
+                    "status",
+                    "resolution_outcome",
+                    "resolution",
+                    "resolved_by",
+                    "resolved_at",
+                ]
+            )
+            _cancel_order(order, request.user, reason)
+            cancelled = True
+        else:
+            issue.status = DeliveryIssue.Status.RESOLVED
+            issue.resolution_outcome = decision
+            issue.resolution = resolution
+            issue.resolved_by = request.user
+            issue.resolved_at = timezone.now()
+            issue.save(
+                update_fields=[
+                    "status",
+                    "resolution_outcome",
+                    "resolution",
+                    "resolved_by",
+                    "resolved_at",
+                ]
+            )
+
+            if decision == DeliveryIssue.Resolution.CONFIRMED:
+                order.status = Order.Status.DELIVERED
+                order.delivery_confirmation_method = Order.DeliveryConfirmationMethod.MANAGER
+                order.delivery_confirmed_at = timezone.now()
+            else:
+                order.status = Order.Status.DELIVERING
+                order.delivery_confirmation_method = ""
+                order.delivery_confirmed_at = None
+            order.delivery_confirmation_deadline = None
+            order.save(
+                update_fields=[
+                    "status",
+                    "delivery_confirmation_deadline",
+                    "delivery_confirmed_at",
+                    "delivery_confirmation_method",
+                    "updated_at",
+                ]
+            )
+
+    if cancelled:
+        sent = _send_cancellation_email(
+            order,
+            f"Đơn hàng {order.order_number} đã được hủy",
+            (
+                f"Đơn hàng {order.order_number} đã được hủy do giao hàng thất bại.\n"
+                f"Ghi chú xử lý: {resolution}\n"
+                "Nếu đơn đã thanh toán trực tuyến, khoản hoàn tiền cần được xử lý thủ công."
+            ),
+            recipient_email=email_recipient,
+        )
+        _cancellation_email_message(request, sent)
+        if order.refund_status == Order.RefundStatus.REQUESTED:
+            messages.warning(
+                request,
+                f"Đã hủy đơn {order.order_number}; khoản đã thanh toán đang chờ hoàn tiền thủ công.",
+            )
+        else:
+            messages.success(request, f"Đã hủy đơn {order.order_number}.")
+    else:
+        messages.success(
+            request,
+            f"Đã cập nhật xử lý giao hàng đơn {order.order_number}.",
+        )
+    return redirect(
+        f"{reverse('staff_orders:dashboard')}?workspace=orders&view={queue_view}"
+    )
+
+
+@login_required
+@require_POST
+def manager_resolve_order_care_request(request, care_request_id):
+    if not _can_manage_catalog(request.user):
+        raise PermissionDenied
+    form = OrderCareRequestResolutionForm(request.POST)
+    if not form.is_valid():
+        errors = "; ".join(
+            error for error_list in form.errors.values() for error in error_list
+        )
+        messages.error(request, errors or "Thông tin xử lý yêu cầu không hợp lệ.")
+        return redirect(
+            f"{reverse('staff_orders:dashboard')}?workspace=orders&view=customer_care"
+        )
+
+    with transaction.atomic():
+        care_request = get_object_or_404(
+            OrderCareRequest.objects.select_for_update().select_related("order"),
+            pk=care_request_id,
+            status=OrderCareRequest.Status.PENDING,
+        )
+        care_request.status = (
+            OrderCareRequest.Status.APPROVED
+            if form.cleaned_data["decision"] == "approve"
+            else OrderCareRequest.Status.REJECTED
+        )
+        care_request.resolution_note = form.cleaned_data["resolution_note"]
+        care_request.resolved_by = request.user
+        care_request.resolved_at = timezone.now()
+        care_request.save(
             update_fields=[
                 "status",
-                "resolution_outcome",
-                "resolution",
+                "resolution_note",
                 "resolved_by",
                 "resolved_at",
             ]
         )
 
-        if issue.resolution_outcome == DeliveryIssue.Resolution.CONFIRMED:
-            order.status = Order.Status.DELIVERED
-            order.delivery_confirmation_method = Order.DeliveryConfirmationMethod.MANAGER
-            order.delivery_confirmed_at = timezone.now()
-        else:
-            order.status = Order.Status.DELIVERING
-            order.delivery_confirmation_method = ""
-            order.delivery_confirmed_at = None
-        order.delivery_confirmation_deadline = None
-        order.save(
-            update_fields=[
-                "status",
-                "delivery_confirmation_deadline",
-                "delivery_confirmed_at",
-                "delivery_confirmation_method",
-                "updated_at",
-            ]
+    if (
+        care_request.request_type == OrderCareRequest.RequestType.RETURN
+        and care_request.status == OrderCareRequest.Status.APPROVED
+        and care_request.order.payment_method != Order.PaymentMethod.COD
+    ):
+        messages.warning(
+            request,
+            "Đã chấp thuận yêu cầu đổi/trả. Việc hoàn tiền (nếu có) vẫn cần xử lý thủ công; hệ thống chưa tự hoàn tiền.",
+        )
+    else:
+        messages.success(
+            request,
+            f"Đã {care_request.get_status_display().lower()} yêu cầu {care_request.get_request_type_display().lower()} của đơn {care_request.order.order_number}.",
+        )
+    return redirect(
+        f"{reverse('staff_orders:dashboard')}?workspace=orders&view=customer_care"
+    )
+
+
+@never_cache
+@login_required
+@require_http_methods(["GET", "POST"])
+def access_order_pii(request, order_id):
+    if not _can_manage_catalog(request.user):
+        raise PermissionDenied
+
+    purge_expired_order_pii()
+    order = get_object_or_404(Order, pk=order_id)
+    if order.customer_care_period_open:
+        messages.error(
+            request,
+            "Trong 7 ngày kể từ khi giao, thông tin chỉ được xem trong quá trình xử lý khiếu nại của Quản lý.",
+        )
+        return redirect(
+            f"{reverse('staff_orders:dashboard')}?workspace=orders&view=customer_care"
+        )
+    if not order.can_request_pii_access():
+        messages.error(
+            request,
+            "Thông tin cá nhân không còn khả dụng hoặc đã được xóa theo thời hạn lưu trữ.",
+        )
+        if request.user.is_superuser:
+            return redirect(reverse("admin:orders_order_change", args=[order.pk]))
+        return redirect(
+            f"{reverse('staff_orders:dashboard')}?workspace=orders&view=orders"
         )
 
-    messages.success(request, f"Đã xử lý khiếu nại giao hàng đơn {order.order_number}.")
-    return redirect(f"{reverse('staff_orders:dashboard')}?workspace=orders&view=delivery_issues")
+    form = OrderPiiAccessForm(request.POST or None)
+    if request.method == "GET":
+        response = render(
+            request,
+            "orders/order_pii_access.html",
+            {"order": order, "form": form},
+        )
+        response["Cache-Control"] = "private, no-store"
+        return response
+    if not form.is_valid():
+        response = render(
+            request,
+            "orders/order_pii_access.html",
+            {"order": order, "form": form},
+            status=400,
+        )
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+    with transaction.atomic():
+        order = get_object_or_404(Order.objects.select_for_update(), pk=order_id)
+        if not order.can_request_pii_access():
+            messages.error(
+                request,
+                "Thông tin cá nhân không còn khả dụng hoặc đã được xóa theo thời hạn lưu trữ.",
+            )
+            if request.user.is_superuser:
+                return redirect(reverse("admin:orders_order_change", args=[order.pk]))
+            return redirect(
+                f"{reverse('staff_orders:dashboard')}?workspace=orders&view=orders"
+            )
+        pii_snapshot = decrypt_order_pii_snapshot(order.customer_pii_encrypted)
+        access_log = OrderPiiAccessLog.objects.create(
+            order=order,
+            accessed_by=request.user,
+            reason=form.cleaned_data["reason"],
+        )
+
+    response = render(
+        request,
+        "orders/order_pii_access.html",
+        {
+            "order": order,
+            "access_log": access_log,
+            "customer_data": pii_snapshot.get("order", {}),
+        },
+    )
+    response["Cache-Control"] = "private, no-store"
+    return response
 
 
 @login_required

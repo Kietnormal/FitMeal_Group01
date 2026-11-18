@@ -6,6 +6,7 @@ import json
 from urllib.parse import parse_qs, urlencode, urlsplit
 from unittest.mock import patch
 
+from django.contrib.auth import get_user_model
 from django.test import Client, RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -176,6 +177,7 @@ class NewPaymentMethodTests(TestCase):
         MOMO_ACCESS_KEY="momo-access",
         MOMO_SECRET_KEY="momo-secret",
         MOMO_CREATE_PAYMENT_URL="https://sandbox.example/momo",
+        MOMO_PUBLIC_BASE_URL="https://fitmeal-demo.example",
     )
     @patch("apps.payments.gateway.urlopen")
     def test_momo_payment_request_is_signed_and_returns_pay_url(self, urlopen):
@@ -215,6 +217,14 @@ class NewPaymentMethodTests(TestCase):
         self.assertEqual(payment.provider, PaymentTransaction.Provider.MOMO)
         self.assertEqual(payment.amount, order.total)
         self.assertEqual(payment_url, "https://sandbox.example/pay")
+        self.assertEqual(
+            payload["redirectUrl"],
+            "https://fitmeal-demo.example/payments/momo/return/",
+        )
+        self.assertEqual(
+            payload["ipnUrl"],
+            "https://fitmeal-demo.example/payments/momo/ipn/",
+        )
         self.assertEqual(payload["requestType"], "payWithATM")
         self.assertEqual(payload["signature"], expected_signature)
 
@@ -275,6 +285,15 @@ class NewPaymentMethodTests(TestCase):
         ).hexdigest()
 
         client = Client()
+        invalid_signature = client.post(
+            reverse("payments:momo_ipn"),
+            data=json.dumps({**params, "signature": "invalid-signature"}),
+            content_type="application/json",
+        )
+        self.assertEqual(invalid_signature.json()["resultCode"], 1)
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, PaymentTransaction.Status.PENDING)
+
         invalid = client.post(
             reverse("payments:momo_ipn"),
             data=json.dumps({**params, "amount": "1"}),
@@ -283,9 +302,23 @@ class NewPaymentMethodTests(TestCase):
         self.assertEqual(invalid.json()["resultCode"], 1)
         payment.refresh_from_db()
         self.assertEqual(payment.status, PaymentTransaction.Status.PENDING)
-        pending_return = client.get(reverse("payments:momo_return"), data=params)
-        self.assertContains(pending_return, "data-momo-payment-status")
-        self.assertContains(pending_return, "Đang xác nhận thanh toán.")
+        invalid_return = client.get(
+            reverse("payments:momo_return"),
+            {**params, "amount": "1"},
+        )
+        self.assertContains(invalid_return, "Đang chờ xác nhận thanh toán.")
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, PaymentTransaction.Status.PENDING)
+
+        return_response = client.get(reverse("payments:momo_return"), data=params)
+        self.assertContains(return_response, 'class="checkout-success-icon"')
+        self.assertContains(return_response, "Thanh toán thành công.")
+        self.assertContains(
+            return_response,
+            f'href="{reverse("core:tracking")}?token={order.tracking_token}"',
+        )
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, PaymentTransaction.Status.PAID)
 
         response = client.post(
             reverse("payments:momo_ipn"),
@@ -299,13 +332,24 @@ class NewPaymentMethodTests(TestCase):
             payment.gateway_transaction_no,
             "momo-transaction-1",
         )
+        duplicate_ipn = client.post(
+            reverse("payments:momo_ipn"),
+            data=json.dumps(params),
+            content_type="application/json",
+        )
+        self.assertEqual(duplicate_ipn.json()["resultCode"], 0)
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(
+            PaymentTransaction.objects.filter(
+                status=PaymentTransaction.Status.PAID
+            ).count(),
+            1,
+        )
         status_response = client.get(
             reverse("payments:momo_payment_status", args=[payment.transaction_ref])
         )
         self.assertTrue(status_response.json()["paid"])
-        return_response = client.get(reverse("payments:momo_return"), data=params)
-        self.assertContains(return_response, 'class="checkout-success-icon"')
-        self.assertContains(return_response, "Thanh toán thành công.")
 
     @override_settings(
         MOMO_ENABLED=True,
@@ -313,6 +357,7 @@ class NewPaymentMethodTests(TestCase):
         MOMO_ACCESS_KEY="momo-access",
         MOMO_SECRET_KEY="momo-secret",
         MOMO_CREATE_PAYMENT_URL="https://sandbox.example/momo",
+        MOMO_PUBLIC_BASE_URL="https://fitmeal-demo.example",
     )
     @patch("apps.payments.gateway.urlopen")
     def test_momo_payment_url_must_use_gateway_host(self, urlopen):
@@ -332,7 +377,25 @@ class NewPaymentMethodTests(TestCase):
         MOMO_PARTNER_CODE="MOMO123",
         MOMO_ACCESS_KEY="momo-access",
         MOMO_SECRET_KEY="momo-secret",
+        MOMO_PUBLIC_BASE_URL="",
+    )
+    @patch("apps.payments.gateway.urlopen")
+    def test_momo_refuses_localhost_callbacks_before_creating_payment(self, urlopen):
+        order = self.create_order(Order.PaymentMethod.MOMO)
+
+        with self.assertRaises(PaymentGatewayError):
+            create_momo_payment(order, RequestFactory().get("/checkout/"))
+
+        self.assertFalse(PaymentTransaction.objects.filter(order=order).exists())
+        urlopen.assert_not_called()
+
+    @override_settings(
+        MOMO_ENABLED=True,
+        MOMO_PARTNER_CODE="MOMO123",
+        MOMO_ACCESS_KEY="momo-access",
+        MOMO_SECRET_KEY="momo-secret",
         MOMO_CREATE_PAYMENT_URL="https://sandbox.example/momo",
+        MOMO_PUBLIC_BASE_URL="https://fitmeal-demo.example",
     )
     @patch("apps.payments.gateway.urlopen")
     def test_momo_order_shows_local_qr_and_status_endpoint_tracks_ipn(self, urlopen):
@@ -360,7 +423,13 @@ class NewPaymentMethodTests(TestCase):
         self.assertEqual(instructions.status_code, 200)
         self.assertEqual(instructions["Cache-Control"], "no-store")
         self.assertContains(instructions, "data:image/svg+xml;base64,")
-        self.assertContains(instructions, "Quét mã bằng camera điện thoại")
+        self.assertContains(instructions, "Quét mã để thanh toán")
+        self.assertNotContains(instructions, "Mở MoMo trên máy này")
+        self.assertContains(
+            instructions,
+            f'href="{reverse("core:tracking")}?token={order.tracking_token}"',
+        )
+        self.assertContains(instructions, "Đơn hàng của bạn")
         pending_status = client.get(
             reverse("payments:momo_payment_status", args=[payment.transaction_ref])
         )
@@ -372,6 +441,38 @@ class NewPaymentMethodTests(TestCase):
             reverse("payments:momo_payment_status", args=[payment.transaction_ref])
         )
         self.assertTrue(paid_status.json()["paid"])
+
+    def test_authenticated_momo_payment_page_links_to_customer_order_history(self):
+        user = get_user_model().objects.create_user(
+            username="momo-customer",
+            email="momo-customer@example.com",
+            password="strong-test-password",
+        )
+        order = self.create_order(Order.PaymentMethod.MOMO)
+        order.customer = user
+        order.save(update_fields=["customer"])
+        payment = PaymentTransaction.objects.create(
+            order=order,
+            provider=PaymentTransaction.Provider.MOMO,
+            transaction_ref="momo-customer-reference",
+            amount=order.total,
+            expires_at=timezone.now() + timedelta(minutes=15),
+        )
+        client = Client()
+        client.force_login(user)
+
+        response = client.get(
+            reverse(
+                "payments:momo_payment_instructions",
+                args=[payment.transaction_ref],
+            )
+        )
+
+        self.assertContains(
+            response,
+            f'href="{reverse("core:account")}?tab=orders#orders"',
+        )
+        self.assertContains(response, "Đơn hàng của bạn")
 
     @override_settings(
         BANK_TRANSFER_ENABLED=True,

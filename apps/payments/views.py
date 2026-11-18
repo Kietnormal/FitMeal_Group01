@@ -36,6 +36,12 @@ def _valid_payment_match(payment, params):
     )
 
 
+def _order_followup_url(request, order):
+    if request.user.is_authenticated and order.customer_id == request.user.pk:
+        return f"{reverse('core:account')}?tab=orders#orders"
+    return f"{reverse('core:tracking')}?token={order.tracking_token}"
+
+
 @require_GET
 def vnpay_return(request):
     expire_pending_payments()
@@ -224,6 +230,45 @@ def momo_return(request):
         )
         if payment and str(params.get("amount", "")) != str(int(payment.amount)):
             payment = None
+        if (
+            payment
+            and params.get("partnerCode") == settings.MOMO_PARTNER_CODE
+            and params.get("requestId") == payment.transaction_ref
+            and str(params.get("resultCode")) == "0"
+            and params.get("transId")
+        ):
+            gateway_transaction_no = str(params["transId"])[:64]
+            with transaction.atomic():
+                payment = (
+                    PaymentTransaction.objects.select_for_update()
+                    .select_related("order")
+                    .get(pk=payment.pk)
+                )
+                if (
+                    payment.status == PaymentTransaction.Status.PENDING
+                    and payment.expires_at > timezone.now()
+                    and payment.order.status != Order.Status.CANCELLED
+                    and not PaymentTransaction.objects.filter(
+                        provider=PaymentTransaction.Provider.MOMO,
+                        gateway_transaction_no=gateway_transaction_no,
+                        status=PaymentTransaction.Status.PAID,
+                    )
+                    .exclude(pk=payment.pk)
+                    .exists()
+                ):
+                    payment.status = PaymentTransaction.Status.PAID
+                    payment.paid_at = timezone.now()
+                    payment.response_code = str(params.get("resultCode", ""))[:10]
+                    payment.gateway_transaction_no = gateway_transaction_no
+                    payment.save(
+                        update_fields=[
+                            "status",
+                            "paid_at",
+                            "response_code",
+                            "gateway_transaction_no",
+                            "updated_at",
+                        ]
+                    )
     return render(
         request,
         "payments/payment_result.html",
@@ -236,6 +281,11 @@ def momo_return(request):
                 reverse("payments:momo_payment_status", args=[payment.transaction_ref])
                 if payment
                 else ""
+            ),
+            "order_url": (
+                _order_followup_url(request, payment.order)
+                if payment
+                else reverse("core:home")
             ),
         },
     )
@@ -275,12 +325,12 @@ def momo_payment_instructions(request, transaction_ref):
         "payments/momo_payment_instructions.html",
         {
             "payment": payment,
-            "gateway_payment_url": gateway_payment_url,
             "qr_data_url": qr_data_url,
             "payment_status_url": reverse(
                 "payments:momo_payment_status",
                 args=[payment.transaction_ref],
             ),
+            "order_url": _order_followup_url(request, payment.order),
         },
     )
     response["Cache-Control"] = "no-store"

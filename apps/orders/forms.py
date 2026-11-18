@@ -1,6 +1,6 @@
 from django import forms
 
-from .models import DeliveryIssue, Order, OrderCancellationRequest
+from .models import DeliveryIssue, Order, OrderCareRequest, OrderCancellationRequest
 
 
 class OrderStatusUpdateForm(forms.ModelForm):
@@ -96,11 +96,80 @@ class DeliveryIssueForm(forms.Form):
     )
 
 
+class OrderCareRequestForm(forms.Form):
+    request_type = forms.ChoiceField(choices=OrderCareRequest.RequestType.choices)
+    details = forms.CharField(
+        label="Nội dung yêu cầu",
+        min_length=3,
+        max_length=1000,
+        strip=True,
+        widget=forms.Textarea(attrs={"rows": 3, "maxlength": 1000}),
+        error_messages={
+            "required": "Vui lòng mô tả khiếu nại hoặc lý do đổi/trả hàng.",
+            "min_length": "Nội dung cần có ít nhất 3 ký tự.",
+        },
+    )
+
+
+class OrderCareRequestResolutionForm(forms.Form):
+    decision = forms.ChoiceField(
+        choices=[
+            ("approve", "Chấp thuận yêu cầu"),
+            ("reject", "Từ chối yêu cầu"),
+        ]
+    )
+    resolution_note = forms.CharField(
+        min_length=3,
+        max_length=1000,
+        strip=True,
+        widget=forms.Textarea(attrs={"rows": 2, "maxlength": 1000}),
+        error_messages={
+            "required": "Vui lòng ghi chú kết quả xử lý.",
+            "min_length": "Ghi chú cần có ít nhất 3 ký tự.",
+        },
+    )
+
+
+class OrderPiiAccessForm(forms.Form):
+    reason = forms.CharField(
+        label="Lý do cần xem thông tin",
+        min_length=8,
+        max_length=500,
+        strip=True,
+        widget=forms.Textarea(attrs={"rows": 3, "maxlength": 500}),
+        error_messages={
+            "required": "Vui lòng nhập lý do truy cập.",
+            "min_length": "Lý do cần có ít nhất 8 ký tự.",
+        },
+    )
+
+
 class DeliveryIssueResolutionForm(forms.Form):
     decision = forms.ChoiceField(
         choices=[
             (DeliveryIssue.Resolution.CONFIRMED, "Xác nhận khách đã nhận hàng"),
             (DeliveryIssue.Resolution.REDELIVER, "Tiếp tục giao hàng"),
+        ]
+    )
+    resolution = forms.CharField(
+        min_length=3,
+        max_length=1000,
+        strip=True,
+        widget=forms.Textarea(attrs={"rows": 2, "maxlength": 1000}),
+        error_messages={
+            "required": "Vui lòng ghi chú kết quả xử lý.",
+            "min_length": "Ghi chú cần có ít nhất 3 ký tự.",
+        },
+    )
+
+
+class DeliveryFailureResolutionForm(forms.Form):
+    decision = forms.ChoiceField(
+        choices=[
+            (DeliveryIssue.Resolution.CONTACTED, "Đã liên hệ, tiếp tục giao"),
+            (DeliveryIssue.Resolution.REDELIVER, "Giao lại"),
+            (DeliveryIssue.Resolution.CONFIRMED, "Xác nhận khách đã nhận"),
+            (DeliveryIssue.Resolution.CANCELLED, "Hủy đơn"),
         ]
     )
     resolution = forms.CharField(

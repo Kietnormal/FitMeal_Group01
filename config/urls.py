@@ -1,7 +1,8 @@
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import include, path, re_path
+from django.views.static import serve
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -14,6 +15,23 @@ urlpatterns = [
     path("", include("apps.core.urls")),
 ]
 
-# Chỉ phục vụ file upload qua Django khi phát triển; server thật dùng Nginx
+# Chỉ bật phục vụ ảnh sản phẩm qua Django cho demo cô lập khi được cấu hình rõ ràng.
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+elif settings.SERVE_PRODUCT_MEDIA:
+    urlpatterns += [
+        re_path(
+            r"^media/products/(?P<path>.*)$",
+            serve,
+            {"document_root": settings.MEDIA_ROOT / "products"},
+        )
+    ]
+
+if getattr(settings, "SERVE_DEMO_STATIC", False):
+    urlpatterns += [
+        re_path(
+            r"^static/(?P<path>.*)$",
+            serve,
+            {"document_root": settings.STATIC_ROOT},
+        )
+    ]

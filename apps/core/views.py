@@ -7,7 +7,8 @@ from allauth.account.models import EmailAddress
 from apps.accounts.forms import OrderReviewForm
 from apps.accounts.models import PendingEmailChange, User
 from apps.orders.delivery import finalize_expired_delivery_confirmations
-from apps.orders.models import Order, OrderCancellationRequest
+from apps.orders.models import Order, OrderCareRequest, OrderCancellationRequest
+from apps.orders.privacy import purge_expired_order_pii
 from apps.products.models import Product
 
 
@@ -48,6 +49,7 @@ def order_tracking(request):
 
 
 def account(request):
+    purge_expired_order_pii()
     finalize_expired_delivery_confirmations()
     authenticated = request.user.is_authenticated
     orders = Order.objects.none()
@@ -68,11 +70,28 @@ def account(request):
                     queryset=OrderCancellationRequest.objects.order_by("-requested_at", "-pk"),
                     to_attr="ordered_cancellation_requests",
                 ),
+                Prefetch(
+                    "care_requests",
+                    queryset=OrderCareRequest.objects.order_by("-requested_at", "-pk"),
+                    to_attr="ordered_care_requests",
+                ),
             )[:20]
         )
         for order in orders:
             requests = order.ordered_cancellation_requests
             latest_request = requests[0] if requests else None
+            care_requests = order.ordered_care_requests
+            pending_care_types = {
+                care_request.request_type
+                for care_request in care_requests
+                if care_request.status == OrderCareRequest.Status.PENDING
+            }
+            return_request_rejected = any(
+                care_request.request_type == OrderCareRequest.RequestType.RETURN
+                and care_request.status == OrderCareRequest.Status.REJECTED
+                for care_request in care_requests
+            )
+            care_window_open = order.can_submit_customer_care_request()
             can_cancel = order.status in {
                 Order.Status.PENDING,
                 Order.Status.CONFIRMED,
@@ -94,6 +113,20 @@ def account(request):
                     "can_cancel": can_cancel,
                     "uses_cancellation_review": order.status
                     in {Order.Status.PREPARING, Order.Status.PACKING, Order.Status.READY},
+                    "care_requests": care_requests,
+                    "care_window_open": care_window_open,
+                    "return_request_rejected": return_request_rejected,
+                    "care_deadline": order.customer_care_deadline,
+                    "can_request_complaint": (
+                        care_window_open
+                        and not return_request_rejected
+                        and OrderCareRequest.RequestType.COMPLAINT not in pending_care_types
+                    ),
+                    "can_request_return": (
+                        care_window_open
+                        and not return_request_rejected
+                        and OrderCareRequest.RequestType.RETURN not in pending_care_types
+                    ),
                     "cancelled_by_name": (
                         latest_request.resolved_by.get_full_name()
                         if order.cancelled_by is None

@@ -52,6 +52,16 @@ urlpatterns = [
         name="resolve_delivery_issue",
     ),
     path(
+        "customer-care-requests/<int:care_request_id>/resolve/",
+        views.manager_resolve_order_care_request,
+        name="resolve_customer_care_request",
+    ),
+    path(
+        "orders/<int:order_id>/personal-data/",
+        views.access_order_pii,
+        name="access_order_pii",
+    ),
+    path(
         "products/<int:product_id>/request-restock/",
         views.staff_request_inventory_restock,
         name="request_inventory_restock",

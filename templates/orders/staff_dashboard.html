@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static l10n %}
 {% block title %}Quản trị FitMeal — {{ section_title }}{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{% static 'css/storefront.css' %}?v=20261116-sidebar-icons-1">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/storefront.css' %}?v=20261118-dashboard-chart-1">{% endblock %}
 {% block content %}
 <div class="admin-layout admin-dashboard-shell">
   <aside class="admin-sidebar">
@@ -121,7 +121,7 @@
               {% for point in chart_points %}
                 <div class="dashboard-chart-column" title="{{ point.day|date:'d/m/Y' }}: {{ point.amount|floatformat:0 }}₫">
                   {% if period_days <= 7 and point.amount %}<span>{{ point.amount|floatformat:0 }}</span>{% endif %}
-                  <div class="dashboard-chart-track"><i style="height:{{ point.height }}%"></i></div>
+                  <div class="dashboard-chart-track">{% if point.amount %}<i style="height:{{ point.height|unlocalize }}%"></i>{% endif %}</div>
                   <small>{{ point.label }}</small>
                 </div>
               {% endfor %}

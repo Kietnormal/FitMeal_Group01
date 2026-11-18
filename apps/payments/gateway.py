@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import ipaddress
 import json
 import uuid
 from datetime import timedelta
@@ -22,6 +23,61 @@ from .models import PaymentTransaction
 
 def momo_payment_session_key(transaction_ref):
     return f"momo_payment_url_{transaction_ref}"
+
+
+def _momo_callback_url(request, route_name):
+    public_base_url = settings.MOMO_PUBLIC_BASE_URL.strip().rstrip("/")
+    callback_path = reverse(route_name)
+    if not public_base_url:
+        callback_url = request.build_absolute_uri(callback_path)
+        try:
+            parsed_url = urlsplit(callback_url)
+        except ValueError as error:
+            raise PaymentGatewayError(
+                "MoMo cần URL callback HTTPS công khai; hãy cấu hình MOMO_PUBLIC_BASE_URL."
+            ) from error
+    else:
+        try:
+            parsed_url = urlsplit(public_base_url)
+        except ValueError as error:
+            raise PaymentGatewayError(
+                "MOMO_PUBLIC_BASE_URL phải là hostname HTTPS công khai hợp lệ."
+            ) from error
+
+    try:
+        port = parsed_url.port
+    except ValueError as error:
+        raise PaymentGatewayError(
+            "MOMO_PUBLIC_BASE_URL phải là hostname HTTPS công khai hợp lệ."
+        ) from error
+    hostname = (parsed_url.hostname or "").rstrip(".").casefold()
+    try:
+        address = ipaddress.ip_address(hostname)
+    except ValueError:
+        address = None
+    if (
+        parsed_url.scheme != "https"
+        or not hostname
+        or (address is None and "." not in hostname)
+        or hostname == "localhost"
+        or hostname.endswith(".localhost")
+        or hostname.endswith(".local")
+        or (address is not None and not address.is_global)
+        or parsed_url.username
+        or parsed_url.password
+        or port not in (None, 443)
+        or parsed_url.path not in ("", "/")
+        or parsed_url.query
+        or parsed_url.fragment
+    ):
+        raise PaymentGatewayError(
+            "MoMo cần URL callback HTTPS công khai; hãy cấu hình MOMO_PUBLIC_BASE_URL."
+        )
+    return (
+        f"{public_base_url}{callback_path}"
+        if public_base_url
+        else callback_url
+    )
 
 
 PAYMENT_TIMEOUT = timedelta(minutes=15)
@@ -91,6 +147,8 @@ def create_momo_payment(order, request):
     if not settings.MOMO_ENABLED:
         raise ImproperlyConfigured("MoMo chưa được cấu hình.")
 
+    redirect_url = _momo_callback_url(request, "payments:momo_return")
+    ipn_url = _momo_callback_url(request, "payments:momo_ipn")
     now = timezone.localtime()
     payment = PaymentTransaction.objects.create(
         order=order,
@@ -105,8 +163,8 @@ def create_momo_payment(order, request):
         "amount": str(int(payment.amount)),
         "orderId": payment.transaction_ref,
         "orderInfo": f"Thanh toan don hang {order.order_number}",
-        "redirectUrl": request.build_absolute_uri(reverse("payments:momo_return")),
-        "ipnUrl": request.build_absolute_uri(reverse("payments:momo_ipn")),
+        "redirectUrl": redirect_url,
+        "ipnUrl": ipn_url,
         "requestType": "payWithATM",
         "extraData": "",
         "lang": "vi",

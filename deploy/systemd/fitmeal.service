@@ -1,0 +1,29 @@
+[Unit]
+Description=FitMeal Django application
+After=network.target
+
+[Service]
+Type=simple
+User=fitmeal
+Group=www-data
+SupplementaryGroups=fitmeal
+WorkingDirectory=/srv/fitmeal/app
+EnvironmentFile=/etc/fitmeal/fitmeal.env
+ExecStart=/srv/fitmeal/venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8000 --workers 3 --timeout 60 --access-logfile - --error-logfile -
+Restart=on-failure
+RestartSec=5
+UMask=0027
+
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+ReadWritePaths=/srv/fitmeal/app/media /srv/fitmeal/app/staticfiles /srv/fitmeal/backups
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Dữ liệu đơn hàng {{ order.order_number }} — FitMeal{% endblock %}
+{% block content %}
+<section class="policy-page">
+  <header class="customer-panel-heading">
+    <span class="store-kicker">QUYỀN RIÊNG TƯ</span>
+    <h1>Thông tin cá nhân · {{ order.order_number }}</h1>
+    <p>Sau thời hạn 7 ngày, chỉ Quản lý hoặc Quản trị viên được mở thông tin khi có lý do; mỗi lần mở đều được ghi nhật ký.</p>
+  </header>
+  {% if customer_data %}
+    <article class="policy-card">
+      <h2>Thông tin đã mở</h2>
+      <p><strong>Người nhận:</strong> {{ customer_data.customer_name|default:"—" }}</p>
+      <p><strong>Điện thoại:</strong> {{ customer_data.customer_phone|default:"—" }}</p>
+      <p><strong>Email:</strong> {{ customer_data.customer_email|default:"—" }}</p>
+      <p><strong>Địa chỉ:</strong> {{ customer_data.address|default:"—" }}, {{ customer_data.district|default:"—" }}, {{ customer_data.city|default:"—" }}</p>
+      <p><strong>Lý do truy cập:</strong> {{ access_log.reason }}</p>
+      <p><strong>Đã ghi nhật ký lúc:</strong> {{ access_log.accessed_at|date:"d/m/Y H:i:s" }}</p>
+      <p>Không chia sẻ hoặc lưu lại thông tin này ngoài mục đích xử lý đơn hàng.</p>
+    </article>
+  {% else %}
+    <article class="policy-card">
+      <h2>Nhập lý do truy cập</h2>
+      <p>Thông tin sẽ không được hiển thị nếu thiếu lý do. Sau 12 tháng, dữ liệu định danh sẽ bị xóa và không thể mở lại.</p>
+      <form method="post">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        <label for="{{ form.reason.id_for_label }}">{{ form.reason.label }}</label>
+        {{ form.reason }}
+        {{ form.reason.errors }}
+        <button class="solid-button" type="submit">Ghi nhật ký và xem thông tin</button>
+      </form>
+    </article>
+  {% endif %}
+  {% if request.user.is_superuser %}
+    <a class="customer-shop-link" href="{% url 'admin:orders_order_change' order.pk %}">Quay lại trang đơn hàng</a>
+  {% else %}
+    <a class="customer-shop-link" href="{% url 'staff_orders:dashboard' %}?workspace=orders&view=customer_care">Quay lại yêu cầu khiếu nại / đổi trả</a>
+  {% endif %}
+</section>
+{% endblock %}

@@ -8,7 +8,13 @@ from django.utils import timezone
 from django.db import DEFAULT_DB_ALIAS, transaction
 
 from apps.products.models import Product
-from .privacy import ORDER_PII_FIELDS, build_order_pii_snapshot, encrypt_order_pii_snapshot
+from .privacy import (
+    CUSTOMER_CARE_PERIOD,
+    ORDER_PII_RETENTION_PERIOD,
+    ORDER_REDACTED_FIELDS,
+    build_order_pii_snapshot,
+    encrypt_order_pii_snapshot,
+)
 
 
 def generate_order_number():
@@ -92,6 +98,12 @@ class Order(models.Model):
         blank=True,
         editable=False,
     )
+    customer_pii_purged_at = models.DateTimeField(
+        "Thời điểm xóa dữ liệu cá nhân",
+        null=True,
+        blank=True,
+        editable=False,
+    )
     delivery_date = models.DateField("Ngày giao")
     delivery_slot = models.CharField("Khung giờ giao", max_length=20, choices=DeliverySlot.choices)
     note = models.TextField("Ghi chú", blank=True)
@@ -170,7 +182,49 @@ class Order(models.Model):
 
     @property
     def customer_info_redacted(self):
-        return bool(self.customer_pii_encrypted)
+        return bool(self.customer_pii_encrypted or self.customer_pii_purged_at)
+
+    @property
+    def customer_care_deadline(self):
+        if self.status != self.Status.DELIVERED:
+            return None
+        delivered_at = self.delivery_confirmed_at or self.updated_at or self.created_at
+        return delivered_at + CUSTOMER_CARE_PERIOD if delivered_at else None
+
+    def can_submit_customer_care_request(self, now=None):
+        deadline = self.customer_care_deadline
+        return bool(
+            deadline
+            and (now or timezone.now()) <= deadline
+            and self.status == self.Status.DELIVERED
+        )
+
+    @property
+    def customer_care_period_open(self):
+        return self.can_submit_customer_care_request()
+
+    @property
+    def customer_pii_retention_deadline(self):
+        if self.status == self.Status.DELIVERED:
+            anchor = self.delivery_confirmed_at or self.updated_at or self.created_at
+        elif self.status == self.Status.CANCELLED:
+            anchor = self.cancelled_at or self.updated_at or self.created_at
+        else:
+            return None
+        return anchor + ORDER_PII_RETENTION_PERIOD if anchor else None
+
+    def customer_pii_retention_expired(self, now=None):
+        deadline = self.customer_pii_retention_deadline
+        return bool(deadline and deadline <= (now or timezone.now()))
+
+    def can_request_pii_access(self, now=None):
+        now = now or timezone.now()
+        return bool(
+            self.customer_pii_encrypted
+            and not self.customer_pii_purged_at
+            and not self.can_submit_customer_care_request(now)
+            and not self.customer_pii_retention_expired(now)
+        )
 
     @property
     def is_dry_goods_order(self):
@@ -180,6 +234,18 @@ class Order(models.Model):
         )
 
     def save(self, *args, **kwargs):
+        if self.customer_pii_purged_at:
+            for field in ORDER_REDACTED_FIELDS:
+                setattr(self, field, "")
+            self.customer_pii_encrypted = ""
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None:
+                kwargs["update_fields"] = set(update_fields) | {
+                    *ORDER_REDACTED_FIELDS,
+                    "customer_pii_encrypted",
+                }
+            return super().save(*args, **kwargs)
+
         should_redact = self.status in {
             self.Status.DELIVERED,
             self.Status.CANCELLED,
@@ -198,13 +264,13 @@ class Order(models.Model):
                 build_order_pii_snapshot(self, requests, delivery_issues)
             )
         self.delivery_confirmation_deadline = None
-        for field in ORDER_PII_FIELDS:
+        for field in ORDER_REDACTED_FIELDS:
             setattr(self, field, "")
 
         update_fields = kwargs.get("update_fields")
         if update_fields is not None:
             kwargs["update_fields"] = set(update_fields) | {
-                *ORDER_PII_FIELDS,
+                *ORDER_REDACTED_FIELDS,
                 "customer_pii_encrypted",
                 "delivery_confirmation_deadline",
                 "updated_at",
@@ -233,6 +299,10 @@ class Order(models.Model):
 
 
 class DeliveryIssue(models.Model):
+    class Source(models.TextChoices):
+        CUSTOMER = "customer", "Khách hàng"
+        STAFF_DELIVERY = "staff_delivery", "Nhân viên giao hàng"
+
     class Status(models.TextChoices):
         PENDING = "pending", "Chờ quản lý xử lý"
         RESOLVED = "resolved", "Đã xử lý"
@@ -240,8 +310,16 @@ class DeliveryIssue(models.Model):
     class Resolution(models.TextChoices):
         CONFIRMED = "confirmed", "Xác nhận khách đã nhận"
         REDELIVER = "redeliver", "Tiếp tục giao hàng"
+        CONTACTED = "contacted", "Đã liên hệ, tiếp tục giao"
+        CANCELLED = "cancelled", "Hủy đơn do giao thất bại"
 
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="delivery_issues")
+    source = models.CharField(
+        "Nguồn ghi nhận",
+        max_length=16,
+        choices=Source.choices,
+        default=Source.CUSTOMER,
+    )
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
     details = models.TextField("Nội dung khiếu nại", max_length=1000)
     reported_by = models.ForeignKey(
@@ -388,3 +466,86 @@ class OrderItem(models.Model):
 
     def __str__(self):
         return f"{self.product_name} × {self.quantity}"
+
+
+class OrderCareRequest(models.Model):
+    class RequestType(models.TextChoices):
+        COMPLAINT = "complaint", "Khiếu nại"
+        RETURN = "return", "Yêu cầu đổi/trả hàng"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Chờ Quản lý xử lý"
+        APPROVED = "approved", "Đã chấp thuận"
+        REJECTED = "rejected", "Đã từ chối"
+
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="care_requests",
+    )
+    request_type = models.CharField(max_length=12, choices=RequestType.choices)
+    status = models.CharField(
+        max_length=10,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    details = models.TextField("Nội dung yêu cầu", max_length=1000)
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="order_care_requests",
+    )
+    requested_at = models.DateTimeField("Thời điểm gửi", auto_now_add=True)
+    resolution_note = models.TextField("Ghi chú xử lý", blank=True, max_length=1000)
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="resolved_order_care_requests",
+    )
+    resolved_at = models.DateTimeField("Thời điểm xử lý", null=True, blank=True)
+
+    class Meta:
+        ordering = ["-requested_at", "-pk"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["order", "request_type"],
+                condition=Q(status="pending"),
+                name="orders_one_open_care_request_per_type",
+            )
+        ]
+        indexes = [models.Index(fields=["status", "requested_at"])]
+        verbose_name = "Yêu cầu khiếu nại / đổi trả"
+        verbose_name_plural = "Yêu cầu khiếu nại / đổi trả"
+
+    def __str__(self):
+        return f"{self.order.order_number} · {self.get_request_type_display()}"
+
+
+class OrderPiiAccessLog(models.Model):
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="pii_access_logs",
+    )
+    accessed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="order_pii_accesses",
+    )
+    reason = models.CharField(max_length=500)
+    accessed_at = models.DateTimeField("Thời điểm truy cập", auto_now_add=True)
+
+    class Meta:
+        ordering = ["-accessed_at", "-pk"]
+        indexes = [models.Index(fields=["order", "accessed_at"])]
+        verbose_name = "Nhật ký truy cập dữ liệu đơn hàng"
+        verbose_name_plural = "Nhật ký truy cập dữ liệu đơn hàng"
+
+    def __str__(self):
+        return f"{self.order.order_number} · {self.accessed_at:%Y-%m-%d %H:%M}"

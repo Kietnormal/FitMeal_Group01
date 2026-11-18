@@ -1,6 +1,15 @@
 from django.contrib import admin
+from django.utils.html import format_html
+from django.urls import reverse
 
-from .models import DeliveryIssue, Order, OrderCancellationRequest, OrderItem
+from .models import (
+    DeliveryIssue,
+    Order,
+    OrderCareRequest,
+    OrderCancellationRequest,
+    OrderItem,
+    OrderPiiAccessLog,
+)
 
 
 class OrderItemInline(admin.TabularInline):
@@ -43,6 +52,8 @@ class OrderAdmin(admin.ModelAdmin):
         "refund_status",
         "created_at",
         "updated_at",
+        "customer_pii_purged_at",
+        "customer_pii_access_link",
     )
     inlines = (OrderItemInline,)
     ordering = ("-created_at",)
@@ -65,7 +76,16 @@ class OrderAdmin(admin.ModelAdmin):
         ]
         visible_fieldsets.insert(
             1,
-            ("Quyền riêng tư", {"fields": ("customer_information_redacted",)}),
+            (
+                "Quyền riêng tư",
+                {
+                    "fields": (
+                        "customer_information_redacted",
+                        "customer_pii_purged_at",
+                        "customer_pii_access_link",
+                    )
+                },
+            ),
         )
         return visible_fieldsets
 
@@ -85,7 +105,20 @@ class OrderAdmin(admin.ModelAdmin):
 
     @admin.display(description="Thông tin cá nhân")
     def customer_information_redacted(self, obj):
-        return "Đã mã hóa và ẩn sau khi đơn hoàn tất hoặc bị hủy."
+        return "Đã mã hóa và ẩn theo chính sách thời hạn lưu trữ."
+
+    @admin.display(description="Mở dữ liệu có ghi nhật ký")
+    def customer_pii_access_link(self, obj):
+        if obj.customer_pii_purged_at:
+            return "Dữ liệu định danh đã được xóa."
+        if obj.customer_care_period_open:
+            return "Trong thời hạn 7 ngày; chỉ xem khi xử lý khiếu nại."
+        if obj.can_request_pii_access():
+            return format_html(
+                '<a href="{}">Nhập lý do để mở thông tin</a>',
+                reverse("staff_orders:access_order_pii", args=[obj.pk]),
+            )
+        return "Thông tin cá nhân không còn khả dụng."
 
     def has_delete_permission(self, request, obj=None):
         return request.user.is_superuser
@@ -111,6 +144,34 @@ class DeliveryIssueAdmin(admin.ModelAdmin):
     list_filter = ("status", "resolution_outcome", "reported_at")
     search_fields = ("order__order_number", "details", "resolution")
     readonly_fields = tuple(field.name for field in DeliveryIssue._meta.fields)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(OrderCareRequest)
+class OrderCareRequestAdmin(admin.ModelAdmin):
+    list_display = ("order", "request_type", "status", "requested_at", "resolved_by", "resolved_at")
+    list_filter = ("request_type", "status", "requested_at")
+    search_fields = ("order__order_number", "details", "resolution_note")
+    readonly_fields = tuple(field.name for field in OrderCareRequest._meta.fields)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(OrderPiiAccessLog)
+class OrderPiiAccessLogAdmin(admin.ModelAdmin):
+    list_display = ("order", "accessed_by", "reason", "accessed_at")
+    list_filter = ("accessed_at",)
+    search_fields = ("order__order_number", "accessed_by__username", "reason")
+    readonly_fields = tuple(field.name for field in OrderPiiAccessLog._meta.fields)
 
     def has_add_permission(self, request):
         return False

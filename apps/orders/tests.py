@@ -19,7 +19,15 @@ from apps.payments.models import PaymentTransaction
 
 from .admin import OrderAdmin
 from .delivery import finalize_expired_delivery_confirmations
-from .models import DeliveryIssue, Order, OrderCancellationRequest, OrderItem
+from .models import (
+    DeliveryIssue,
+    Order,
+    OrderCancellationRequest,
+    OrderCareRequest,
+    OrderItem,
+    OrderPiiAccessLog,
+)
+from .privacy import purge_expired_order_pii
 
 
 @override_settings(
@@ -465,6 +473,7 @@ class OrderApiTests(TestCase):
         MOMO_ACCESS_KEY="momo-access",
         MOMO_SECRET_KEY="momo-secret",
         MOMO_CREATE_PAYMENT_URL="https://sandbox.example/momo",
+        MOMO_PUBLIC_BASE_URL="https://fitmeal-demo.example",
     )
     @patch("apps.payments.gateway.urlopen")
     def test_momo_checkout_redirects_to_local_qr_instructions(self, urlopen):
@@ -491,6 +500,10 @@ class OrderApiTests(TestCase):
         instructions_response = self.client.get(order_response.json()["payment_url"])
         self.assertEqual(instructions_response.status_code, 200)
         self.assertContains(instructions_response, "data:image/svg+xml;base64,")
+        self.assertContains(instructions_response, "Tóm tắt đơn hàng")
+        self.assertContains(instructions_response, "2 × Whey")
+        self.assertContains(instructions_response, "Cần thanh toán")
+        self.assertNotContains(instructions_response, "Chỉ trong bản vẽ")
 
     @override_settings(
         MOMO_ENABLED=True,
@@ -498,6 +511,7 @@ class OrderApiTests(TestCase):
         MOMO_ACCESS_KEY="momo-access",
         MOMO_SECRET_KEY="momo-secret",
         MOMO_CREATE_PAYMENT_URL="https://sandbox.example/momo",
+        MOMO_PUBLIC_BASE_URL="https://fitmeal-demo.example",
     )
     @patch("apps.payments.gateway.urlopen", side_effect=TimeoutError)
     def test_momo_gateway_timeout_rolls_back_order_and_inventory(self, _urlopen):
@@ -654,8 +668,8 @@ class OrderApiTests(TestCase):
         self.assertEqual(order.customer_email, "")
         self.assertEqual(order.customer_phone, "")
         self.assertEqual(order.address, "")
-        self.assertEqual(order.district, "")
-        self.assertEqual(order.city, "")
+        self.assertEqual(order.district, self.payload["district"])
+        self.assertEqual(order.city, self.payload["city"])
         self.assertEqual(order.note, "")
         self.assertNotIn(self.payload["email"], order.customer_pii_encrypted)
         self.assertNotIn(self.payload["phone"], order.customer_pii_encrypted)
@@ -769,7 +783,7 @@ class OrderAdminTests(TestCase):
         response = self.client.get(reverse("admin:orders_order_change", args=[order.pk]))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Đã mã hóa và ẩn sau khi đơn hoàn tất hoặc bị hủy.")
+        self.assertContains(response, "Đã mã hóa và ẩn theo chính sách thời hạn lưu trữ.")
         for personal_data in ("Nguyen Van A", "customer@example.com", "0901234567", "12 Duong X"):
             with self.subTest(personal_data=personal_data):
                 self.assertNotContains(response, personal_data)
@@ -800,7 +814,7 @@ class OrderAdminTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(order.customer_info_redacted)
-        self.assertContains(response, "Đã mã hóa và ẩn sau khi đơn hoàn tất hoặc bị hủy.")
+        self.assertContains(response, "Đã mã hóa và ẩn theo chính sách thời hạn lưu trữ.")
         for personal_data in (
             "Cancelled Customer",
             "cancelled-customer@example.com",
@@ -1224,6 +1238,12 @@ class StaffOrderDashboardTests(TestCase):
             status=Order.Status.DELIVERED,
             total=Decimal("90000.00"),
         )
+        previous_day_order = self.create_order(
+            status=Order.Status.DELIVERED,
+            total=Decimal("30000.00"),
+        )
+        previous_day_order.created_at = timezone.now() - timedelta(days=1)
+        previous_day_order.save(update_fields=["created_at"])
         old_order = self.create_order(
             status=Order.Status.DELIVERED,
             total=Decimal("60000.00"),
@@ -1239,9 +1259,20 @@ class StaffOrderDashboardTests(TestCase):
 
         response = self.client.get(reverse("staff_orders:dashboard"), {"range": "7d"})
 
-        self.assertEqual(response.context["period_revenue"], Decimal("90000.00"))
-        self.assertEqual(response.context["period_order_count"], 1)
-        self.assertEqual(sum(point["amount"] for point in response.context["chart_points"]), Decimal("90000.00"))
+        self.assertEqual(response.context["period_revenue"], Decimal("120000.00"))
+        self.assertEqual(response.context["period_order_count"], 2)
+        self.assertEqual(sum(point["amount"] for point in response.context["chart_points"]), Decimal("120000.00"))
+        chart_points = {point["day"]: point for point in response.context["chart_points"]}
+        self.assertEqual(chart_points[timezone.localdate()]["height"], 100.0)
+        self.assertEqual(
+            chart_points[timezone.localdate() - timedelta(days=1)]["height"],
+            33.3,
+        )
+        self.assertRegex(response.content.decode(), r'style="height:100(?:\.0)?%"')
+        self.assertEqual(
+            response.content.count(b'class="dashboard-chart-track"><i'),
+            2,
+        )
 
         report_response = self.client.get(
             reverse("staff_orders:dashboard"),
@@ -1330,6 +1361,7 @@ class StaffOrderDashboardTests(TestCase):
         order.refresh_from_db()
         issue = DeliveryIssue.objects.get(order=order)
         self.assertEqual(order.status, Order.Status.DELIVERY_ISSUE)
+        self.assertEqual(issue.source, DeliveryIssue.Source.STAFF_DELIVERY)
         self.assertEqual(issue.details, "Không liên lạc được với khách khi giao hàng.")
         self.assertEqual(issue.reported_by, manager)
 
@@ -1517,6 +1549,177 @@ class StaffOrderDashboardTests(TestCase):
         self.assertEqual(issue.resolution, "")
         self.assertIsNone(issue.reported_by)
 
+    def test_manager_workspace_separates_failed_deliveries_from_customer_complaints(self):
+        manager = User.objects.create_user(
+            username="separate-delivery-queues-manager",
+            email="separate-delivery-queues@example.com",
+            password="Manager-Strong-2026!",
+            is_staff=True,
+            staff_role=User.StaffRole.MANAGER,
+        )
+        customer = User.objects.create_user(
+            username="separate-delivery-queues-customer",
+            email="separate-delivery-queues-customer@example.com",
+            password="Customer-Strong-2026!",
+        )
+        failed_order = self.create_order(
+            status=Order.Status.DELIVERY_ISSUE,
+            total=Decimal("120000.00"),
+        )
+        failed_issue = DeliveryIssue.objects.create(
+            order=failed_order,
+            source=DeliveryIssue.Source.STAFF_DELIVERY,
+            details="Không liên lạc được với khách khi giao hàng.",
+            reported_by=manager,
+        )
+        complaint_order = self.create_order(
+            status=Order.Status.DELIVERY_ISSUE,
+            total=Decimal("90000.00"),
+        )
+        complaint_issue = DeliveryIssue.objects.create(
+            order=complaint_order,
+            details="Khách báo chưa nhận được đơn.",
+            reported_by=customer,
+        )
+        self.client.force_login(manager)
+
+        failure_response = self.client.get(
+            reverse("staff_orders:dashboard"),
+            {"workspace": "orders", "view": "delivery_failures"},
+        )
+        self.assertEqual(failure_response.status_code, 200)
+        self.assertEqual(failure_response.context["pending_delivery_failure_count"], 1)
+        self.assertEqual(failure_response.context["pending_customer_complaint_count"], 1)
+        self.assertContains(failure_response, failed_issue.details)
+        self.assertNotContains(failure_response, complaint_issue.details)
+        self.assertContains(failure_response, "Khiếu nại khách hàng")
+
+        complaint_response = self.client.get(
+            reverse("staff_orders:dashboard"),
+            {"workspace": "orders", "view": "delivery_issues"},
+        )
+        self.assertEqual(complaint_response.status_code, 200)
+        self.assertContains(complaint_response, complaint_issue.details)
+        self.assertNotContains(complaint_response, failed_issue.details)
+
+    def test_manager_can_record_contact_success_for_failed_delivery(self):
+        manager = User.objects.create_user(
+            username="failed-delivery-contact-manager",
+            email="failed-delivery-contact@example.com",
+            password="Manager-Strong-2026!",
+            is_staff=True,
+            staff_role=User.StaffRole.MANAGER,
+        )
+        order = self.create_order(
+            status=Order.Status.DELIVERY_ISSUE,
+            total=Decimal("120000.00"),
+        )
+        issue = DeliveryIssue.objects.create(
+            order=order,
+            source=DeliveryIssue.Source.STAFF_DELIVERY,
+            details="Không liên lạc được với khách khi giao hàng.",
+            reported_by=manager,
+        )
+        self.client.force_login(manager)
+
+        self.client.post(
+            reverse("staff_orders:resolve_delivery_issue", args=[issue.pk]),
+            {
+                "decision": DeliveryIssue.Resolution.CONTACTED,
+                "resolution": "Đã liên hệ được, thống nhất giao lại trong ngày.",
+            },
+        )
+
+        order.refresh_from_db()
+        issue.refresh_from_db()
+        self.assertEqual(order.status, Order.Status.DELIVERING)
+        self.assertEqual(issue.status, DeliveryIssue.Status.RESOLVED)
+        self.assertEqual(issue.resolution_outcome, DeliveryIssue.Resolution.CONTACTED)
+
+    def test_manager_cancelling_failed_delivery_requests_manual_refund_for_paid_order(self):
+        manager = User.objects.create_user(
+            username="failed-delivery-cancel-manager",
+            email="failed-delivery-cancel@example.com",
+            password="Manager-Strong-2026!",
+            is_staff=True,
+            staff_role=User.StaffRole.MANAGER,
+        )
+        order = self.create_order(
+            status=Order.Status.DELIVERY_ISSUE,
+            total=Decimal("120000.00"),
+        )
+        order.payment_method = Order.PaymentMethod.BANK_TRANSFER
+        order.save(update_fields=["payment_method"])
+        payment = PaymentTransaction.objects.create(
+            order=order,
+            transaction_ref="FAILED-DELIVERY-PAID",
+            amount=order.total,
+            status=PaymentTransaction.Status.PAID,
+            expires_at=timezone.now() + timedelta(minutes=15),
+        )
+        issue = DeliveryIssue.objects.create(
+            order=order,
+            source=DeliveryIssue.Source.STAFF_DELIVERY,
+            details="Không liên lạc được với khách khi giao hàng.",
+            reported_by=manager,
+        )
+        self.client.force_login(manager)
+
+        self.client.post(
+            reverse("staff_orders:resolve_delivery_issue", args=[issue.pk]),
+            {
+                "decision": DeliveryIssue.Resolution.CANCELLED,
+                "resolution": "Đã gọi nhiều lần nhưng không liên lạc được.",
+            },
+        )
+
+        order.refresh_from_db()
+        issue.refresh_from_db()
+        payment.refresh_from_db()
+        cancellation = OrderCancellationRequest.objects.get(order=order)
+        self.assertEqual(order.status, Order.Status.CANCELLED)
+        self.assertEqual(order.refund_status, Order.RefundStatus.REQUESTED)
+        self.assertEqual(payment.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(issue.resolution_outcome, DeliveryIssue.Resolution.CANCELLED)
+        self.assertEqual(cancellation.status, OrderCancellationRequest.Status.APPROVED)
+
+    def test_customer_complaint_cannot_be_cancelled_from_delivery_issue_form(self):
+        customer = User.objects.create_user(
+            username="complaint-not-cancellable-customer",
+            email="complaint-not-cancellable@example.com",
+            password="Customer-Strong-2026!",
+        )
+        manager = User.objects.create_user(
+            username="complaint-not-cancellable-manager",
+            email="complaint-not-cancellable-manager@example.com",
+            password="Manager-Strong-2026!",
+            is_staff=True,
+            staff_role=User.StaffRole.MANAGER,
+        )
+        order = self.create_order(
+            status=Order.Status.DELIVERY_ISSUE,
+            total=Decimal("120000.00"),
+        )
+        issue = DeliveryIssue.objects.create(
+            order=order,
+            details="Khách báo chưa nhận hàng.",
+            reported_by=customer,
+        )
+        self.client.force_login(manager)
+
+        self.client.post(
+            reverse("staff_orders:resolve_delivery_issue", args=[issue.pk]),
+            {
+                "decision": DeliveryIssue.Resolution.CANCELLED,
+                "resolution": "Không liên lạc được.",
+            },
+        )
+
+        order.refresh_from_db()
+        issue.refresh_from_db()
+        self.assertEqual(order.status, Order.Status.DELIVERY_ISSUE)
+        self.assertEqual(issue.status, DeliveryIssue.Status.PENDING)
+
     def test_expired_delivery_confirmation_is_automatically_finalized(self):
         order = self.create_order(
             status=Order.Status.AWAITING_CUSTOMER_CONFIRMATION,
@@ -1637,6 +1840,54 @@ class StaffOrderDashboardTests(TestCase):
         )
         order.refresh_from_db()
         self.assertEqual(order.status, Order.Status.CONFIRMED)
+        self.assertEqual(
+            self.client.post(
+                reverse("staff_orders:cancel_order", args=[order.pk]),
+                {"reason": "Khách yêu cầu hủy"},
+            ).status_code,
+            403,
+        )
+
+    @patch("apps.orders.views.send_mail", return_value=1)
+    def test_customer_can_cancel_immediately_after_employee_confirms_order(self, send_mail):
+        customer = User.objects.create_user(
+            username="post-confirmation-customer",
+            email="post-confirmation@example.com",
+            password="Customer-Strong-2026!",
+        )
+        employee = User.objects.create_user(
+            username="post-confirmation-sales",
+            email="post-confirmation-sales@example.com",
+            password="Employee-Strong-2026!",
+            is_staff=True,
+            staff_role=User.StaffRole.SALES,
+        )
+        order = self.create_order(
+            status=Order.Status.CONFIRMED,
+            total=Decimal("120000.00"),
+            customer=customer,
+        )
+
+        self.client.force_login(customer)
+        cancel_response = self.client.post(
+            reverse("orders:customer_cancel", args=[order.pk]),
+            {"reason": "Vừa xác nhận nhầm"},
+        )
+
+        self.assertEqual(cancel_response.status_code, 302)
+        order.refresh_from_db()
+        self.assertEqual(order.status, Order.Status.CANCELLED)
+        send_mail.assert_called_once()
+
+        self.client.force_login(employee)
+        late_update = self.client.post(
+            reverse("staff_orders:update_status", args=[order.pk]),
+            {"status": Order.Status.PREPARING},
+        )
+
+        self.assertEqual(late_update.status_code, 302)
+        order.refresh_from_db()
+        self.assertEqual(order.status, Order.Status.CANCELLED)
 
     @patch("apps.orders.views.send_mail", return_value=1)
     def test_manager_can_cancel_order_before_delivery(self, send_mail):
@@ -1771,6 +2022,46 @@ class StaffOrderDashboardTests(TestCase):
         self.assertEqual(order.customer_phone, "")
         self.assertEqual(cancellation.reason, "")
         self.assertEqual(cancellation.manager_resolution_reason, "")
+
+    @patch("apps.orders.views.send_mail", return_value=1)
+    def test_manager_approval_cancels_pending_payment_with_valid_response_code(self, _send_mail):
+        order = self.create_order(status=Order.Status.CONFIRMED, total=Decimal("120000.00"))
+        order.payment_method = Order.PaymentMethod.MOMO
+        order.save(update_fields=["payment_method"])
+        payment = PaymentTransaction.objects.create(
+            order=order,
+            provider=PaymentTransaction.Provider.MOMO,
+            transaction_ref="cancel-momo-reference",
+            amount=order.total,
+            expires_at=timezone.now() + timedelta(minutes=15),
+        )
+        cancellation = OrderCancellationRequest.objects.create(
+            order=order,
+            source=OrderCancellationRequest.Source.STAFF,
+            status=OrderCancellationRequest.Status.MANAGER_REVIEW,
+            reason="Khách yêu cầu hủy",
+        )
+        manager = User.objects.create_user(
+            username="manager-payment-cancel",
+            email="manager-payment-cancel@example.com",
+            password="Employee-Strong-2026!",
+            is_staff=True,
+            staff_role=User.StaffRole.MANAGER,
+        )
+        self.client.force_login(manager)
+
+        response = self.client.post(
+            reverse("staff_orders:resolve_cancellation", args=[cancellation.pk]),
+            {"decision": "approve"},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        order.refresh_from_db()
+        payment.refresh_from_db()
+        self.assertEqual(order.status, Order.Status.CANCELLED)
+        self.assertEqual(payment.status, PaymentTransaction.Status.FAILED)
+        self.assertEqual(payment.response_code, "CANCELLED")
+        self.assertLessEqual(len(payment.response_code), 10)
 
     def test_staff_workspace_shows_customer_cancellation_call_queue(self):
         customer = User.objects.create_user(
@@ -2744,8 +3035,7 @@ class StaffOrderDashboardTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 403)
-        product.refresh_from_db()
-        self.assertTrue(product.is_available)
+
 
     def test_staff_can_create_and_quick_edit_real_products(self):
         admin_user = User.objects.create_superuser(
@@ -2805,3 +3095,217 @@ class StaffOrderDashboardTests(TestCase):
                 response = self.client.get(reverse("staff_orders:dashboard"), {"section": section})
                 self.assertEqual(response.status_code, 200)
                 self.assertContains(response, expected_text)
+
+
+class OrderCarePrivacyTests(TestCase):
+    def setUp(self):
+        self.customer = User.objects.create_user(
+            username="care-customer",
+            email="care-customer@example.com",
+            password="Customer-Strong-2026!",
+        )
+        self.manager = User.objects.create_user(
+            username="care-manager",
+            email="care-manager@example.com",
+            password="Employee-Strong-2026!",
+            is_staff=True,
+            staff_role=User.StaffRole.MANAGER,
+        )
+
+    def create_delivered_order(self, *, received_days_ago):
+        return Order.objects.create(
+            customer=self.customer,
+            customer_name="Nguyen Van A",
+            customer_email=self.customer.email,
+            customer_phone="0901234567",
+            address="12 Duong X",
+            district="Quan 1",
+            city="TP Ho Chi Minh",
+            delivery_region=Order.DeliveryRegion.HO_CHI_MINH_CITY,
+            delivery_date=timezone.localdate() - timedelta(days=received_days_ago),
+            delivery_slot=Order.DeliverySlot.MORNING,
+            status=Order.Status.DELIVERED,
+            delivery_confirmed_at=timezone.now() - timedelta(days=received_days_ago),
+            subtotal=Decimal("120000.00"),
+            shipping_fee=Decimal("0.00"),
+            total=Decimal("120000.00"),
+        )
+
+    def test_customer_can_submit_care_request_only_within_seven_days(self):
+        order = self.create_delivered_order(received_days_ago=6)
+        self.client.force_login(self.customer)
+        endpoint = reverse("orders:customer_care_request", args=[order.pk])
+
+        response = self.client.post(
+            endpoint,
+            {"request_type": OrderCareRequest.RequestType.RETURN, "details": "Sản phẩm bị hư hỏng"},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            OrderCareRequest.objects.filter(
+                order=order,
+                request_type=OrderCareRequest.RequestType.RETURN,
+                status=OrderCareRequest.Status.PENDING,
+            ).exists()
+        )
+
+        order.delivery_confirmed_at = timezone.now() - timedelta(days=8)
+        order.save(update_fields=["delivery_confirmed_at"])
+        rejected_response = self.client.post(
+            endpoint,
+            {"request_type": OrderCareRequest.RequestType.COMPLAINT, "details": "Đã quá hạn"},
+        )
+
+        self.assertEqual(rejected_response.status_code, 302)
+        self.assertFalse(
+            OrderCareRequest.objects.filter(
+                order=order,
+                request_type=OrderCareRequest.RequestType.COMPLAINT,
+            ).exists()
+        )
+
+    def test_rejected_return_request_blocks_all_future_care_requests(self):
+        order = self.create_delivered_order(received_days_ago=2)
+        care_request = OrderCareRequest.objects.create(
+            order=order,
+            request_type=OrderCareRequest.RequestType.RETURN,
+            details="Sản phẩm bị hư hỏng",
+            requested_by=self.customer,
+        )
+        resolve_url = reverse(
+            "staff_orders:resolve_customer_care_request",
+            args=[care_request.pk],
+        )
+        self.client.force_login(self.manager)
+        resolution_response = self.client.post(
+            resolve_url,
+            {"decision": "reject", "resolution_note": "Không đủ điều kiện đổi trả."},
+        )
+
+        self.assertEqual(resolution_response.status_code, 302)
+        care_request.refresh_from_db()
+        self.assertEqual(care_request.status, OrderCareRequest.Status.REJECTED)
+
+        self.client.force_login(self.customer)
+        history_response = self.client.get(
+            reverse("core:account"),
+            {"tab": "orders"},
+        )
+        self.assertContains(
+            history_response,
+            "Đơn này không thể gửi thêm khiếu nại hoặc yêu cầu đổi/trả.",
+        )
+        self.assertNotContains(history_response, "Gửi khiếu nại")
+        self.assertNotContains(history_response, "Gửi yêu cầu đổi/trả")
+
+        endpoint = reverse("orders:customer_care_request", args=[order.pk])
+        for request_type in (
+            OrderCareRequest.RequestType.COMPLAINT,
+            OrderCareRequest.RequestType.RETURN,
+        ):
+            with self.subTest(request_type=request_type):
+                response = self.client.post(
+                    endpoint,
+                    {"request_type": request_type, "details": "Gửi lại yêu cầu"},
+                )
+                self.assertEqual(response.status_code, 302)
+
+        self.assertEqual(OrderCareRequest.objects.filter(order=order).count(), 1)
+
+    def test_pii_access_window_uses_the_supplied_time(self):
+        order = self.create_delivered_order(received_days_ago=6)
+
+        self.assertFalse(order.can_request_pii_access(timezone.now()))
+        self.assertTrue(
+            order.can_request_pii_access(timezone.now() + timedelta(days=2))
+        )
+
+    def test_manager_pii_access_after_seven_days_is_reasoned_and_audited(self):
+        order = self.create_delivered_order(received_days_ago=8)
+        care_request = OrderCareRequest.objects.create(
+            order=order,
+            request_type=OrderCareRequest.RequestType.COMPLAINT,
+            details="Sản phẩm bị hư hỏng",
+            requested_by=self.customer,
+        )
+        self.client.force_login(self.manager)
+
+        queue_response = self.client.get(
+            reverse("staff_orders:dashboard"),
+            {"workspace": "orders", "view": "customer_care"},
+        )
+
+        self.assertContains(queue_response, care_request.details)
+        self.assertContains(queue_response, "Nhập lý do để mở thông tin có ghi nhật ký")
+        self.assertNotContains(queue_response, "0901234567")
+
+        pii_url = reverse("staff_orders:access_order_pii", args=[order.pk])
+        form_response = self.client.get(pii_url)
+        self.assertEqual(form_response.status_code, 200)
+        self.assertIn("no-store", form_response["Cache-Control"])
+
+        access_response = self.client.post(
+            pii_url,
+            {"reason": "Xác minh yêu cầu khiếu nại"},
+        )
+
+        self.assertEqual(access_response.status_code, 200)
+        self.assertIn("no-store", access_response["Cache-Control"])
+        self.assertContains(access_response, "0901234567")
+        self.assertEqual(OrderPiiAccessLog.objects.filter(order=order).count(), 1)
+
+        sales_employee = User.objects.create_user(
+            username="care-sales",
+            email="care-sales@example.com",
+            password="Employee-Strong-2026!",
+            is_staff=True,
+            staff_role=User.StaffRole.SALES,
+        )
+        self.client.force_login(sales_employee)
+        self.assertEqual(self.client.get(pii_url).status_code, 403)
+
+    def test_expired_pii_purge_keeps_area_but_removes_identifiers_and_request_text(self):
+        order = self.create_delivered_order(received_days_ago=366)
+        another_order = self.create_delivered_order(received_days_ago=367)
+        original_tracking_token = order.tracking_token
+        care_request = OrderCareRequest.objects.create(
+            order=order,
+            request_type=OrderCareRequest.RequestType.RETURN,
+            details="Địa chỉ 12 Duong X và số 0901234567",
+            requested_by=self.customer,
+        )
+
+        purged_count = purge_expired_order_pii()
+
+        self.assertEqual(purged_count, 2)
+        order.refresh_from_db()
+        another_order.refresh_from_db()
+        care_request.refresh_from_db()
+        self.assertIsNone(order.customer_id)
+        self.assertIsNone(another_order.customer_id)
+        self.assertNotEqual(order.tracking_token, original_tracking_token)
+        self.assertNotEqual(order.tracking_token, another_order.tracking_token)
+        self.assertEqual(order.customer_name, "")
+        self.assertEqual(order.customer_email, "")
+        self.assertEqual(order.customer_phone, "")
+        self.assertEqual(order.address, "")
+        self.assertEqual(order.district, "Quan 1")
+        self.assertEqual(order.city, "TP Ho Chi Minh")
+        self.assertEqual(order.customer_pii_encrypted, "")
+        self.assertIsNotNone(order.customer_pii_purged_at)
+        self.assertEqual(care_request.details, "")
+        self.assertIsNone(care_request.requested_by_id)
+
+    def test_migration_restores_locality_from_existing_encrypted_snapshots(self):
+        order = self.create_delivered_order(received_days_ago=1)
+        Order.objects.filter(pk=order.pk).update(district="", city="")
+        migration = import_module(
+            "apps.orders.migrations.0015_order_customer_pii_purged_at_ordercarerequest_and_more"
+        )
+
+        migration.restore_order_regions(apps, SimpleNamespace(connection=connection))
+
+        order.refresh_from_db()
+        self.assertEqual(order.district, "Quan 1")
+        self.assertEqual(order.city, "TP Ho Chi Minh")

@@ -1018,10 +1018,10 @@ function initializeTracking() {
       item.className = "is-current";
       const dot = document.createElement("span");
       dot.className = "timeline-dot";
-      dot.textContent = "✓";
+      dot.textContent = order.status === "cancelled" ? "×" : "✓";
       const content = document.createElement("div");
       const heading = document.createElement("strong");
-      heading.textContent = "Đã giao hàng";
+      heading.textContent = order.status === "cancelled" ? "Đã hủy đơn" : "Đã giao hàng";
       content.append(heading);
       item.append(dot, content);
       timeline.append(item);
@@ -1611,6 +1611,21 @@ function initializeMomoPaymentStatus() {
   const page = document.querySelector("[data-momo-payment-status]");
   const liveStatus = page && page.querySelector("[data-payment-live-status]");
   if (!page || !liveStatus) return;
+
+  const expiration = page.querySelector("[data-momo-expiration]");
+  if (expiration) {
+    const expiresAt = Date.parse(expiration.dataset.expiresAt);
+    if (Number.isFinite(expiresAt)) {
+      const updateExpiration = () => {
+        const remainingSeconds = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+        const minutes = String(Math.floor(remainingSeconds / 60)).padStart(2, "0");
+        const seconds = String(remainingSeconds % 60).padStart(2, "0");
+        expiration.textContent = `${minutes}:${seconds}`;
+      };
+      updateExpiration();
+      window.setInterval(updateExpiration, 1000);
+    }
+  }
 
   const checkStatus = async () => {
     try {

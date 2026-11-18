@@ -28,5 +28,10 @@ urlpatterns = [
         views.customer_report_delivery_issue,
         name="customer_report_delivery_issue",
     ),
+    path(
+        "<int:order_id>/care-request/",
+        views.customer_submit_order_care_request,
+        name="customer_care_request",
+    ),
     path("<int:order_id>/reorder/", views.reorder_order, name="reorder"),
 ]

@@ -12,7 +12,7 @@
     <span class="employee-workspace-nav-label">VẬN HÀNH</span>
     <nav class="employee-workspace-nav" aria-label="Công việc">
       <a class="{% if active_workspace == 'work' %}is-active{% endif %}" href="?workspace=work"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M5 4h3v16H5zM10 6h4v12h-4zM16 8h3v8h-3z"/></svg></span>Ca làm hôm nay{% if pending_count %}<b>{{ pending_count }}</b>{% endif %}</a>
-      <a class="{% if active_workspace == 'orders' %}is-active{% endif %}" href="?workspace=orders{% if is_manager %}&view=cancellations{% endif %}"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M6 3.5h12v17l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5-2 1.5z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span>{% if is_manager %}Đơn hàng & xử lý{% else %}Tra cứu đơn hàng{% endif %}{% if is_manager %}{% with cancellation_badge_count=pending_cancellation_count|add:contact_cancellation_count %}{% if cancellation_badge_count %}<b>{{ cancellation_badge_count }}</b>{% endif %}{% endwith %}{% elif contact_cancellation_count %}<b>{{ contact_cancellation_count }}</b>{% endif %}</a>
+      <a class="{% if active_workspace == 'orders' %}is-active{% endif %}" href="?workspace=orders{% if is_manager %}&view=cancellations{% endif %}"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M6 3.5h12v17l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5-2 1.5z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span>{% if is_manager %}Đơn hàng & xử lý{% else %}Tra cứu đơn hàng{% endif %}{% if is_manager %}{% with cancellation_badge_count=pending_cancellation_count|add:contact_cancellation_count|add:pending_delivery_failure_count|add:pending_customer_complaint_count|add:pending_customer_care_count %}{% if cancellation_badge_count %}<b>{{ cancellation_badge_count }}</b>{% endif %}{% endwith %}{% elif contact_cancellation_count %}<b>{{ contact_cancellation_count }}</b>{% endif %}</a>
       <a class="{% if active_workspace == 'customers' %}is-active{% endif %}" href="?workspace=customers"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="9" cy="8" r="3"/><path d="M3.5 20v-1.5a5.5 5.5 0 0 1 11 0V20zM16 5.5a3 3 0 0 1 0 5.8M18 14a4.5 4.5 0 0 1 2.5 4v2"/></svg></span>Khách hàng</a>
     </nav>
     {% if is_manager %}
@@ -95,14 +95,16 @@
 
     {% elif active_workspace == "orders" %}
       <header class="employee-workspace-heading">
-        <div><span class="store-kicker">VẬN HÀNH BÁN HÀNG</span><h1>{% if is_manager %}Đơn hàng &amp; xử lý{% else %}Tra cứu đơn hàng{% endif %}</h1><p>{% if is_manager and orders_view == "cancellations" %}Duyệt hoặc từ chối các yêu cầu đang chờ.{% elif is_manager and orders_view == "delivery_issues" %}Xem xét khiếu nại khách chưa nhận được hàng.{% else %}Tìm theo mã đơn, tên hoặc số điện thoại người nhận.{% endif %}</p></div>
+        <div><span class="store-kicker">VẬN HÀNH BÁN HÀNG</span><h1>{% if is_manager %}Đơn hàng &amp; xử lý{% else %}Tra cứu đơn hàng{% endif %}</h1><p>{% if is_manager and orders_view == "cancellations" %}Duyệt hoặc từ chối các yêu cầu đang chờ.{% elif is_manager and orders_view == "delivery_failures" %}Theo dõi đơn giao không thành công và ghi nhận hướng xử lý.{% elif is_manager and orders_view == "delivery_issues" %}Tiếp nhận và xử lý phản hồi của khách về việc giao hàng.{% elif is_manager and orders_view == "customer_care" %}Xử lý khiếu nại và yêu cầu đổi/trả trong thời hạn chính sách.{% else %}Tìm theo mã đơn, tên hoặc số điện thoại người nhận.{% endif %}</p></div>
       </header>
       {% include "orders/_employee_cancellation_contact_queue.html" %}
       {% if is_manager %}
-        <nav class="employee-cancellation-tabs" aria-label="Đơn hàng, yêu cầu hủy và khiếu nại giao hàng">
+        <nav class="employee-cancellation-tabs" aria-label="Đơn hàng và các yêu cầu xử lý">
           <a href="?workspace=orders&view=orders" {% if orders_view == "orders" %}aria-current="page"{% endif %}>Đơn hàng</a>
           <a href="?workspace=orders&view=cancellations" {% if orders_view == "cancellations" %}aria-current="page"{% endif %}>Yêu cầu hủy <b>{{ pending_cancellation_count }}</b></a>
-          <a href="?workspace=orders&view=delivery_issues" {% if orders_view == "delivery_issues" %}aria-current="page"{% endif %}>Khiếu nại giao hàng <b>{{ pending_delivery_issue_count }}</b></a>
+          <a href="?workspace=orders&view=delivery_failures" {% if orders_view == "delivery_failures" %}aria-current="page"{% endif %}>Giao thất bại <b>{{ pending_delivery_failure_count }}</b></a>
+          <a href="?workspace=orders&view=delivery_issues" {% if orders_view == "delivery_issues" %}aria-current="page"{% endif %}>Khiếu nại khách hàng <b>{{ pending_customer_complaint_count }}</b></a>
+          <a href="?workspace=orders&view=customer_care" {% if orders_view == "customer_care" %}aria-current="page"{% endif %}>Khiếu nại / đổi trả <b>{{ pending_customer_care_count }}</b></a>
         </nav>
       {% endif %}
       {% if is_manager and orders_view == "cancellations" %}
@@ -143,36 +145,132 @@
           {% endfor %}
           {% include "orders/employee_pagination.html" %}
         </section>
-      {% elif is_manager and orders_view == "delivery_issues" %}
+      {% elif orders_view == "delivery_failures" or orders_view == "delivery_issues" %}
         <form class="employee-workspace-search" method="get">
-          <input type="hidden" name="workspace" value="orders"><input type="hidden" name="view" value="delivery_issues">
-          <label class="visually-hidden" for="delivery-issue-search">Tìm khiếu nại giao hàng</label>
+          <input type="hidden" name="workspace" value="orders"><input type="hidden" name="view" value="{{ orders_view }}">
+          <label class="visually-hidden" for="delivery-issue-search">Tìm đơn cần xử lý</label>
           <input id="delivery-issue-search" type="search" name="q" value="{{ query }}" placeholder="Mã đơn, khách hàng hoặc nội dung">
-          <button type="submit">Tìm khiếu nại</button>
+          <button type="submit">Tìm đơn</button>
         </form>
-        <section class="manager-cancellation-review-list" aria-label="Khiếu nại giao hàng đang chờ">
-          {% for issue in delivery_issue_rows %}
-            <article class="manager-cancellation-card">
-              <header><div><span class="store-kicker">VẤN ĐỀ GIAO HÀNG</span><h2>{{ issue.order.order_number }}</h2></div><span>{{ issue.reported_at|timesince }} trước</span></header>
-              <div class="manager-cancellation-order-info">
-                <p><strong>Khách hàng</strong>{{ issue.order.customer_name }} · <a href="tel:{{ issue.order.customer_phone }}">{{ issue.order.customer_phone }}</a></p>
-                <p><strong>Trạng thái</strong>{{ issue.order.get_status_display }}</p>
-                <p><strong>Số tiền</strong>{{ issue.order.total|floatformat:0 }}₫</p>
+        <section class="manager-issue-workspace" aria-label="{% if orders_view == 'delivery_failures' %}Đơn giao thất bại{% else %}Khiếu nại khách hàng{% endif %}">
+          <div class="manager-issue-list">
+            <header><div><h2>{% if orders_view == "delivery_failures" %}Đơn giao thất bại{% else %}Khiếu nại khách hàng{% endif %}</h2><p>{{ page_obj.paginator.count|default:0 }} yêu cầu đang chờ</p></div></header>
+            <div class="manager-issue-list-items">
+              {% for issue in delivery_issue_rows %}
+                <a class="manager-issue-list-item{% if selected_delivery_issue.pk == issue.pk %} is-selected{% endif %}" href="?workspace=orders&view={{ orders_view }}&issue={{ issue.pk }}{% if query %}&q={{ query|urlencode }}{% endif %}"{% if selected_delivery_issue.pk == issue.pk %} aria-current="true"{% endif %}>
+                  <span><strong>{{ issue.order.order_number }}</strong><small>{{ issue.order.customer_name }} · {{ issue.reported_at|timesince }} trước</small></span>
+                  <span class="manager-issue-list-total">{{ issue.order.total|floatformat:0 }}₫</span>
+                  <small class="manager-issue-list-summary">{{ issue.details|truncatechars:72 }}</small>
+                </a>
+              {% empty %}
+                <p class="employee-empty-state">Không có yêu cầu nào đang chờ xử lý.</p>
+              {% endfor %}
+            </div>
+            {% include "orders/employee_pagination.html" %}
+          </div>
+          {% if selected_delivery_issue %}
+            <article class="manager-issue-detail">
+              <header><div><span class="store-kicker">{% if orders_view == "delivery_failures" %}GIAO HÀNG THẤT BẠI{% else %}KHÁCH BÁO CHƯA NHẬN HÀNG{% endif %}</span><h2>{{ selected_delivery_issue.order.order_number }}</h2></div><span>{{ selected_delivery_issue.reported_at|date:"d/m/Y H:i" }}</span></header>
+              <div class="manager-issue-detail-grid">
+                <p><strong>Khách hàng</strong>{{ selected_delivery_issue.order.customer_name }}</p>
+                <p><strong>Điện thoại</strong><a href="tel:{{ selected_delivery_issue.order.customer_phone }}">{{ selected_delivery_issue.order.customer_phone }}</a></p>
+                <p><strong>Trạng thái đơn</strong>{{ selected_delivery_issue.order.get_status_display }}</p>
+                <p><strong>Thanh toán</strong>{{ selected_delivery_issue.order.get_payment_method_display }} · {{ selected_delivery_issue.order.get_refund_status_display }}</p>
+                <p class="is-wide"><strong>Địa chỉ giao</strong>{{ selected_delivery_issue.order.address }}, {{ selected_delivery_issue.order.district }}, {{ selected_delivery_issue.order.city }}</p>
               </div>
-              <p class="manager-cancellation-reason"><strong>Nội dung khiếu nại:</strong> {{ issue.details|linebreaksbr }}</p>
-              <form class="manager-delivery-issue-resolution" action="{% url 'staff_orders:resolve_delivery_issue' issue.pk %}" method="post">
+              <div class="manager-issue-detail-block">
+                <h3>{% if orders_view == "delivery_failures" %}Lý do giao thất bại{% else %}Nội dung khách phản ánh{% endif %}</h3>
+                <p>{{ selected_delivery_issue.details|linebreaksbr }}</p>
+              </div>
+              <div class="manager-issue-detail-block">
+                <h3>Món trong đơn</h3>
+                <ul>{% for item in selected_delivery_issue.order.items.all %}<li>{{ item.product_name }} × {{ item.quantity }} <span>{{ item.line_total|floatformat:0 }}₫</span></li>{% empty %}<li>Không có thông tin món hàng.</li>{% endfor %}</ul>
+                <p class="manager-issue-order-total"><strong>Tổng đơn</strong><strong>{{ selected_delivery_issue.order.total|floatformat:0 }}₫</strong></p>
+              </div>
+              <form class="manager-delivery-issue-resolution" action="{% url 'staff_orders:resolve_delivery_issue' selected_delivery_issue.pk %}" method="post">
                 {% csrf_token %}
-                <label for="delivery-issue-resolution-{{ issue.pk }}">Ghi chú xử lý<textarea id="delivery-issue-resolution-{{ issue.pk }}" name="resolution" minlength="3" maxlength="1000" required></textarea></label>
+                <label for="delivery-issue-resolution-{{ selected_delivery_issue.pk }}">Ghi chú xử lý<textarea id="delivery-issue-resolution-{{ selected_delivery_issue.pk }}" name="resolution" minlength="3" maxlength="1000" required placeholder="Ghi lại kết quả liên hệ hoặc hướng xử lý"></textarea></label>
                 <div class="manager-cancellation-actions">
-                  <button type="submit" name="decision" value="confirmed">Xác nhận khách đã nhận</button>
-                  <button type="submit" name="decision" value="redeliver">Tiếp tục giao hàng</button>
+                  {% if orders_view == "delivery_failures" %}
+                    <button type="submit" name="decision" value="contacted">Đã liên hệ · giao tiếp</button>
+                    <button type="submit" name="decision" value="redeliver">Giao lại</button>
+                    <button class="is-danger" type="submit" name="decision" value="cancelled">Hủy đơn</button>
+                  {% else %}
+                    <button type="submit" name="decision" value="confirmed">Xác nhận khách đã nhận</button>
+                    <button type="submit" name="decision" value="redeliver">Tiếp tục giao hàng</button>
+                  {% endif %}
                 </div>
+                {% if orders_view == "delivery_failures" and selected_delivery_issue.order.payment_method != "cod" %}<p class="manager-refund-note">Nếu hủy đơn đã thanh toán trực tuyến, hệ thống chỉ ghi nhận chờ hoàn tiền; cần xử lý hoàn tiền thủ công.</p>{% endif %}
               </form>
             </article>
-          {% empty %}
-            <p class="employee-empty-state">Không có khiếu nại giao hàng đang chờ xử lý.</p>
-          {% endfor %}
-          {% include "orders/employee_pagination.html" %}
+          {% else %}
+            <div class="manager-issue-detail manager-issue-detail-empty"><p>Chọn một đơn ở danh sách để xem chi tiết và ghi nhận cách xử lý.</p></div>
+          {% endif %}
+        </section>
+      {% elif is_manager and orders_view == "customer_care" %}
+        <form class="employee-workspace-search" method="get">
+          <input type="hidden" name="workspace" value="orders"><input type="hidden" name="view" value="customer_care">
+          <label class="visually-hidden" for="customer-care-search">Tìm khiếu nại hoặc yêu cầu đổi trả</label>
+          <input id="customer-care-search" type="search" name="q" value="{{ query }}" placeholder="Mã đơn hoặc nội dung yêu cầu">
+          <button type="submit">Tìm yêu cầu</button>
+        </form>
+        <section class="manager-issue-workspace" aria-label="Khiếu nại và yêu cầu đổi trả">
+          <div class="manager-issue-list">
+            <header><div><h2>Yêu cầu hậu mãi</h2><p>{{ page_obj.paginator.count|default:0 }} yêu cầu đang chờ</p></div></header>
+            <div class="manager-issue-list-items">
+              {% for care_request in care_request_rows %}
+                <a class="manager-issue-list-item{% if selected_care_request.pk == care_request.pk %} is-selected{% endif %}" href="?workspace=orders&view=customer_care&care_request={{ care_request.pk }}{% if query %}&q={{ query|urlencode }}{% endif %}"{% if selected_care_request.pk == care_request.pk %} aria-current="true"{% endif %}>
+                  <span><strong>{{ care_request.get_request_type_display }}</strong><small>{{ care_request.order.order_number }} · {{ care_request.requested_at|timesince }} trước</small></span>
+                  <span class="manager-issue-list-total">{{ care_request.order.total|floatformat:0 }}₫</span>
+                  <small class="manager-issue-list-summary">{{ care_request.details|truncatechars:72 }}</small>
+                </a>
+              {% empty %}
+                <p class="employee-empty-state">Không có khiếu nại hoặc yêu cầu đổi/trả đang chờ.</p>
+              {% endfor %}
+            </div>
+            {% include "orders/employee_pagination.html" %}
+          </div>
+          {% if selected_care_request %}
+            <article class="manager-issue-detail">
+              <header><div><span class="store-kicker">{{ selected_care_request.get_request_type_display|upper }}</span><h2>{{ selected_care_request.order.order_number }}</h2></div><span>{{ selected_care_request.requested_at|date:"d/m/Y H:i" }}</span></header>
+              <div class="manager-issue-detail-grid">
+                {% if selected_care_request.pii_visible_in_window %}
+                  <p><strong>Khách hàng</strong>{{ selected_care_request.order.customer_name }}</p>
+                  <p><strong>Điện thoại</strong><a href="tel:{{ selected_care_request.order.customer_phone }}">{{ selected_care_request.order.customer_phone }}</a></p>
+                  <p class="is-wide"><strong>Địa chỉ giao</strong>{{ selected_care_request.order.address }}, {{ selected_care_request.order.district }}, {{ selected_care_request.order.city }}</p>
+                {% else %}
+                  <p class="is-wide"><strong>Thông tin khách hàng</strong>Đã được ẩn sau thời hạn 7 ngày.</p>
+                  {% if selected_care_request.order.can_request_pii_access %}
+                    <p class="is-wide"><a href="{% url 'staff_orders:access_order_pii' selected_care_request.order.pk %}">Nhập lý do để mở thông tin có ghi nhật ký</a></p>
+                  {% elif selected_care_request.order.customer_pii_purged_at %}
+                    <p class="is-wide">Dữ liệu định danh đã được xóa theo thời hạn lưu trữ.</p>
+                  {% endif %}
+                {% endif %}
+                <p><strong>Trạng thái đơn</strong>{{ selected_care_request.order.get_status_display }}</p>
+                <p><strong>Thanh toán</strong>{{ selected_care_request.order.get_payment_method_display }} · {{ selected_care_request.order.get_refund_status_display }}</p>
+              </div>
+              <div class="manager-issue-detail-block">
+                <h3>Nội dung khách gửi</h3>
+                <p>{{ selected_care_request.details|linebreaksbr }}</p>
+              </div>
+              <div class="manager-issue-detail-block">
+                <h3>Món trong đơn</h3>
+                <ul>{% for item in selected_care_request.order.items.all %}<li>{{ item.product_name }} × {{ item.quantity }} <span>{{ item.line_total|floatformat:0 }}₫</span></li>{% empty %}<li>Không có thông tin món hàng.</li>{% endfor %}</ul>
+                <p class="manager-issue-order-total"><strong>Tổng đơn</strong><strong>{{ selected_care_request.order.total|floatformat:0 }}₫</strong></p>
+              </div>
+              <form class="manager-delivery-issue-resolution" action="{% url 'staff_orders:resolve_customer_care_request' selected_care_request.pk %}" method="post">
+                {% csrf_token %}
+                <label for="customer-care-resolution-{{ selected_care_request.pk }}">Ghi chú xử lý<textarea id="customer-care-resolution-{{ selected_care_request.pk }}" name="resolution_note" minlength="3" maxlength="1000" required placeholder="Ghi rõ kết quả kiểm tra và hướng xử lý"></textarea></label>
+                <div class="manager-cancellation-actions">
+                  <button type="submit" name="decision" value="approve">Chấp thuận yêu cầu</button>
+                  <button class="is-danger" type="submit" name="decision" value="reject">Từ chối yêu cầu</button>
+                </div>
+                {% if selected_care_request.request_type == "return" and selected_care_request.order.payment_method != "cod" %}<p class="manager-refund-note">Chấp thuận đổi/trả không tự động hoàn tiền; khoản đã thanh toán cần được xử lý thủ công.</p>{% endif %}
+              </form>
+            </article>
+          {% else %}
+            <div class="manager-issue-detail manager-issue-detail-empty"><p>Chọn một yêu cầu để xem nội dung và ghi nhận kết quả xử lý.</p></div>
+          {% endif %}
         </section>
       {% else %}
         <form class="employee-workspace-search" method="get">

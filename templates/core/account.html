@@ -183,6 +183,47 @@
                         <p class="customer-cancellation-notice">Bạn đã xác nhận tiếp tục nhận đơn.</p>
                       {% endif %}
 
+                      {% if row.care_requests %}
+                        <section class="customer-care-request-history" aria-label="Yêu cầu khiếu nại và đổi trả">
+                          {% for care_request in row.care_requests %}
+                            <p><strong>{{ care_request.get_request_type_display }}:</strong> {{ care_request.get_status_display }} · {{ care_request.requested_at|date:"d/m/Y H:i" }}</p>
+                            {% if care_request.resolution_note %}<p>{{ care_request.resolution_note }}</p>{% endif %}
+                          {% endfor %}
+                        </section>
+                      {% endif %}
+
+                      {% if order.status == "delivered" %}
+                        <section class="customer-care-request" aria-label="Khiếu nại và đổi trả">
+                          {% if row.care_window_open %}
+                            <p>Thời hạn khiếu nại và yêu cầu đổi/trả đến {{ row.care_deadline|date:"d/m/Y H:i" }} (trong vòng 7 ngày kể từ khi nhận hàng).</p>
+                            {% if row.return_request_rejected %}
+                              <p class="customer-cancellation-notice">Yêu cầu đổi/trả trước đó đã bị Quản lý từ chối. Đơn này không thể gửi thêm khiếu nại hoặc yêu cầu đổi/trả.</p>
+                            {% else %}
+                              {% if row.can_request_complaint %}
+                                <form action="{% url 'orders:customer_care_request' order.pk %}" method="post">
+                                  {% csrf_token %}
+                                  <input type="hidden" name="request_type" value="complaint">
+                                  <label for="order-complaint-{{ order.pk }}">Khiếu nại về đơn hàng</label>
+                                  <textarea id="order-complaint-{{ order.pk }}" name="details" minlength="3" maxlength="1000" required placeholder="Mô tả vấn đề bạn gặp phải"></textarea>
+                                  <button type="submit">Gửi khiếu nại</button>
+                                </form>
+                              {% endif %}
+                              {% if row.can_request_return %}
+                                <form action="{% url 'orders:customer_care_request' order.pk %}" method="post">
+                                  {% csrf_token %}
+                                  <input type="hidden" name="request_type" value="return">
+                                  <label for="order-return-{{ order.pk }}">Yêu cầu đổi/trả hàng</label>
+                                  <textarea id="order-return-{{ order.pk }}" name="details" minlength="3" maxlength="1000" required placeholder="Nêu sản phẩm cần đổi/trả và lý do"></textarea>
+                                  <button type="submit">Gửi yêu cầu đổi/trả</button>
+                                </form>
+                              {% endif %}
+                            {% endif %}
+                          {% else %}
+                            <p>Đã quá thời hạn 7 ngày kể từ khi nhận hàng; không thể gửi khiếu nại hoặc yêu cầu đổi/trả.</p>
+                          {% endif %}
+                        </section>
+                      {% endif %}
+
                       {% if order.status == "awaiting_confirmation" %}
                         <section class="customer-delivery-confirmation" aria-label="Xác nhận đã nhận hàng">
                           <p>Vui lòng xác nhận trong 3 phút. Nếu bạn chưa phản hồi, đơn sẽ tự động được xác nhận đã nhận.</p>

@@ -128,6 +128,8 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
+# Keep production media disabled unless an isolated demo explicitly opts in.
+SERVE_PRODUCT_MEDIA = env.bool("SERVE_PRODUCT_MEDIA", default=False)
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -152,6 +154,7 @@ MOMO_CREATE_PAYMENT_URL = env(
     "MOMO_CREATE_PAYMENT_URL",
     default="https://test-payment.momo.vn/v2/gateway/api/create",
 )
+MOMO_PUBLIC_BASE_URL = env("MOMO_PUBLIC_BASE_URL", default="")
 MOMO_ENABLED = bool(MOMO_PARTNER_CODE and MOMO_ACCESS_KEY and MOMO_SECRET_KEY)
 BANK_TRANSFER_BANK_CODE = env("BANK_TRANSFER_BANK_CODE", default="")
 BANK_TRANSFER_ACCOUNT_NUMBER = env("BANK_TRANSFER_ACCOUNT_NUMBER", default="")
@@ -186,6 +189,11 @@ if not DEBUG:
     CSRF_COOKIE_SECURE = env.bool("CSRF_COOKIE_SECURE", default=True)
     SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=False)
     SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=0)
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool(
+        "SECURE_HSTS_INCLUDE_SUBDOMAINS",
+        default=False,
+    )
+    SECURE_HSTS_PRELOAD = env.bool("SECURE_HSTS_PRELOAD", default=False)
     SECURE_CONTENT_TYPE_NOSNIFF = True
     if env.bool("USE_PROXY_SSL_HEADER", default=False):
         # Bật khi chạy sau Nginx/reverse proxy đã xử lý HTTPS
