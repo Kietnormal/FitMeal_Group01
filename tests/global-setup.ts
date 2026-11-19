@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, unlinkSync } from 'node:fs';
+import { existsSync, rmSync, unlinkSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 export default async function globalSetup() {
@@ -10,6 +10,7 @@ export default async function globalSetup() {
   if (existsSync(databasePath)) {
     unlinkSync(databasePath);
   }
+  rmSync(resolve(projectRoot, '.playwright-emails'), { recursive: true, force: true });
 
   const env = {
     ...process.env,

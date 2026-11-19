@@ -19,6 +19,7 @@ from .models import (
     SecurityPolicy,
     validate_avatar_size,
 )
+from .password_reset import check_code, find_user_for_reset
 from .security import is_ip_temporarily_blocked, record_blocked_login
 
 User = get_user_model()
@@ -368,3 +369,60 @@ class SecurityPolicyForm(forms.ModelForm):
     class Meta:
         model = SecurityPolicy
         fields = ("require_admin_2fa", "require_manager_2fa")
+
+
+class PasswordResetRequestForm(forms.Form):
+    email = forms.EmailField(label="Email", max_length=254)
+
+    def clean_email(self):
+        return self.cleaned_data["email"].strip().lower()
+
+
+class PasswordResetConfirmForm(forms.Form):
+    INVALID_CODE_MESSAGE = "Mã xác nhận không đúng hoặc đã hết hạn."
+
+    email = forms.EmailField(label="Email", max_length=254)
+    code = forms.RegexField(
+        label="Mã xác nhận",
+        regex=r"^\d{6}$",
+        error_messages={"invalid": "Mã xác nhận gồm 6 chữ số."},
+    )
+    new_password1 = forms.CharField(label="Mật khẩu mới", strip=False, widget=forms.PasswordInput)
+    new_password2 = forms.CharField(label="Nhập lại mật khẩu mới", strip=False, widget=forms.PasswordInput)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = None
+        self.reset_code = None
+
+    def clean_email(self):
+        return self.cleaned_data["email"].strip().lower()
+
+    def clean_code(self):
+        return self.cleaned_data["code"].strip()
+
+    def clean(self):
+        cleaned_data = super().clean()
+        email = cleaned_data.get("email")
+        code = cleaned_data.get("code")
+        password1 = cleaned_data.get("new_password1")
+        password2 = cleaned_data.get("new_password2")
+        if password1 and password2 and password1 != password2:
+            self.add_error("new_password2", "Mật khẩu nhập lại chưa khớp.")
+        if self.errors or not email or not code:
+            # Only spend one of the limited OTP attempts once the rest of the form is valid.
+            return cleaned_data
+
+        user = find_user_for_reset(email)
+        if user is not None:
+            try:
+                password_validation.validate_password(password1, user=user)
+            except ValidationError as error:
+                self.add_error("new_password1", error)
+                return cleaned_data
+        reset_code = check_code(user, code) if user is not None else None
+        if reset_code is None:
+            raise ValidationError(self.INVALID_CODE_MESSAGE)
+        self.user = user
+        self.reset_code = reset_code
+        return cleaned_data

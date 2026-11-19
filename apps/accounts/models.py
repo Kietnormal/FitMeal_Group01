@@ -220,3 +220,25 @@ class SecurityPolicy(models.Model):
 
     def __str__(self):
         return "Chính sách xác thực nhân viên"
+
+
+class PasswordResetCode(models.Model):
+    """One-time code e-mailed to a customer who forgot their password.
+
+    Only an HMAC of the code is stored, so a database dump does not reveal live codes.
+    """
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="password_reset_codes")
+    code_hash = models.CharField(max_length=64)
+    created_at = models.DateTimeField(default=timezone.now)
+    expires_at = models.DateTimeField()
+    failed_attempts = models.PositiveSmallIntegerField(default=0)
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Mã đặt lại mật khẩu"
+        verbose_name_plural = "Mã đặt lại mật khẩu"
+        indexes = [models.Index(fields=["user", "created_at"])]
+
+    def __str__(self):
+        return f"{self.user} · {self.created_at:%Y-%m-%d %H:%M}"

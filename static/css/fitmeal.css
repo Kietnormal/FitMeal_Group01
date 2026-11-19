@@ -611,6 +611,9 @@ button { cursor: pointer; }
 .account-form-panel { padding: 32px; }
 .account-form h2 { margin: 6px 0 4px; color: var(--fm-green-900); font-family: var(--fm-display); font-variation-settings: "SOFT" 100; font-size: 30px; font-weight: 600; letter-spacing: -.01em; }
 .account-form > p { color: var(--fm-muted); font-size: 15px; }
+[data-password-reset-request] .solid-button, [data-password-reset-confirm] .solid-button { margin-top: 18px; }
+.password-reset-resend { margin-top: 4px; }
+.password-reset-resend .text-button { padding: 0; border: 0; background: none; color: var(--fm-green-800); font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
 .account-tabs { padding: 4px; border-radius: 999px; background: var(--fm-rice); }
 .account-tab { border-radius: 999px; color: var(--fm-muted); font-size: 15px; font-weight: 500; }
 .account-tab.is-active { background: var(--fm-paper); color: var(--fm-green-900); font-weight: 600; box-shadow: var(--fm-shadow-card); }
