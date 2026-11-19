@@ -18,11 +18,11 @@
       <div class="bank-transfer-instructions">
         <img src="{{ bank_qr_url }}" alt="Mã QR chuyển khoản FitMeal">
         <div>
-          <p>Ngân hàng: <strong>{{ bank_code }}</strong></p>
+          <p>Ngân hàng: <strong>{{ bank_name }}</strong></p>
           <p>Số tài khoản: <strong>{{ account_number }}</strong></p>
           <p>Chủ tài khoản: <strong>{{ account_name }}</strong></p>
           <p>Số tiền: <strong>{{ payment.amount|vnd }}</strong></p>
-          <p>Nội dung chuyển khoản: <strong>{{ payment.bank_transfer_code }}</strong></p>
+          <p>Nội dung chuyển khoản: <strong>{{ transfer_content }}</strong></p>
           <p>Mã này có hiệu lực trong 24 giờ. Vui lòng chuyển đúng số tiền và nội dung để hệ thống tự đối soát.</p>
         </div>
       </div>

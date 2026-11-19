@@ -285,13 +285,38 @@ def verify_sepay_api_key(request):
     )
 
 
+BANK_DISPLAY_NAMES = {
+    "ACB": "ACB",
+    "BIDV": "BIDV",
+    "ICB": "VietinBank",
+    "MB": "MB Bank",
+    "STB": "Sacombank",
+    "TCB": "Techcombank",
+    "TPB": "TPBank",
+    "VBA": "Agribank",
+    "VCB": "Vietcombank",
+    "VPB": "VPBank",
+}
+
+
+def bank_display_name(bank_code=None):
+    code = (bank_code if bank_code is not None else settings.BANK_TRANSFER_BANK_CODE).strip()
+    return BANK_DISPLAY_NAMES.get(code.upper(), code)
+
+
+def bank_transfer_content(payment):
+    """Transfer note the customer must use; always contains the order's FM... code."""
+    prefix = settings.BANK_TRANSFER_CONTENT_PREFIX.strip()
+    return f"{prefix} {payment.bank_transfer_code}" if prefix else payment.bank_transfer_code
+
+
 def bank_transfer_qr_url(payment):
     bank = quote(settings.BANK_TRANSFER_BANK_CODE, safe="")
     account = quote(settings.BANK_TRANSFER_ACCOUNT_NUMBER, safe="")
     params = urlencode(
         {
             "amount": str(int(payment.amount)),
-            "addInfo": payment.bank_transfer_code,
+            "addInfo": bank_transfer_content(payment),
             "accountName": settings.BANK_TRANSFER_ACCOUNT_NAME,
         }
     )

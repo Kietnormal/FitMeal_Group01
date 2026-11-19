@@ -19,6 +19,8 @@ from apps.orders.inventory import restore_order_inventory
 from apps.orders.models import Order
 
 from .gateway import (
+    bank_display_name,
+    bank_transfer_content,
     bank_transfer_qr_url,
     expire_pending_payments,
     momo_payment_session_key,
@@ -452,6 +454,8 @@ def bank_transfer_instructions(request, transaction_ref):
             "payment": payment,
             "bank_qr_url": bank_transfer_qr_url(payment),
             "bank_code": settings.BANK_TRANSFER_BANK_CODE,
+            "bank_name": bank_display_name(),
+            "transfer_content": bank_transfer_content(payment),
             "account_number": settings.BANK_TRANSFER_ACCOUNT_NUMBER,
             "account_name": settings.BANK_TRANSFER_ACCOUNT_NAME,
             "payment_status_url": reverse(

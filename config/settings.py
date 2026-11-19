@@ -159,6 +159,9 @@ MOMO_ENABLED = bool(MOMO_PARTNER_CODE and MOMO_ACCESS_KEY and MOMO_SECRET_KEY)
 BANK_TRANSFER_BANK_CODE = env("BANK_TRANSFER_BANK_CODE", default="")
 BANK_TRANSFER_ACCOUNT_NUMBER = env("BANK_TRANSFER_ACCOUNT_NUMBER", default="")
 BANK_TRANSFER_ACCOUNT_NAME = env("BANK_TRANSFER_ACCOUNT_NAME", default="")
+# Some banks only report incoming transfers to SePay when the transfer note starts with a
+# keyword (VietinBank requires "SEVQR"). It is prepended to the order's transfer code.
+BANK_TRANSFER_CONTENT_PREFIX = env("BANK_TRANSFER_CONTENT_PREFIX", default="").strip()
 SEPAY_API_KEY = env("SEPAY_API_KEY", default="")
 BANK_TRANSFER_ENABLED = bool(
     BANK_TRANSFER_BANK_CODE

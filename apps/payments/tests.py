@@ -16,6 +16,7 @@ from apps.products.models import Product
 
 from .gateway import (
     PaymentGatewayError,
+    bank_transfer_qr_url,
     create_bank_transfer_payment,
     create_momo_payment,
     create_vnpay_payment,
@@ -552,3 +553,60 @@ class NewPaymentMethodTests(TestCase):
             PaymentTransaction.objects.filter(status=PaymentTransaction.Status.PAID).count(),
             1,
         )
+
+
+@override_settings(
+    BANK_TRANSFER_ENABLED=True,
+    BANK_TRANSFER_BANK_CODE="ICB",
+    BANK_TRANSFER_ACCOUNT_NUMBER="102881923455",
+    BANK_TRANSFER_ACCOUNT_NAME="FITMEAL DEMO",
+    BANK_TRANSFER_CONTENT_PREFIX="SEVQR",
+    SEPAY_API_KEY="test-sepay-key",
+)
+class BankTransferContentPrefixTests(TestCase):
+    def create_payment(self):
+        order = Order.objects.create(
+            customer_name="Khách",
+            customer_email="khach@example.com",
+            customer_phone="0901234567",
+            address="1 Đường A",
+            district="Quận 1",
+            city="TP Hồ Chí Minh",
+            delivery_date=timezone.localdate() + timedelta(days=1),
+            delivery_slot=Order.DeliverySlot.MORNING,
+            payment_method=Order.PaymentMethod.BANK_TRANSFER,
+            subtotal=Decimal("60000.00"),
+            shipping_fee=Decimal("0.00"),
+            total=Decimal("60000.00"),
+        )
+        payment, _ = create_bank_transfer_payment(order, RequestFactory().get("/checkout/"))
+        return payment
+
+    def test_instructions_and_qr_use_the_bank_keyword_prefix(self):
+        payment = self.create_payment()
+
+        response = Client().get(reverse("payments:bank_transfer_instructions", args=[payment.transaction_ref]))
+
+        self.assertContains(response, f"SEVQR {payment.bank_transfer_code}")
+        self.assertContains(response, "VietinBank")
+        self.assertIn(f"addInfo=SEVQR+{payment.bank_transfer_code}", bank_transfer_qr_url(payment))
+
+    def test_webhook_with_prefixed_content_marks_payment_paid(self):
+        for content in ("SEVQR {code}", "SEVQR{code} chuyen tien"):
+            with self.subTest(content=content):
+                payment = self.create_payment()
+                response = Client().post(
+                    reverse("payments:sepay_webhook"),
+                    data=json.dumps({
+                        "id": f"tx-{payment.pk}",
+                        "accountNumber": "102881923455",
+                        "content": content.format(code=payment.bank_transfer_code),
+                        "transferType": "in",
+                        "transferAmount": 60000,
+                    }),
+                    content_type="application/json",
+                    HTTP_AUTHORIZATION="Apikey test-sepay-key",
+                )
+                self.assertEqual(response.status_code, 200)
+                payment.refresh_from_db()
+                self.assertEqual(payment.status, PaymentTransaction.Status.PAID)
