@@ -76,6 +76,7 @@ function dryGoodsOnly(cart) {
 }
 
 function shippingFeeFor(subtotal, cart = readCart(), city = "") {
+  if (document.querySelector("[data-shipping-fees]")?.dataset.shippingFees === "off") return 0;
   if (!subtotal || !cart.length) return 0;
   if (dryGoodsOnly(cart)) {
     const weight = cart.reduce((sum, item) =>

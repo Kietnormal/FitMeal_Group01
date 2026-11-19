@@ -27,7 +27,8 @@
     <span class="store-kicker">Nhận hàng</span>
     <h2>Giao hàng</h2>
     <p>Đồ ăn và thức uống tươi chỉ giao trong TP. Hồ Chí Minh. Đồ khô có thể giao toàn quốc, thời gian dự kiến từ 1–5 ngày; đơn vị vận chuyển tự sắp xếp thời gian giao.</p>
-    <p>Phí đồ khô được ước tính theo tổng khối lượng và khu vực nhận: tối đa 1 kg đầu là 20.000₫ tại TP. Hồ Chí Minh hoặc 30.000₫ tại tỉnh/thành khác; mỗi 500 g tiếp theo lần lượt cộng 5.000₫ hoặc 10.000₫. Phí đồ tươi là 20.000₫ và miễn phí khi tạm tính từ 300.000₫.</p>
+    {% if not shipping_fees_enabled %}<p><strong>Hiện FitMeal đang miễn phí giao hàng cho mọi đơn.</strong> Biểu phí dưới đây sẽ áp dụng khi chương trình kết thúc.</p>
+    {% endif %}<p>Phí đồ khô được ước tính theo tổng khối lượng và khu vực nhận: tối đa 1 kg đầu là 20.000₫ tại TP. Hồ Chí Minh hoặc 30.000₫ tại tỉnh/thành khác; mỗi 500 g tiếp theo lần lượt cộng 5.000₫ hoặc 10.000₫. Phí đồ tươi là 20.000₫ và miễn phí khi tạm tính từ 300.000₫.</p>
     <p class="policy-note">Biểu phí trên là mức cấu hình ban đầu trong hệ thống; cửa hàng cần đối chiếu với cước thực tế của đơn vị vận chuyển trước khi áp dụng bán hàng.</p>
     <p>Vui lòng cung cấp đúng địa chỉ và thông tin liên hệ. Tình trạng còn hàng được kiểm tra khi đặt; ngày hết hạn sử dụng cần được quản lý và cập nhật theo từng sản phẩm.</p>
   </section>

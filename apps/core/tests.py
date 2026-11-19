@@ -51,7 +51,7 @@ class CoreViewsTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "data-product-grid")
-        self.assertContains(response, "storefront.js?v=20261120-payment-success-1")
+        self.assertContains(response, "storefront.js?v=20261120-free-shipping-1")
         self.assertContains(response, "storefront.css?v=20261118-redesign-1")
         self.assertNotContains(response, "Banana Whey")
         self.assertNotContains(response, "Granola Crunch")
@@ -172,6 +172,17 @@ class CoreViewsTests(TestCase):
         self.assertNotContains(response, 'name="payment" value="vnpay"')
         self.assertNotContains(response, "VNPay")
         self.assertNotContains(response, 'class="solid-button submit-order" type="submit" disabled')
+
+    def test_storefront_announces_free_shipping_while_fees_are_disabled(self):
+        with override_settings(SHIPPING_FEES_ENABLED=False):
+            response = self.client.get(reverse("core:shop"))
+        self.assertContains(response, "Miễn phí giao hàng cho mọi đơn")
+        self.assertContains(response, 'data-shipping-fees="off"')
+
+        with override_settings(SHIPPING_FEES_ENABLED=True):
+            response = self.client.get(reverse("core:shop"))
+        self.assertContains(response, "Miễn phí giao đồ tươi cho đơn từ 300.000₫")
+        self.assertContains(response, 'data-shipping-fees="on"')
 
     def test_checkout_renders_delivery_dates_in_shop_timezone(self):
         # 17:30 UTC on Nov 18 is already 00:30 on Nov 19 in Asia/Ho_Chi_Minh, so

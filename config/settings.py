@@ -71,6 +71,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "apps.core.context_processors.shop_settings",
             ],
         },
     },
@@ -163,6 +164,9 @@ BANK_TRANSFER_ACCOUNT_NAME = env("BANK_TRANSFER_ACCOUNT_NAME", default="")
 # keyword (VietinBank requires "SEVQR"). It is prepended to the order's transfer code.
 BANK_TRANSFER_CONTENT_PREFIX = env("BANK_TRANSFER_CONTENT_PREFIX", default="").strip()
 SEPAY_API_KEY = env("SEPAY_API_KEY", default="")
+# Shipping fees are temporarily switched off: every order ships free. Set
+# SHIPPING_FEES_ENABLED=True in .env to charge the rates in apps/orders/shipping.py again.
+SHIPPING_FEES_ENABLED = env.bool("SHIPPING_FEES_ENABLED", default=False)
 BANK_TRANSFER_ENABLED = bool(
     BANK_TRANSFER_BANK_CODE
     and BANK_TRANSFER_ACCOUNT_NUMBER

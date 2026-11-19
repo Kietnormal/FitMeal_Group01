@@ -37,6 +37,7 @@ from .privacy import purge_expired_order_pii
     BANK_TRANSFER_ACCOUNT_NUMBER="123456789",
     BANK_TRANSFER_ACCOUNT_NAME="FITMEAL",
     SEPAY_API_KEY="test-sepay-key",
+    SHIPPING_FEES_ENABLED=True,
 )
 class OrderApiTests(TestCase):
     def setUp(self):
@@ -250,6 +251,23 @@ class OrderApiTests(TestCase):
         self.assertEqual(restock_request.status, InventoryRestockRequest.Status.CANCELLED)
         self.assertEqual(product.stock_quantity, 0)
         send_mail.assert_called_once()
+
+    @override_settings(SHIPPING_FEES_ENABLED=False)
+    def test_shipping_is_free_for_every_order_while_fees_are_disabled(self):
+        dry_product = self.create_dry_product(slug="dry-free-ship", stock_quantity=10)
+        fresh = self.post_order()
+        dry = self.post_order({
+            **self.payload,
+            "city": "Hà Nội",
+            "delivery_slot": Order.DeliverySlot.COURIER,
+            "items": [{"id": dry_product.slug, "quantity": 3}],
+        })
+
+        self.assertEqual(fresh.status_code, 201, fresh.content)
+        self.assertEqual(dry.status_code, 201, dry.content)
+        for order in Order.objects.all():
+            self.assertEqual(order.shipping_fee, Decimal("0.00"))
+            self.assertEqual(order.total, order.subtotal)
 
     def test_create_order_ignores_client_price_and_applies_free_shipping_threshold(self):
         self.product.price = Decimal("150000.00")

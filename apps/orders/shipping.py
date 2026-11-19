@@ -2,6 +2,8 @@ import re
 import unicodedata
 from decimal import Decimal
 
+from django.conf import settings
+
 from apps.products.models import Product
 
 FREE_SHIPPING_THRESHOLD = Decimal("300000.00")
@@ -49,6 +51,8 @@ def calculate_dry_goods_shipping(total_weight_grams, destination_city):
 
 
 def calculate_order_shipping(subtotal, quantities, products, destination_city):
+    if not settings.SHIPPING_FEES_ENABLED:
+        return Decimal("0.00")
     items = [products[slug] for slug in quantities]
     dry_goods_only = all(product.category == Product.Category.DRY_GOODS for product in items)
     has_dry_goods = any(product.category == Product.Category.DRY_GOODS for product in items)

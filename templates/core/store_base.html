@@ -2,12 +2,12 @@
 {% load static %}
 {% block extra_css %}<link rel="stylesheet" href="{% static 'css/storefront.css' %}?v=20261118-redesign-1">{% endblock %}
 {% block content %}
-<div class="store-shell{% if active_page == 'checkout' %} checkout-shell{% endif %}" data-food-images="{% static 'img/food/' %}">
+<div class="store-shell{% if active_page == 'checkout' %} checkout-shell{% endif %}" data-food-images="{% static 'img/food/' %}" data-shipping-fees="{% if shipping_fees_enabled %}on{% else %}off{% endif %}">
   <a class="fm-skip" href="#noi-dung">Bỏ qua điều hướng</a>
   <div class="fm-util" data-announcement-banner>
     <div class="fm-wrap fm-util-row">
       <p><svg class="fm-i" aria-hidden="true"><use href="#fm-clock"/></svg>Nhận đơn 6:00–21:00 mỗi ngày</p>
-      <p><svg class="fm-i" aria-hidden="true"><use href="#fm-truck"/></svg>Miễn phí giao đồ tươi cho đơn từ 300.000₫</p>
+      <p><svg class="fm-i" aria-hidden="true"><use href="#fm-truck"/></svg>{% if shipping_fees_enabled %}Miễn phí giao đồ tươi cho đơn từ 300.000₫{% else %}Miễn phí giao hàng cho mọi đơn{% endif %}</p>
       <p><svg class="fm-i" aria-hidden="true"><use href="#fm-box"/></svg>Đồ khô giao toàn quốc</p>
       <a href="{% url 'core:policies' %}#delivery">Xem khung giờ giao</a>
     </div>
