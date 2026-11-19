@@ -1,4 +1,5 @@
 import re
+from unittest.mock import patch
 from datetime import timedelta
 from decimal import Decimal
 
@@ -999,6 +1000,17 @@ class PasswordResetTests(TestCase):
         if first_code != second_code:
             self.assertContains(self.confirm(first_code), "Mã xác nhận không đúng hoặc đã hết hạn.")
         self.assertRedirects(self.confirm(second_code), f"{reverse('core:account')}#login", fetch_redirect_response=False)
+
+    def test_failed_email_send_lets_customer_retry_immediately(self):
+        with patch("apps.accounts.views.send_code_email", side_effect=OSError("smtp down")):
+            response = self.request_code()
+        self.assertContains(response, "Chưa gửi được email.")
+        self.assertFalse(self.user.password_reset_codes.exists())
+
+        self.request_code()
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertRedirects(self.confirm(self.code_from_last_email()), f"{reverse('core:account')}#login", fetch_redirect_response=False)
 
     def test_reset_logs_out_existing_sessions(self):
         other_device = Client()

@@ -249,7 +249,9 @@ def password_reset_request(request):
                 send_code_email(user, code)
             except Exception:
                 logger.exception("Could not send password reset code to user %s", user.pk)
-                user.password_reset_codes.filter(used_at__isnull=True).update(expires_at=timezone.now())
+                # The code never reached the customer: drop it so it neither works nor
+                # counts towards the resend cooldown, and the customer can retry right away.
+                user.password_reset_codes.filter(used_at__isnull=True).order_by("-created_at")[:1].get().delete()
                 messages.error(request, "Chưa gửi được email. Vui lòng thử lại sau ít phút.")
                 return render(request, "accounts/password_reset_request.html", {"form": form})
         request.session[PASSWORD_RESET_SESSION_KEY] = email
