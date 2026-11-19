@@ -8,7 +8,7 @@
       data-status-url="{{ payment_status_url }}"
     {% endif %}
   >
-    <span class="store-kicker">THANH TOÁN {{ payment_provider|upper }}</span>
+    <span class="store-kicker">Thanh toán {{ payment_provider }}</span>
     {% if not signature_valid %}
       <h1>Đang chờ xác nhận thanh toán.</h1>
       <p>Hệ thống chỉ cập nhật đơn sau khi nhận được thông báo xác thực từ {{ payment_provider }}.</p>

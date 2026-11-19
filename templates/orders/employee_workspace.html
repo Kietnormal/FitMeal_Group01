@@ -1,22 +1,22 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static fitmeal %}
 {% block title %}{{ workspace_title }} — FitMeal{% endblock %}
 {% block extra_css %}<link rel="stylesheet" href="{% static 'css/storefront.css' %}?v=20261117-report-chart-4">{% endblock %}
 {% block content %}
 <div class="employee-workspace-shell{% if active_workspace == 'reports' %} is-report-workspace{% endif %}" {% if active_workspace == "work" or active_workspace == "orders" or active_workspace == "menu" or active_workspace == "inventory" %}data-auto-refresh{% endif %}>
   <aside class="employee-workspace-sidebar">
     <a class="employee-workspace-brand" href="{% url 'staff_orders:dashboard' %}?workspace=work">
-      <span class="employee-workspace-brand-icon">F</span>
+      <span class="employee-workspace-brand-icon"><svg class="fm-i" aria-hidden="true"><use href="#fm-leaf"/></svg></span>
       <span><strong>FitMeal</strong><small>KHU VỰC NHÂN VIÊN</small></span>
     </a>
-    <span class="employee-workspace-nav-label">VẬN HÀNH</span>
+    <span class="employee-workspace-nav-label">Vận hành</span>
     <nav class="employee-workspace-nav" aria-label="Công việc">
       <a class="{% if active_workspace == 'work' %}is-active{% endif %}" href="?workspace=work"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M5 4h3v16H5zM10 6h4v12h-4zM16 8h3v8h-3z"/></svg></span>Ca làm hôm nay{% if pending_count %}<b>{{ pending_count }}</b>{% endif %}</a>
       <a class="{% if active_workspace == 'orders' %}is-active{% endif %}" href="?workspace=orders{% if is_manager %}&view=cancellations{% endif %}"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M6 3.5h12v17l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5-2 1.5z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span>{% if is_manager %}Đơn hàng & xử lý{% else %}Tra cứu đơn hàng{% endif %}{% if is_manager %}{% with cancellation_badge_count=pending_cancellation_count|add:contact_cancellation_count|add:pending_delivery_failure_count|add:pending_customer_complaint_count|add:pending_customer_care_count %}{% if cancellation_badge_count %}<b>{{ cancellation_badge_count }}</b>{% endif %}{% endwith %}{% elif contact_cancellation_count %}<b>{{ contact_cancellation_count }}</b>{% endif %}</a>
       <a class="{% if active_workspace == 'customers' %}is-active{% endif %}" href="?workspace=customers"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="9" cy="8" r="3"/><path d="M3.5 20v-1.5a5.5 5.5 0 0 1 11 0V20zM16 5.5a3 3 0 0 1 0 5.8M18 14a4.5 4.5 0 0 1 2.5 4v2"/></svg></span>Khách hàng</a>
     </nav>
     {% if is_manager %}
-      <span class="employee-workspace-nav-label">CỬA HÀNG</span>
+      <span class="employee-workspace-nav-label">Cửa hàng</span>
       <nav class="employee-workspace-nav" aria-label="Quản lý cửa hàng">
         <a class="{% if active_workspace == 'menu' %}is-active{% endif %}" href="?workspace=menu"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path d="m4.5 7.8 7.5 4.3 7.5-4.3M12 12v8.5"/></svg></span>Thực đơn & giá</a>
         <a class="{% if active_workspace == 'inventory' %}is-active{% endif %}" href="?workspace=inventory"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M4 7h16v13H4zM4 7l2-4h12l2 4"/><path d="M9 11v5M15 11v5"/></svg></span>Kho hàng{% if product_stats.low or product_stats.out or pending_inventory_restock_count %}<b>{{ product_stats.low|add:product_stats.out|add:pending_inventory_restock_count }}</b>{% endif %}</a>
@@ -24,12 +24,12 @@
         <a class="{% if active_workspace == 'activity' %}is-active{% endif %}" href="?workspace=activity"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M3 12h4l2.2-6 4.2 12 2.3-6H21"/></svg></span>Nhật ký hoạt động</a>
       </nav>
     {% else %}
-      <span class="employee-workspace-nav-label">CỬA HÀNG</span>
+      <span class="employee-workspace-nav-label">Cửa hàng</span>
       <nav class="employee-workspace-nav" aria-label="Thực đơn">
         <a class="{% if active_workspace == 'menu' %}is-active{% endif %}" href="?workspace=menu"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path d="m4.5 7.8 7.5 4.3 7.5-4.3M12 12v8.5"/></svg></span>Thực đơn{% if inventory_restock_alert_count %}<b>{{ inventory_restock_alert_count }}</b>{% else %}<small>chỉ xem</small>{% endif %}</a>
       </nav>
     {% endif %}
-    <span class="employee-workspace-nav-label">TÀI KHOẢN</span>
+    <span class="employee-workspace-nav-label">Tài khoản</span>
     <nav class="employee-workspace-nav" aria-label="Tài khoản">
       <a class="{% if active_workspace == 'profile' %}is-active{% endif %}" href="?workspace=profile"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="7.5" r="3.2"/><path d="M5.5 20v-1.7a6.5 6.5 0 0 1 13 0V20"/></svg></span>Hồ sơ của tôi</a>
       <a href="{% url 'core:home' %}"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M13 5h6v6M19 5l-9 9"/><path d="M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/></svg></span>Xem cửa hàng</a>
@@ -55,7 +55,7 @@
 
     {% if active_workspace == "work" %}
       <header class="employee-workspace-heading">
-        <div><span class="store-kicker">CA LÀM · {% now "l, d/m/Y" %}</span><h1>Chào {{ request.user.first_name|default:request.user.username }}, đây là đơn cần xử lý</h1></div>
+        <div><span class="store-kicker">Ca làm {% now "l, d/m/Y" %}</span><h1>Chào {{ request.user.first_name|default:request.user.username }}, đây là đơn cần xử lý</h1></div>
         <span class="employee-refresh-status"><i></i>Tự làm mới mỗi 30 giây</span>
       </header>
       <section class="employee-workspace-stats" aria-label="Tổng quan ca làm">
@@ -95,7 +95,7 @@
 
     {% elif active_workspace == "orders" %}
       <header class="employee-workspace-heading">
-        <div><span class="store-kicker">VẬN HÀNH BÁN HÀNG</span><h1>{% if is_manager %}Đơn hàng &amp; xử lý{% else %}Tra cứu đơn hàng{% endif %}</h1><p>{% if is_manager and orders_view == "cancellations" %}Duyệt hoặc từ chối các yêu cầu đang chờ.{% elif is_manager and orders_view == "delivery_failures" %}Theo dõi đơn giao không thành công và ghi nhận hướng xử lý.{% elif is_manager and orders_view == "delivery_issues" %}Tiếp nhận và xử lý phản hồi của khách về việc giao hàng.{% elif is_manager and orders_view == "customer_care" %}Xử lý khiếu nại và yêu cầu đổi/trả trong thời hạn chính sách.{% else %}Tìm theo mã đơn, tên hoặc số điện thoại người nhận.{% endif %}</p></div>
+        <div><span class="store-kicker">Vận hành bán hàng</span><h1>{% if is_manager %}Đơn hàng &amp; xử lý{% else %}Tra cứu đơn hàng{% endif %}</h1><p>{% if is_manager and orders_view == "cancellations" %}Duyệt hoặc từ chối các yêu cầu đang chờ.{% elif is_manager and orders_view == "delivery_failures" %}Theo dõi đơn giao không thành công và ghi nhận hướng xử lý.{% elif is_manager and orders_view == "delivery_issues" %}Tiếp nhận và xử lý phản hồi của khách về việc giao hàng.{% elif is_manager and orders_view == "customer_care" %}Xử lý khiếu nại và yêu cầu đổi/trả trong thời hạn chính sách.{% else %}Tìm theo mã đơn, tên hoặc số điện thoại người nhận.{% endif %}</p></div>
       </header>
       {% include "orders/_employee_cancellation_contact_queue.html" %}
       {% if is_manager %}
@@ -117,11 +117,11 @@
         <section class="manager-cancellation-review-list" aria-label="Yêu cầu hủy đang chờ">
           {% for cancellation in cancellation_request_rows %}
             <article class="manager-cancellation-card">
-              <header><div><span class="store-kicker">YÊU CẦU {{ cancellation.get_source_display|upper }}</span><h2>{{ cancellation.order.order_number }}</h2></div><span>{{ cancellation.requested_at|timesince }} trước</span></header>
+              <header><div><span class="store-kicker">Yêu cầu {{ cancellation.get_source_display|lower }}</span><h2>{{ cancellation.order.order_number }}</h2></div><span>{{ cancellation.requested_at|timesince }} trước</span></header>
               <div class="manager-cancellation-order-info">
                 <p><strong>Khách hàng</strong>{{ cancellation.order.customer_name }} · <a href="tel:{{ cancellation.order.customer_phone }}">{{ cancellation.order.customer_phone }}</a></p>
                 <p><strong>Tình trạng bếp</strong>{{ cancellation.order.get_status_display }}</p>
-                <p><strong>Số tiền</strong>{{ cancellation.order.total|floatformat:0 }}₫</p>
+                <p><strong>Số tiền</strong>{{ cancellation.order.total|vnd }}</p>
               </div>
               <p class="manager-cancellation-reason"><strong>Lý do khách / nhân viên:</strong> {{ cancellation.reason }}</p>
               {% if cancellation.contact_attempts %}
@@ -159,7 +159,7 @@
               {% for issue in delivery_issue_rows %}
                 <a class="manager-issue-list-item{% if selected_delivery_issue.pk == issue.pk %} is-selected{% endif %}" href="?workspace=orders&view={{ orders_view }}&issue={{ issue.pk }}{% if query %}&q={{ query|urlencode }}{% endif %}"{% if selected_delivery_issue.pk == issue.pk %} aria-current="true"{% endif %}>
                   <span><strong>{{ issue.order.order_number }}</strong><small>{{ issue.order.customer_name }} · {{ issue.reported_at|timesince }} trước</small></span>
-                  <span class="manager-issue-list-total">{{ issue.order.total|floatformat:0 }}₫</span>
+                  <span class="manager-issue-list-total">{{ issue.order.total|vnd }}</span>
                   <small class="manager-issue-list-summary">{{ issue.details|truncatechars:72 }}</small>
                 </a>
               {% empty %}
@@ -170,7 +170,7 @@
           </div>
           {% if selected_delivery_issue %}
             <article class="manager-issue-detail">
-              <header><div><span class="store-kicker">{% if orders_view == "delivery_failures" %}GIAO HÀNG THẤT BẠI{% else %}KHÁCH BÁO CHƯA NHẬN HÀNG{% endif %}</span><h2>{{ selected_delivery_issue.order.order_number }}</h2></div><span>{{ selected_delivery_issue.reported_at|date:"d/m/Y H:i" }}</span></header>
+              <header><div><span class="store-kicker">{% if orders_view == "delivery_failures" %}Giao hàng thất bại{% else %}Khách báo chưa nhận hàng{% endif %}</span><h2>{{ selected_delivery_issue.order.order_number }}</h2></div><span>{{ selected_delivery_issue.reported_at|date:"d/m/Y H:i" }}</span></header>
               <div class="manager-issue-detail-grid">
                 <p><strong>Khách hàng</strong>{{ selected_delivery_issue.order.customer_name }}</p>
                 <p><strong>Điện thoại</strong><a href="tel:{{ selected_delivery_issue.order.customer_phone }}">{{ selected_delivery_issue.order.customer_phone }}</a></p>
@@ -184,8 +184,8 @@
               </div>
               <div class="manager-issue-detail-block">
                 <h3>Món trong đơn</h3>
-                <ul>{% for item in selected_delivery_issue.order.items.all %}<li>{{ item.product_name }} × {{ item.quantity }} <span>{{ item.line_total|floatformat:0 }}₫</span></li>{% empty %}<li>Không có thông tin món hàng.</li>{% endfor %}</ul>
-                <p class="manager-issue-order-total"><strong>Tổng đơn</strong><strong>{{ selected_delivery_issue.order.total|floatformat:0 }}₫</strong></p>
+                <ul>{% for item in selected_delivery_issue.order.items.all %}<li>{{ item.product_name }} × {{ item.quantity }} <span>{{ item.line_total|vnd }}</span></li>{% empty %}<li>Không có thông tin món hàng.</li>{% endfor %}</ul>
+                <p class="manager-issue-order-total"><strong>Tổng đơn</strong><strong>{{ selected_delivery_issue.order.total|vnd }}</strong></p>
               </div>
               <form class="manager-delivery-issue-resolution" action="{% url 'staff_orders:resolve_delivery_issue' selected_delivery_issue.pk %}" method="post">
                 {% csrf_token %}
@@ -221,7 +221,7 @@
               {% for care_request in care_request_rows %}
                 <a class="manager-issue-list-item{% if selected_care_request.pk == care_request.pk %} is-selected{% endif %}" href="?workspace=orders&view=customer_care&care_request={{ care_request.pk }}{% if query %}&q={{ query|urlencode }}{% endif %}"{% if selected_care_request.pk == care_request.pk %} aria-current="true"{% endif %}>
                   <span><strong>{{ care_request.get_request_type_display }}</strong><small>{{ care_request.order.order_number }} · {{ care_request.requested_at|timesince }} trước</small></span>
-                  <span class="manager-issue-list-total">{{ care_request.order.total|floatformat:0 }}₫</span>
+                  <span class="manager-issue-list-total">{{ care_request.order.total|vnd }}</span>
                   <small class="manager-issue-list-summary">{{ care_request.details|truncatechars:72 }}</small>
                 </a>
               {% empty %}
@@ -232,7 +232,7 @@
           </div>
           {% if selected_care_request %}
             <article class="manager-issue-detail">
-              <header><div><span class="store-kicker">{{ selected_care_request.get_request_type_display|upper }}</span><h2>{{ selected_care_request.order.order_number }}</h2></div><span>{{ selected_care_request.requested_at|date:"d/m/Y H:i" }}</span></header>
+              <header><div><span class="store-kicker">{{ selected_care_request.get_request_type_display }}</span><h2>{{ selected_care_request.order.order_number }}</h2></div><span>{{ selected_care_request.requested_at|date:"d/m/Y H:i" }}</span></header>
               <div class="manager-issue-detail-grid">
                 {% if selected_care_request.pii_visible_in_window %}
                   <p><strong>Khách hàng</strong>{{ selected_care_request.order.customer_name }}</p>
@@ -255,8 +255,8 @@
               </div>
               <div class="manager-issue-detail-block">
                 <h3>Món trong đơn</h3>
-                <ul>{% for item in selected_care_request.order.items.all %}<li>{{ item.product_name }} × {{ item.quantity }} <span>{{ item.line_total|floatformat:0 }}₫</span></li>{% empty %}<li>Không có thông tin món hàng.</li>{% endfor %}</ul>
-                <p class="manager-issue-order-total"><strong>Tổng đơn</strong><strong>{{ selected_care_request.order.total|floatformat:0 }}₫</strong></p>
+                <ul>{% for item in selected_care_request.order.items.all %}<li>{{ item.product_name }} × {{ item.quantity }} <span>{{ item.line_total|vnd }}</span></li>{% empty %}<li>Không có thông tin món hàng.</li>{% endfor %}</ul>
+                <p class="manager-issue-order-total"><strong>Tổng đơn</strong><strong>{{ selected_care_request.order.total|vnd }}</strong></p>
               </div>
               <form class="manager-delivery-issue-resolution" action="{% url 'staff_orders:resolve_customer_care_request' selected_care_request.pk %}" method="post">
                 {% csrf_token %}
@@ -291,7 +291,7 @@
 
     {% elif active_workspace == "customers" %}
       <header class="employee-workspace-heading">
-        <div><span class="store-kicker">CHĂM SÓC KHÁCH HÀNG</span><h1>Khách hàng</h1><p>Thông tin tài khoản khách đã đăng ký.</p></div>
+        <div><span class="store-kicker">Chăm sóc khách hàng</span><h1>Khách hàng</h1><p>Thông tin tài khoản khách đã đăng ký.</p></div>
       </header>
       <form class="employee-workspace-search" method="get">
         <input type="hidden" name="workspace" value="customers">
@@ -310,7 +310,7 @@
                   <td>{{ customer.email|default:"—" }}</td>
                   <td>{{ customer.masked_phone }}</td>
                   <td>{{ customer.order_count }}</td>
-                  <td>{{ customer.order_value|default:0|floatformat:0 }}₫</td>
+                  <td>{{ customer.order_value|default:0|vnd }}</td>
                 </tr>
               {% empty %}
                 <tr><td colspan="5">Chưa có khách hàng phù hợp.</td></tr>
@@ -323,7 +323,7 @@
 
     {% elif active_workspace == "menu" and is_manager %}
       <header class="employee-workspace-heading manager-workspace-heading">
-        <div><span class="store-kicker">CỬA HÀNG</span><h1>Thực đơn &amp; giá</h1><p>Bật tắt món, sửa giá. Chỉ đồ khô quản lý tồn kho; món tươi được chuẩn bị sau khi nhận đơn.</p></div>
+        <div><span class="store-kicker">Cửa hàng</span><h1>Thực đơn &amp; giá</h1><p>Bật tắt món, sửa giá. Chỉ đồ khô quản lý tồn kho; món tươi được chuẩn bị sau khi nhận đơn.</p></div>
         <a class="manager-add-product-link" href="{% url 'staff_orders:create_product' %}">＋ Thêm món mới</a>
       </header>
       <section class="manager-product-stats" aria-label="Tình trạng thực đơn">
@@ -358,7 +358,7 @@
                       <span><strong>{{ row.product.name }}</strong><small>{{ row.product.get_category_display }}{% if row.product.category == "dry_goods" %} · {{ row.product.shipping_weight_grams }} g{% if row.product.expiry_date %} · HSD {{ row.product.expiry_date|date:"d/m/Y" }}{% endif %}{% endif %}</small></span>
                     </a></td>
                     <td>{{ row.product.calories }} kcal · {{ row.product.protein|floatformat:0 }}g đạm</td>
-                    <td><strong>{{ row.product.price|floatformat:0 }}₫</strong></td>
+                    <td><strong>{{ row.product.price|vnd }}</strong></td>
                     <td><span class="manager-stock-state is-{{ row.inventory_status }}">
                       {% if row.inventory_status == "made-to-order" %}Làm sau khi đặt
                       {% elif row.inventory_status == "unknown" %}Chưa nhập
@@ -392,7 +392,7 @@
             <section class="manager-price-history">
               <h3>Lịch sử giá</h3>
               {% for event in price_history %}
-                <p><time>{{ event.created_at|date:"d/m/Y H:i" }}</time><strong>{% if event.old_value %}{{ event.old_value|floatformat:0 }}₫ → {% endif %}{{ event.new_value|floatformat:0 }}₫</strong><small>{{ event.actor.get_full_name|default:event.actor.username|default:"Quản trị hệ thống" }}</small></p>
+                <p><time>{{ event.created_at|date:"d/m/Y H:i" }}</time><strong>{% if event.old_value %}{{ event.old_value|vnd }} → {% endif %}{{ event.new_value|vnd }}</strong><small>{{ event.actor.get_full_name|default:event.actor.username|default:"Quản trị hệ thống" }}</small></p>
               {% empty %}<p class="manager-history-empty">Chưa có thay đổi giá được ghi nhận.</p>{% endfor %}
             </section>
           {% else %}
@@ -403,7 +403,7 @@
 
     {% elif active_workspace == "inventory" %}
       <header class="employee-workspace-heading">
-        <div><span class="store-kicker">CỬA HÀNG</span><h1>Kho đồ khô</h1><p>Chỉ sản phẩm đồ khô có số lượng tồn kho; món tươi được làm sau khi nhận đơn.</p></div>
+        <div><span class="store-kicker">Cửa hàng</span><h1>Kho đồ khô</h1><p>Chỉ sản phẩm đồ khô có số lượng tồn kho; món tươi được làm sau khi nhận đơn.</p></div>
       </header>
       <section class="manager-product-stats" aria-label="Tình trạng kho">
         <article><span>Đồ khô đang bán</span><strong class="is-green">{{ product_stats.inventory_selling }} món</strong></article>
@@ -472,7 +472,7 @@
     {% elif active_workspace == "reports" %}
       <header class="employee-workspace-heading manager-report-heading">
         <div>
-          <span class="store-kicker">BÁO CÁO CỬA HÀNG</span>
+          <span class="store-kicker">Báo cáo cửa hàng</span>
           <h1>Báo cáo doanh thu</h1>
           <p>{{ report_period_label }}, {{ report_start|date:"j/n" }}–{{ report_end|date:"j/n/Y" }} · so với kỳ trước ({{ report_previous_start|date:"j/n" }}–{{ report_previous_end|date:"j/n" }}).</p>
         </div>
@@ -609,7 +609,7 @@
       </div>
 
     {% elif active_workspace == "activity" %}
-      <header class="employee-workspace-heading"><div><span class="store-kicker">LỊCH SỬ THAY ĐỔI</span><h1>Nhật ký hoạt động</h1><p>Các thao tác thay đổi món, giá và tồn kho đã được lưu.</p></div></header>
+      <header class="employee-workspace-heading"><div><span class="store-kicker">Lịch sử thay đổi</span><h1>Nhật ký hoạt động</h1><p>Các thao tác thay đổi món, giá và tồn kho đã được lưu.</p></div></header>
       <section class="admin-panel manager-activity-panel">
         <div class="table-scroll"><table class="manager-catalog-table">
           <thead><tr><th>THỜI GIAN</th><th>NGƯỜI THỰC HIỆN</th><th>HOẠT ĐỘNG</th><th>MÓN</th><th>THAY ĐỔI</th></tr></thead>
@@ -623,7 +623,7 @@
     {% elif active_workspace == "menu" %}
       <header class="employee-workspace-heading employee-menu-heading">
         <div>
-          <span class="store-kicker">DANH MỤC CỬA HÀNG</span>
+          <span class="store-kicker">Danh mục cửa hàng</span>
           <h1>Sản phẩm</h1>
           <p>{{ employee_menu_stats.total }} sản phẩm · {{ employee_menu_stats.selling }} đang bán · {{ employee_menu_stats.low_or_out }} cần nhập thêm</p>
         </div>
@@ -665,7 +665,7 @@
                 <span>{{ product.protein|floatformat:0 }}g đạm</span>
               </div>
               <div class="employee-menu-stock-panel">
-                <strong>{{ product.price|floatformat:0 }}₫</strong>
+                <strong>{{ product.price|vnd }}</strong>
                 {% if product.tracks_inventory %}
                   <span class="employee-menu-stock{% if product.stock_quantity == 0 %} is-out{% elif product.stock_quantity != None and product.stock_quantity <= product.low_stock_threshold %} is-low{% endif %}">
                     {% if product.stock_quantity != None %}Kho còn {{ product.stock_quantity }}{% else %}Kho chưa cập nhật{% endif %}
@@ -693,7 +693,7 @@
 
     {% elif active_workspace == "profile" %}
       <header class="employee-workspace-heading">
-        <div><span class="store-kicker">TÀI KHOẢN NHÂN VIÊN</span><h1>Hồ sơ của tôi</h1></div>
+        <div><span class="store-kicker">Tài khoản nhân viên</span><h1>Hồ sơ của tôi</h1></div>
       </header>
       <section class="employee-profile-hero">
         <span class="employee-profile-avatar">{{ request.user.first_name|default:request.user.username|first|upper }}</span>

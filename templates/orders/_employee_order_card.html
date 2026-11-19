@@ -1,3 +1,4 @@
+{% load fitmeal %}
 <article class="employee-order-card status-card-{{ order.status }}">
   <header class="employee-order-card-header">
     <strong>#{{ order.order_number }}</strong>
@@ -30,7 +31,7 @@
   </div>
   <div class="employee-order-payment">
     <span>{{ order.get_payment_method_display }}</span>
-    <strong>{{ order.total|floatformat:0 }}₫</strong>
+    <strong>{{ order.total|vnd }}</strong>
   </div>
   <div class="employee-order-card-actions">
     {% if can_cancel_orders and order.can_request_pii_access %}

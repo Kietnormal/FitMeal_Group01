@@ -1,33 +1,33 @@
 {% extends "base.html" %}
-{% load static l10n %}
+{% load static l10n fitmeal %}
 {% block title %}Quản trị FitMeal — {{ section_title }}{% endblock %}
 {% block extra_css %}<link rel="stylesheet" href="{% static 'css/storefront.css' %}?v=20261118-dashboard-chart-1">{% endblock %}
 {% block content %}
 <div class="admin-layout admin-dashboard-shell">
   <aside class="admin-sidebar">
     <a class="admin-side-brand" href="{% url 'staff_orders:dashboard' %}?section=overview">
-      <span class="store-brand-icon">F</span><span><strong>FitMeal</strong><small>QUẢN TRỊ CỬA HÀNG</small></span>
+      <span class="store-brand-icon"><svg class="fm-i" aria-hidden="true"><use href="#fm-leaf"/></svg></span><span><strong>FitMeal</strong><small>Quản trị cửa hàng</small></span>
     </a>
-    <p class="admin-side-label">TỔNG QUAN</p>
+    <p class="admin-side-label">Tổng quan</p>
     <a class="admin-nav-item {% if active_section == 'overview' %}is-active{% endif %}" href="?section=overview"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg></span>Tổng quan</a>
     <a class="admin-nav-item" href="?section=overview&range=30d#sales-chart"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M4 19V5M4 19h16"/><path d="m7 15 4-4 3 2 6-7"/></svg></span>Báo cáo</a>
-    <p class="admin-side-label">VẬN HÀNH</p>
+    <p class="admin-side-label">Vận hành</p>
     <a class="admin-nav-item {% if active_section == 'orders' %}is-active{% endif %}" href="?section=orders"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M6 3.5h12v17l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5-2 1.5z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span>Đơn hàng<i>{{ pending_count }}</i></a>
     <a class="admin-nav-item {% if active_section == 'products' %}is-active{% endif %}" href="?section=products"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path d="m4.5 7.8 7.5 4.3 7.5-4.3M12 12v8.5"/></svg></span>Kho hàng / món ăn</a>
     <a class="admin-nav-item {% if active_section == 'customers' %}is-active{% endif %}" href="?section=customers"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="9" cy="8" r="3"/><path d="M3.5 20v-1.5a5.5 5.5 0 0 1 11 0V20zM16 5.5a3 3 0 0 1 0 5.8M18 14a4.5 4.5 0 0 1 2.5 4v2"/></svg></span>Khách hàng</a>
     <a class="admin-nav-item {% if active_section == 'payments' %}is-active{% endif %}" href="?section=payments"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18M7 15h4"/></svg></span>Thanh toán</a>
     <a class="admin-nav-item {% if active_section == 'shipping' %}is-active{% endif %}" href="?section=shipping"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M3 6h11v11H3zM14 10h4l3 3v4h-7z"/><circle cx="7.5" cy="18" r="1.8"/><circle cx="18" cy="18" r="1.8"/></svg></span>Vận chuyển</a>
-    <p class="admin-side-label">HỆ THỐNG</p>
+    <p class="admin-side-label">Hệ thống</p>
     {% if request.user.is_superuser %}<a class="admin-nav-item {% if active_section == 'employees' %}is-active{% endif %}" href="?section=employees"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="7.5" r="3.2"/><path d="M5.5 20v-1.7a6.5 6.5 0 0 1 13 0V20"/></svg></span>Nhân viên & phân quyền</a>{% endif %}
     <a class="admin-nav-item {% if active_section == 'security' %}is-active{% endif %}" href="?section=security"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 3 20 6v5.5c0 4.3-3.1 7.5-8 9.5-4.9-2-8-5.2-8-9.5V6z"/><path d="m9 12 2 2 4-4"/></svg></span>Bảo mật</a>
-    <a class="admin-nav-item" href="{% url 'mfa_index' %}">Xác thực hai bước</a>
+    <a class="admin-nav-item" href="{% url 'mfa_index' %}"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2"/></svg></span>Xác thực hai bước</a>
     <a class="admin-nav-item" href="?section=overview#recent-activity"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M6 3.5h8l4 4V20H6z"/><path d="M14 3.5V8h4M9 12h6M9 16h6"/></svg></span>Hoạt động gần đây</a>
     <a class="admin-nav-item {% if active_section == 'operations' %}is-active{% endif %}" href="?section=operations"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M3 12h4l2.2-6 4.2 12 2.3-6H21"/></svg></span>Vận hành hệ thống</a>
     <div class="admin-sidebar-bottom">
       <span class="admin-avatar">{{ request.user.first_name|default:request.user.username|first|upper }}</span>
       <span><strong>{{ request.user.get_full_name|default:request.user.username }}</strong><small>Quản trị viên</small></span>
     </div>
-    <a class="admin-return-store" href="{% url 'core:home' %}">← Trở về cửa hàng</a>
+    <a class="admin-return-store" href="{% url 'core:home' %}">Trở về cửa hàng</a>
     <form action="{% url 'accounts:logout' %}" method="post" class="admin-logout-form">
       {% csrf_token %}<button type="submit">Đăng xuất</button>
     </form>
@@ -35,7 +35,7 @@
 
   <main class="admin-main">
     <header class="admin-topbar">
-      <div><span class="store-kicker">FITMEAL · {% now "l, d/m/Y" %}</span><h1>{{ section_title }}</h1></div>
+      <div><span class="store-kicker">{% now "l, d/m/Y" %}</span><h1>{{ section_title }}</h1></div>
       {% if active_section == "overview" %}
         <div class="admin-overview-actions">
           <nav class="admin-period-tabs" aria-label="Khoảng thời gian báo cáo">
@@ -65,7 +65,7 @@
     {% if active_section == "overview" %}
       <section class="dashboard-attention">
         <div class="dashboard-attention-heading">
-          <div><span>CỬA HÀNG FITMEAL</span><h2>Cần xử lý ngay</h2></div>
+          <div><h2>Cần xử lý ngay</h2></div>
           <small>Số liệu hệ thống trực tiếp</small>
         </div>
         <div class="dashboard-attention-grid">
@@ -89,7 +89,7 @@
       </section>
       <div class="dashboard-metrics">
         <article class="dashboard-metric">
-          <span>DOANH THU ĐƠN HOÀN TẤT</span><strong>{{ period_revenue|floatformat:0 }}₫</strong>
+          <span>DOANH THU ĐƠN HOÀN TẤT</span><strong>{{ period_revenue|vnd }}</strong>
           <small class="trend-{{ revenue_comparison.direction }}">{{ revenue_comparison.text }}</small>
           <small>Đơn hoàn tất · {{ period_label }}</small>
         </article>
@@ -99,7 +99,7 @@
           <small>{{ period_label }} · mọi trạng thái</small>
         </article>
         <article class="dashboard-metric">
-          <span>GIÁ TRỊ TRUNG BÌNH / ĐƠN</span><strong>{{ average_order_value|floatformat:0 }}₫</strong>
+          <span>GIÁ TRỊ TRUNG BÌNH / ĐƠN</span><strong>{{ average_order_value|vnd }}</strong>
           <small>Không tính đơn đã hủy</small>
           <small>{{ period_label }}</small>
         </article>
@@ -114,12 +114,12 @@
         <section class="dashboard-panel dashboard-sales-panel" id="sales-chart">
           <div class="dashboard-panel-heading">
             <div><h2>Doanh thu</h2><p>{{ period_label }} · đơn hoàn tất theo ngày đặt</p></div>
-            <strong>{{ period_revenue|floatformat:0 }}₫</strong>
+            <strong>{{ period_revenue|vnd }}</strong>
           </div>
           {% if period_revenue %}
             <div class="dashboard-chart-grid" style="--chart-days:{{ period_days }}" role="img" aria-label="Biểu đồ doanh thu {{ period_label }}">
               {% for point in chart_points %}
-                <div class="dashboard-chart-column" title="{{ point.day|date:'d/m/Y' }}: {{ point.amount|floatformat:0 }}₫">
+                <div class="dashboard-chart-column" title="{{ point.day|date:'d/m/Y' }}: {{ point.amount|vnd }}">
                   {% if period_days <= 7 and point.amount %}<span>{{ point.amount|floatformat:0 }}</span>{% endif %}
                   <div class="dashboard-chart-track">{% if point.amount %}<i style="height:{{ point.height|unlocalize }}%"></i>{% endif %}</div>
                   <small>{{ point.label }}</small>
@@ -151,7 +151,7 @@
           <div class="dashboard-panel-heading"><div><h2>Đơn hàng gần đây</h2><p>Đơn mới nhất trong hệ thống</p></div><a href="?section=orders">Xem tất cả →</a></div>
           {% if recent_orders %}
             <div class="table-scroll"><table class="admin-table dashboard-recent-table"><thead><tr><th>MÃ ĐƠN</th><th>KHÁCH HÀNG</th><th>TỔNG TIỀN</th><th>THANH TOÁN</th><th>TRẠNG THÁI</th><th>LÚC</th></tr></thead><tbody>
-              {% for order in recent_orders %}<tr><td><strong>{{ order.order_number }}</strong></td><td>{% if order.customer_info_redacted %}Đã ẩn{% else %}{{ order.customer_name }}{% endif %}</td><td>{{ order.total|floatformat:0 }}₫</td><td>{{ order.get_payment_method_display }}</td><td><span class="dashboard-order-status status-{{ order.status }}">{{ order.get_status_display }}</span></td><td>{{ order.created_at|date:"H:i" }}</td></tr>{% endfor %}
+              {% for order in recent_orders %}<tr><td><strong>{{ order.order_number }}</strong></td><td>{% if order.customer_info_redacted %}Đã ẩn{% else %}{{ order.customer_name }}{% endif %}</td><td>{{ order.total|vnd }}</td><td>{{ order.get_payment_method_display }}</td><td><span class="dashboard-order-status status-{{ order.status }}">{{ order.get_status_display }}</span></td><td>{{ order.created_at|date:"H:i" }}</td></tr>{% endfor %}
             </tbody></table></div>
           {% else %}<p class="admin-empty-orders">Chưa có đơn hàng. Đơn mới sẽ hiển thị tại đây.</p>{% endif %}
         </section>
@@ -166,7 +166,7 @@
           <section class="dashboard-panel dashboard-payments-panel">
             <div class="dashboard-panel-heading"><div><h2>Thanh toán</h2><p>{{ period_label }} · đơn chưa hủy</p></div><a href="?section=payments">Chi tiết →</a></div>
             {% for payment in period_payment_summaries %}
-              <div class="dashboard-payment-row"><span><i></i>{{ payment.label }}</span><strong>{{ payment.order_value|floatformat:0 }}₫</strong><small>{{ payment.order_count }} đơn · {{ payment.percentage }}%</small></div>
+              <div class="dashboard-payment-row"><span><i></i>{{ payment.label }}</span><strong>{{ payment.order_value|vnd }}</strong><small>{{ payment.order_count }} đơn · {{ payment.percentage }}%</small></div>
             {% empty %}<p class="dashboard-empty-note">Chưa có thanh toán trong kỳ.</p>{% endfor %}
           </section>
         </div>
@@ -191,7 +191,7 @@
         <section class="dashboard-panel dashboard-activity-panel" id="recent-activity">
           <div class="dashboard-panel-heading"><div><h2>Hoạt động đơn hàng</h2><p>Mới nhất</p></div><a href="?section=orders">Đơn hàng →</a></div>
           {% if recent_orders %}
-            <ul>{% for order in recent_orders|slice:":4" %}<li><time>{{ order.created_at|date:"H:i" }}</time><span><strong>{{ order.order_number }}</strong> · {% if order.customer_info_redacted %}Đã ẩn{% else %}{{ order.customer_name }}{% endif %}<small>{{ order.get_status_display }} · {{ order.total|floatformat:0 }}₫</small></span></li>{% endfor %}</ul>
+            <ul>{% for order in recent_orders|slice:":4" %}<li><time>{{ order.created_at|date:"H:i" }}</time><span><strong>{{ order.order_number }}</strong> · {% if order.customer_info_redacted %}Đã ẩn{% else %}{{ order.customer_name }}{% endif %}<small>{{ order.get_status_display }} · {{ order.total|vnd }}</small></span></li>{% endfor %}</ul>
           {% else %}<p class="dashboard-empty-note">Chưa có hoạt động đơn hàng.</p>{% endif %}
           <small class="dashboard-disclaimer">Hiển thị đơn hàng gần đây; nhật ký thao tác quản trị chưa được lưu.</small>
         </section>
@@ -200,7 +200,7 @@
     {% elif active_section == "orders" %}
       <section class="orders-page" id="orders">
         <div class="orders-page-heading">
-          <div><span class="store-kicker">VẬN HÀNH BÁN HÀNG</span><h2>Quản lý đơn hàng</h2><p>Theo dõi, tìm kiếm và xử lý đơn hàng của khách.</p></div>
+          <div><span class="store-kicker">Vận hành bán hàng</span><h2>Quản lý đơn hàng</h2><p>Theo dõi, tìm kiếm và xử lý đơn hàng của khách.</p></div>
           <span class="admin-order-total">{{ page_obj.paginator.count }} đơn</span>
         </div>
         <nav class="orders-status-tabs" aria-label="Lọc đơn theo trạng thái">
@@ -245,7 +245,7 @@
                   <a class="orders-list-item {% if selected_order.pk == order.pk %}is-selected{% endif %}" href="?section=orders&date_range={{ orders_date_range }}&status={{ selected_status }}&payment={{ payment_filter|urlencode }}&q={{ order_search|urlencode }}&page={{ page_obj.number }}&order={{ order.pk }}#orders">
                     <span class="orders-list-item-top"><strong>{{ order.order_number }}</strong><span class="dashboard-order-status status-{{ order.status }}">{{ order.get_status_display }}</span></span>
                     <span class="orders-list-customer">{% if order.customer_info_redacted %}Thông tin khách hàng đã ẩn{% else %}{{ order.customer_name }} · {{ order.customer_phone }}{% endif %}</span>
-                    <span class="orders-list-item-bottom"><small>{{ order.created_at|date:"d/m/Y H:i" }} · {{ order.items.count }} món</small><strong>{{ order.total|floatformat:0 }}₫</strong></span>
+                    <span class="orders-list-item-bottom"><small>{{ order.created_at|date:"d/m/Y H:i" }} · {{ order.items.count }} món</small><strong>{{ order.total|vnd }}</strong></span>
                   </a>
                 {% endfor %}
               </div>
@@ -258,7 +258,7 @@
           <aside class="order-detail-panel" aria-label="Chi tiết đơn hàng">
             {% if selected_order %}
               <div class="order-detail-heading">
-                <div><span class="store-kicker">CHI TIẾT ĐƠN</span><h3>{{ selected_order.order_number }}</h3><small>Đặt lúc {{ selected_order.created_at|date:"d/m/Y · H:i" }}</small></div>
+                <div><span class="store-kicker">Chi tiết đơn</span><h3>{{ selected_order.order_number }}</h3><small>Đặt lúc {{ selected_order.created_at|date:"d/m/Y · H:i" }}</small></div>
                 <span class="dashboard-order-status status-{{ selected_order.status }}">{{ selected_order.get_status_display }}</span>
               </div>
               <section class="order-detail-section">
@@ -277,16 +277,16 @@
                 <h4>Món trong đơn</h4>
                 <ul class="order-detail-items">
                   {% for item in selected_order.items.all %}
-                    <li><span><strong>{{ item.product_name }}</strong><small>{{ item.quantity }} × {{ item.unit_price|floatformat:0 }}₫</small></span><b>{{ item.line_total|floatformat:0 }}₫</b></li>
+                    <li><span><strong>{{ item.product_name }}</strong><small>{{ item.quantity }} × {{ item.unit_price|vnd }}</small></span><b>{{ item.line_total|vnd }}</b></li>
                   {% empty %}
                     <li class="order-no-items">Đơn hàng chưa có thông tin món.</li>
                   {% endfor %}
                 </ul>
               </section>
               <section class="order-detail-totals" aria-label="Tổng tiền đơn hàng">
-                <p><span>Tạm tính</span><b>{{ selected_order.subtotal|floatformat:0 }}₫</b></p>
-                <p><span>Phí giao hàng</span><b>{{ selected_order.shipping_fee|floatformat:0 }}₫</b></p>
-                <p class="order-total-line"><strong>Tổng cộng</strong><strong>{{ selected_order.total|floatformat:0 }}₫</strong></p>
+                <p><span>Tạm tính</span><b>{{ selected_order.subtotal|vnd }}</b></p>
+                <p><span>Phí giao hàng</span><b>{{ selected_order.shipping_fee|vnd }}</b></p>
+                <p class="order-total-line"><strong>Tổng cộng</strong><strong>{{ selected_order.total|vnd }}</strong></p>
               </section>
               <section class="order-detail-shipping">
                 <div><span>Thanh toán</span><strong>{{ selected_order.get_payment_method_display }}</strong><small>Trạng thái thanh toán chưa được lưu riêng.</small></div>
@@ -339,7 +339,7 @@
 
     {% elif active_section == "products" %}
       <section class="admin-panel full-admin-panel live-admin-panel" id="products">
-        <div class="admin-panel-heading"><div><span class="store-kicker">DANH MỤC CỬA HÀNG</span><h2>Quản lý món ăn</h2></div><a class="admin-primary" href="{% url 'staff_orders:create_product' %}">+ Thêm món</a></div>
+        <div class="admin-panel-heading"><div><span class="store-kicker">Danh mục cửa hàng</span><h2>Quản lý món ăn</h2></div><a class="admin-primary" href="{% url 'staff_orders:create_product' %}">+ Thêm món</a></div>
         {% if product_rows %}
           <div class="table-scroll"><table class="admin-table live-product-table"><thead><tr><th>MÓN ĂN</th><th>MÃ SẢN PHẨM</th><th>DANH MỤC</th><th>GIÁ BÁN</th><th>TRẠNG THÁI</th><th>THAO TÁC</th></tr></thead><tbody>
             {% for row in product_rows %}
@@ -361,10 +361,10 @@
 
     {% elif active_section == "customers" %}
       <section class="admin-panel full-admin-panel live-admin-panel">
-        <div class="admin-panel-heading"><div><span class="store-kicker">CỘNG ĐỒNG FITMEAL</span><h2>Khách hàng đã đăng ký</h2></div><span class="admin-order-total">{{ page_obj.paginator.count }} khách</span></div>
+        <div class="admin-panel-heading"><div><span class="store-kicker">Cộng đồng FitMeal</span><h2>Khách hàng đã đăng ký</h2></div><span class="admin-order-total">{{ page_obj.paginator.count }} khách</span></div>
         {% if customer_rows %}
           <div class="table-scroll"><table class="admin-table"><thead><tr><th>KHÁCH HÀNG</th><th>EMAIL</th><th>ĐIỆN THOẠI</th><th>SỐ ĐƠN</th><th>TỔNG GIÁ TRỊ</th><th>THAM GIA</th></tr></thead><tbody>
-            {% for customer in customer_rows %}<tr><td><strong>{{ customer.get_full_name|default:customer.username }}</strong></td><td>{{ customer.email|default:"—" }}</td><td>{{ customer.masked_phone }}</td><td>{{ customer.order_count }}</td><td>{{ customer.order_value|default:0|floatformat:0 }}₫</td><td>{{ customer.date_joined|date:"d/m/Y" }}</td></tr>{% endfor %}
+            {% for customer in customer_rows %}<tr><td><strong>{{ customer.get_full_name|default:customer.username }}</strong></td><td>{{ customer.email|default:"—" }}</td><td>{{ customer.masked_phone }}</td><td>{{ customer.order_count }}</td><td>{{ customer.order_value|default:0|vnd }}</td><td>{{ customer.date_joined|date:"d/m/Y" }}</td></tr>{% endfor %}
           </tbody></table></div>
           {% include "orders/staff_pagination.html" %}
         {% else %}<p class="admin-empty-orders">Chưa có tài khoản khách hàng.</p>{% endif %}
@@ -372,20 +372,20 @@
 
     {% elif active_section == "payments" %}
       <section class="admin-panel full-admin-panel live-admin-panel">
-        <div class="admin-panel-heading"><div><span class="store-kicker">MOMO · CHUYỂN KHOẢN</span><h2>Tổng hợp thanh toán</h2><p>Giá trị đơn theo phương thức và trạng thái giao dịch được lấy trực tiếp từ cơ sở dữ liệu.</p></div></div>
+        <div class="admin-panel-heading"><div><span class="store-kicker">MoMo và chuyển khoản</span><h2>Tổng hợp thanh toán</h2><p>Giá trị đơn theo phương thức và trạng thái giao dịch được lấy trực tiếp từ cơ sở dữ liệu.</p></div></div>
         <div class="payment-summary-cards">
           {% for payment in payment_summaries %}
-            <article><span>{% if payment.payment_method == "momo" %}MOMO{% elif payment.payment_method == "bank_transfer" %}CHUYỂN KHOẢN NGÂN HÀNG{% elif payment.payment_method == "cod" %}COD (ĐƠN CŨ){% elif payment.payment_method == "vnpay" %}VNPAY (ĐƠN CŨ){% else %}{{ payment.payment_method }}{% endif %}</span><strong>{{ payment.order_value|default:0|floatformat:0 }}₫</strong><small>{{ payment.order_count }} đơn trong database</small></article>
+            <article><span>{% if payment.payment_method == "momo" %}MOMO{% elif payment.payment_method == "bank_transfer" %}CHUYỂN KHOẢN NGÂN HÀNG{% elif payment.payment_method == "cod" %}COD (ĐƠN CŨ){% elif payment.payment_method == "vnpay" %}VNPAY (ĐƠN CŨ){% else %}{{ payment.payment_method }}{% endif %}</span><strong>{{ payment.order_value|default:0|vnd }}</strong><small>{{ payment.order_count }} đơn trong database</small></article>
           {% empty %}
             <article><span>CHƯA CÓ THANH TOÁN</span><strong>0₫</strong><small>Chưa có đơn hàng</small></article>
           {% endfor %}
-          <article><span>GIÁ TRỊ ĐÃ HOÀN TẤT</span><strong>{{ completed_revenue|floatformat:0 }}₫</strong><small>Giá trị đơn có trạng thái hoàn tất</small></article>
-          <article><span>GIÁ TRỊ ĐANG XỬ LÝ</span><strong>{{ outstanding_order_value|floatformat:0 }}₫</strong><small>Đơn chưa hoàn tất hoặc hủy</small></article>
+          <article><span>GIÁ TRỊ ĐÃ HOÀN TẤT</span><strong>{{ completed_revenue|vnd }}</strong><small>Giá trị đơn có trạng thái hoàn tất</small></article>
+          <article><span>GIÁ TRỊ ĐANG XỬ LÝ</span><strong>{{ outstanding_order_value|vnd }}</strong><small>Đơn chưa hoàn tất hoặc hủy</small></article>
         </div>
         <h3>Giao dịch thanh toán</h3>
         <div class="payment-summary-cards">
           {% for payment in payment_transaction_summaries %}
-            <article><span>{{ payment.label }}</span><strong>{{ payment.transaction_value|default:0|floatformat:0 }}₫</strong><small>{{ payment.transaction_count }} giao dịch</small></article>
+            <article><span>{{ payment.label }}</span><strong>{{ payment.transaction_value|default:0|vnd }}</strong><small>{{ payment.transaction_count }} giao dịch</small></article>
           {% empty %}
             <article><span>CHƯA CÓ GIAO DỊCH</span><strong>0₫</strong><small>Chưa phát sinh giao dịch</small></article>
           {% endfor %}
@@ -395,7 +395,7 @@
             <thead><tr><th>MÃ ĐƠN</th><th>PHƯƠNG THỨC</th><th>MÃ GIAO DỊCH</th><th>SỐ TIỀN</th><th>TRẠNG THÁI</th><th>MÃ PHẢN HỒI</th><th>CẬP NHẬT</th></tr></thead>
             <tbody>
               {% for payment in recent_payment_transactions %}
-                <tr><td>{{ payment.order.order_number }}</td><td>{{ payment.get_provider_display }}</td><td>{{ payment.transaction_ref }}</td><td>{{ payment.amount|floatformat:0 }}₫</td><td>{{ payment.get_status_display }}</td><td>{{ payment.response_code|default:"—" }}</td><td>{{ payment.updated_at|date:"d/m/Y H:i" }}</td></tr>
+                <tr><td>{{ payment.order.order_number }}</td><td>{{ payment.get_provider_display }}</td><td>{{ payment.transaction_ref }}</td><td>{{ payment.amount|vnd }}</td><td>{{ payment.get_status_display }}</td><td>{{ payment.response_code|default:"—" }}</td><td>{{ payment.updated_at|date:"d/m/Y H:i" }}</td></tr>
               {% empty %}
                 <tr><td colspan="7">Chưa có giao dịch.</td></tr>
               {% endfor %}
@@ -407,13 +407,13 @@
 
     {% elif active_section == "shipping" %}
       <section class="admin-panel full-admin-panel live-admin-panel">
-        <div class="admin-panel-heading"><div><span class="store-kicker">GIAO HÀNG & HẬU CẦN</span><h2>Theo dõi đơn đang xử lý</h2><p>Trạng thái vận chuyển được cập nhật thủ công trong mục Đơn hàng.</p></div></div>
+        <div class="admin-panel-heading"><div><span class="store-kicker">Giao hàng và hậu cần</span><h2>Theo dõi đơn đang xử lý</h2><p>Trạng thái vận chuyển được cập nhật thủ công trong mục Đơn hàng.</p></div></div>
         <div class="shipping-board">
           {% for status in status_counts %}{% if status.value == "confirmed" or status.value == "preparing" or status.value == "ready" or status.value == "delivering" or status.value == "awaiting_confirmation" or status.value == "delivery_issue" or status.value == "delivered" %}<article><span class="shipping-count">{{ status.count }}</span><strong>{{ status.label }}</strong><small>Đơn hàng thực tế</small></article>{% endif %}{% endfor %}
         </div>
         {% if shipping_orders %}
           <div class="table-scroll"><table class="admin-table"><thead><tr><th>MÃ ĐƠN</th><th>KHÁCH HÀNG</th><th>NGÀY GIAO</th><th>TRẠNG THÁI</th><th>TỔNG TIỀN</th></tr></thead><tbody>
-            {% for order in shipping_orders %}<tr><td><strong>{{ order.order_number }}</strong></td><td>{{ order.customer_name }}</td><td>{{ order.delivery_date|date:"d/m/Y" }} · {{ order.get_delivery_slot_display }}</td><td>{{ order.get_status_display }}</td><td>{{ order.total|floatformat:0 }}₫</td></tr>{% endfor %}
+            {% for order in shipping_orders %}<tr><td><strong>{{ order.order_number }}</strong></td><td>{{ order.customer_name }}</td><td>{{ order.delivery_date|date:"d/m/Y" }} · {{ order.get_delivery_slot_display }}</td><td>{{ order.get_status_display }}</td><td>{{ order.total|vnd }}</td></tr>{% endfor %}
           </tbody></table></div>
         {% else %}<p class="admin-empty-orders">Không có đơn đang xử lý vận chuyển.</p>{% endif %}
         <p class="admin-footnote">Chưa tích hợp hãng vận chuyển tự động. <a href="?section=orders">Mở danh sách đơn để cập nhật trạng thái →</a></p>
@@ -427,7 +427,7 @@
       </section>
       <div class="system-admin-grid">
         <section class="admin-panel system-panel">
-          <div class="admin-panel-heading"><div><span class="store-kicker">SỰ KIỆN HÔM NAY</span><h2>Lịch sử đăng nhập</h2><p>IP lấy từ kết nối trực tiếp; thiết bị dựa trên trình duyệt gửi lên.</p></div></div>
+          <div class="admin-panel-heading"><div><span class="store-kicker">Sự kiện hôm nay</span><h2>Lịch sử đăng nhập</h2><p>IP lấy từ kết nối trực tiếp; thiết bị dựa trên trình duyệt gửi lên.</p></div></div>
           <div class="table-scroll">
             <table class="admin-table system-table">
               <thead><tr><th>LÚC</th><th>TÀI KHOẢN</th><th>IP · THIẾT BỊ</th><th>KẾT QUẢ</th></tr></thead>
@@ -447,7 +447,7 @@
           </div>
         </section>
         <section class="admin-panel system-panel">
-          <div class="admin-panel-heading"><div><span class="store-kicker">BẢO VỆ TÀI KHOẢN</span><h2>Chính sách đang áp dụng</h2><p>Các ngưỡng được thực thi trên đăng nhập FitMeal.</p></div></div>
+          <div class="admin-panel-heading"><div><span class="store-kicker">Bảo vệ tài khoản</span><h2>Chính sách đang áp dụng</h2><p>Các ngưỡng được thực thi trên đăng nhập FitMeal.</p></div></div>
           <ul class="system-policy-list">
             <li><span>Mật khẩu tối thiểu</span><strong>{{ password_min_length }} ký tự</strong></li>
             <li><span>Khóa IP sau</span><strong>{{ login_failure_limit }} lần sai / {{ login_failure_window_minutes }} phút</strong></li>
@@ -469,7 +469,7 @@
           <a class="text-action" href="{% url 'admin:password_change' %}">Đổi mật khẩu quản trị →</a>
         </section>
         <section class="admin-panel system-panel">
-          <div class="admin-panel-heading"><div><span class="store-kicker">IP BỊ KHÓA TẠM</span><h2>Danh sách chặn</h2><p>Khóa tự hết hạn; chỉ gỡ thủ công khi đã xác minh yêu cầu.</p></div></div>
+          <div class="admin-panel-heading"><div><span class="store-kicker">IP bị khóa tạm</span><h2>Danh sách chặn</h2><p>Khóa tự hết hạn; chỉ gỡ thủ công khi đã xác minh yêu cầu.</p></div></div>
           <div class="system-list">
             {% for throttle in blocked_ips %}
               <article><span><strong>{{ throttle.ip_address }}</strong><small>{{ throttle.failure_count }} lần sai · tự mở {{ throttle.blocked_until|date:"H:i" }}</small></span><form method="post" action="{% url 'staff_orders:security_unlock_ip' %}">{% csrf_token %}<input type="hidden" name="ip_address" value="{{ throttle.ip_address }}"><button class="admin-secondary-button" type="submit">Mở khóa</button></form></article>
@@ -479,7 +479,7 @@
           </div>
         </section>
         <section class="admin-panel system-panel">
-          <div class="admin-panel-heading"><div><span class="store-kicker">PHIÊN NHÂN VIÊN</span><h2>Thiết bị đang đăng nhập</h2><p>Đăng xuất các phiên không nhận diện được.</p></div><form method="post" action="{% url 'staff_orders:security_end_other_sessions' %}">{% csrf_token %}<button class="admin-secondary-button" type="submit">Đăng xuất tất cả trừ tôi</button></form></div>
+          <div class="admin-panel-heading"><div><span class="store-kicker">Phiên nhân viên</span><h2>Thiết bị đang đăng nhập</h2><p>Đăng xuất các phiên không nhận diện được.</p></div><form method="post" action="{% url 'staff_orders:security_end_other_sessions' %}">{% csrf_token %}<button class="admin-secondary-button" type="submit">Đăng xuất tất cả trừ tôi</button></form></div>
           <div class="system-list">
             {% for session in active_staff_sessions %}
               <article><span><strong>{{ session.user.get_full_name|default:session.user.username }} · {{ session.user.get_staff_role_display }}</strong><small>{{ session.user_agent }} · {{ session.ip_address }} · hoạt động {{ session.active_at|timesince }} trước</small></span><b>{% if session.is_current %}Bạn{% else %}Đang mở{% endif %}</b></article>
@@ -490,7 +490,7 @@
         </section>
       </div>
       <section class="admin-panel system-panel security-check-panel">
-        <div class="admin-panel-heading"><div><span class="store-kicker">KIỂM TRA CẤU HÌNH {{ security_check_count }}/{{ security_checks|length }}</span><h2>Các biện pháp bảo vệ</h2><p>Trạng thái được đọc từ cấu hình Django đang chạy.</p></div></div>
+        <div class="admin-panel-heading"><div><span class="store-kicker">Kiểm tra cấu hình {{ security_check_count }}/{{ security_checks|length }}</span><h2>Các biện pháp bảo vệ</h2><p>Trạng thái được đọc từ cấu hình Django đang chạy.</p></div></div>
         <div class="system-check-grid">
           {% for check in security_checks %}
             <article><span class="system-check-icon {% if check.passed %}is-passed{% else %}is-pending{% endif %}">{% if check.passed %}✓{% else %}!{% endif %}</span><span><strong>{{ check.label }}</strong><small>{{ check.detail }}</small></span><b>{% if check.passed %}ĐẠT{% else %}CẦN XỬ LÝ{% endif %}</b></article>
@@ -506,7 +506,7 @@
       </section>
       <div class="system-admin-grid">
         <section class="admin-panel system-panel">
-          <div class="admin-panel-heading"><div><span class="store-kicker">GIÁM SÁT</span><h2>Tình trạng dịch vụ</h2><p>Chỉ số được đo trực tiếp hoặc hiển thị rõ nếu chưa có bộ thu thập.</p></div></div>
+          <div class="admin-panel-heading"><div><span class="store-kicker">Giám sát</span><h2>Tình trạng dịch vụ</h2><p>Chỉ số được đo trực tiếp hoặc hiển thị rõ nếu chưa có bộ thu thập.</p></div></div>
           <div class="system-check-grid">
             <article><span class="system-check-icon {% if database_available %}is-passed{% else %}is-pending{% endif %}">{% if database_available %}✓{% else %}!{% endif %}</span><span><strong>Cơ sở dữ liệu</strong><small>{% if database_error %}{{ database_error }}{% else %}Truy vấn thử thành công trong {{ database_latency_ms }} ms.{% endif %}</small></span><b>{% if database_available %}ĐANG HOẠT ĐỘNG{% else %}LỖI{% endif %}</b></article>
             <article><span class="system-check-icon is-pending">i</span><span><strong>CPU và bộ nhớ RAM</strong><small>Chưa cài bộ thu thập chỉ số hệ điều hành; không hiển thị số liệu giả.</small></span><b>CHƯA ĐO</b></article>
@@ -517,13 +517,13 @@
           </div>
         </section>
         <section class="admin-panel system-panel">
-          <div class="admin-panel-heading"><div><span class="store-kicker">PHIÊN BẢN</span><h2>Triển khai hiện tại</h2><p>{{ app_version }}</p></div></div>
+          <div class="admin-panel-heading"><div><span class="store-kicker">Phiên bản</span><h2>Triển khai hiện tại</h2><p>{{ app_version }}</p></div></div>
           <p class="system-note">Lịch sử triển khai chưa được nối với hệ thống CI/CD; trang này không suy đoán thời điểm hoặc người triển khai.</p>
           <p class="system-note">Chế độ bảo trì chưa được bật vì ứng dụng chưa có cờ bảo trì được kiểm soát ở máy chủ.</p>
         </section>
       </div>
       <section class="admin-panel system-panel backup-panel">
-        <div class="admin-panel-heading"><div><span class="store-kicker">SAO LƯU CƠ SỞ DỮ LIỆU</span><h2>Bản sao lưu được mã hóa</h2><p>Xuất dữ liệu Django, mã hóa trước khi ghi ra đĩa, và giữ {{ backup_retention_count }} bản gần nhất.</p></div><form method="post" action="{% url 'staff_orders:create_backup' %}">{% csrf_token %}<button class="solid-button" type="submit">Sao lưu ngay</button></form></div>
+        <div class="admin-panel-heading"><div><span class="store-kicker">Sao lưu cơ sở dữ liệu</span><h2>Bản sao lưu được mã hóa</h2><p>Xuất dữ liệu Django, mã hóa trước khi ghi ra đĩa, và giữ {{ backup_retention_count }} bản gần nhất.</p></div><form method="post" action="{% url 'staff_orders:create_backup' %}">{% csrf_token %}<button class="solid-button" type="submit">Sao lưu ngay</button></form></div>
         <div class="system-backup-status">
           <span>{% if backup_encryption_is_separate %}Khóa mã hóa riêng đã cấu hình.{% else %}Đang dẫn xuất khóa mã hóa từ SECRET_KEY; nên đặt BACKUP_ENCRYPTION_KEY riêng.{% endif %}</span>
           <span>{% if external_backup_configured %}Kho sao lưu ngoài đã cấu hình.{% else %}Chưa cấu hình kho ngoài máy chủ; cần đặt BACKUP_EXTERNAL_ROOT để có bản off-site.{% endif %}</span>
