@@ -752,3 +752,10 @@ button { cursor: pointer; }
 .dashboard-attention :focus-visible, .fm-search button:focus-visible { outline-color: var(--fm-yolk); }
 .fm-step-n { color: #9a6400; }
 .store-main input::placeholder, .store-main textarea::placeholder, .fm-search input::placeholder { color: #6f7c73; }
+/* Wider layout on large screens (1920px monitors had ~340px empty each side) */
+:root { --fm-wrap: 1440px; --fm-gutter: clamp(16px, 3vw, 40px); }
+@media (min-width: 1500px) {
+  .catalog-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .fm-hero-card { min-height: 600px; }
+  .fm-hero-copy { padding: 72px 64px; }
+}
