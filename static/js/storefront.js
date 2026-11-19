@@ -1629,33 +1629,54 @@ function initializeBankTransferStatus() {
   const page = document.querySelector("[data-bank-transfer-status]");
   const liveStatus = page && page.querySelector("[data-payment-live-status]");
   if (!page || !liveStatus) return;
+  const liveText = liveStatus.querySelector("[data-payment-live-text]") || liveStatus;
+  const heading = page.querySelector("[data-payment-heading]");
+
+  const showPaid = () => {
+    page.querySelector("[data-bank-transfer-pending]")?.setAttribute("hidden", "");
+    page.querySelector("[data-payment-intro]")?.setAttribute("hidden", "");
+    page.querySelector("[data-payment-home-link]")?.setAttribute("hidden", "");
+    if (heading) heading.textContent = "Đã nhận được thanh toán.";
+    const success = page.querySelector("[data-payment-success]");
+    if (success) {
+      success.hidden = false;
+      success.querySelector("[data-payment-success-heading]")?.focus({ preventScroll: true });
+      success.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  };
+
+  const showExpired = () => {
+    page.querySelector("[data-bank-transfer-pending]")?.setAttribute("hidden", "");
+    if (heading) heading.textContent = "Mã thanh toán đã hết hạn.";
+    const intro = page.querySelector("[data-payment-intro]");
+    if (intro) intro.textContent = "Mã thanh toán không còn hiệu lực. Vui lòng liên hệ cửa hàng trước khi chuyển khoản.";
+  };
 
   const checkStatus = async () => {
     try {
       const response = await fetch(page.dataset.statusUrl, {
         headers: { Accept: "application/json" },
+        cache: "no-store",
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Không kiểm tra được trạng thái chuyển khoản.");
       const status = page.querySelector("[data-payment-status]");
-      status.textContent = result.status_display;
+      if (status) status.textContent = result.status_display;
       if (result.paid) {
-        liveStatus.textContent = "FitMeal đã nhận được tiền và cập nhật trạng thái thanh toán.";
-        page.querySelector("h1").textContent = "Đã nhận được thanh toán.";
+        showPaid();
         return;
       }
       if (result.status === "expired" || result.status === "failed") {
-        liveStatus.textContent = "Mã thanh toán không còn hiệu lực. Vui lòng liên hệ cửa hàng.";
-        page.querySelector("h1").textContent = "Mã thanh toán đã hết hạn.";
+        showExpired();
         return;
       }
-      window.setTimeout(checkStatus, 5000);
+      window.setTimeout(checkStatus, 4000);
     } catch (error) {
-      liveStatus.textContent = `${error.message} Trang sẽ tự kiểm tra lại.`;
+      liveText.textContent = `${error.message} Trang sẽ tự kiểm tra lại.`;
       window.setTimeout(checkStatus, 10000);
     }
   };
-  window.setTimeout(checkStatus, 5000);
+  window.setTimeout(checkStatus, 4000);
 }
 
 function initializeMomoPaymentStatus() {

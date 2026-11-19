@@ -5,19 +5,22 @@
   <section class="page-heading compact-heading bank-transfer-page" data-bank-transfer-status data-status-url="{{ payment_status_url }}">
     <span class="store-kicker">Chuyển khoản ngân hàng</span>
     {% if payment.status == "paid" %}
-      <h1>Đã nhận được thanh toán.</h1>
-      <p>Đơn {{ payment.order.order_number }} đã được cập nhật thanh toán tự động.</p>
+      <h1 data-payment-heading>Đã nhận được thanh toán.</h1>
     {% elif payment.status == "expired" %}
-      <h1>Mã thanh toán đã hết hạn.</h1>
+      <h1 data-payment-heading>Mã thanh toán đã hết hạn.</h1>
       <p>Vui lòng liên hệ cửa hàng để kiểm tra trước khi chuyển khoản.</p>
     {% else %}
-      <h1>Quét mã để thanh toán.</h1>
-      <p>Đơn {{ payment.order.order_number }} sẽ được xác nhận thanh toán tự động sau khi chuyển khoản.</p>
+      <h1 data-payment-heading>Quét mã để thanh toán.</h1>
+      <p data-payment-intro>Đơn {{ payment.order.order_number }} sẽ được xác nhận thanh toán tự động sau khi chuyển khoản.</p>
     {% endif %}
     {% if payment.status == "pending" %}
-      <div class="bank-transfer-instructions">
+      <div class="bank-transfer-instructions" data-bank-transfer-pending>
         <img src="{{ bank_qr_url }}" alt="Mã QR chuyển khoản FitMeal">
         <div>
+          <div class="payment-waiting" data-payment-live-status role="status">
+            <span class="payment-spinner" aria-hidden="true"></span>
+            <span data-payment-live-text>Đang chờ thanh toán… Trang sẽ tự cập nhật ngay khi FitMeal nhận được tiền.</span>
+          </div>
           <p>Ngân hàng: <strong>{{ bank_name }}</strong></p>
           <p>Số tài khoản: <strong>{{ account_number }}</strong></p>
           <p>Chủ tài khoản: <strong>{{ account_name }}</strong></p>
@@ -26,9 +29,13 @@
           <p>Mã này có hiệu lực trong 24 giờ. Vui lòng chuyển đúng số tiền và nội dung để hệ thống tự đối soát.</p>
         </div>
       </div>
-      <p class="bank-transfer-live-status" data-payment-live-status role="status">Đang chờ ngân hàng xác nhận…</p>
+      {% include "payments/_payment_success.html" with hidden=True %}
+    {% elif payment.status == "paid" %}
+      {% include "payments/_payment_success.html" %}
     {% endif %}
-    <p>Trạng thái thanh toán: <strong data-payment-status>{{ payment.get_status_display }}</strong></p>
-    <a class="solid-button" href="{% url 'core:home' %}">Quay về cửa hàng →</a>
+    <p class="bank-transfer-status-line">Trạng thái thanh toán: <strong data-payment-status>{{ payment.get_status_display }}</strong></p>
+    {% if payment.status != "paid" %}
+      <a class="solid-button" href="{% url 'core:home' %}" data-payment-home-link>Quay về cửa hàng →</a>
+    {% endif %}
   </section>
 {% endblock %}

@@ -456,6 +456,7 @@ def bank_transfer_instructions(request, transaction_ref):
             "bank_code": settings.BANK_TRANSFER_BANK_CODE,
             "bank_name": bank_display_name(),
             "transfer_content": bank_transfer_content(payment),
+            "order_url": _order_followup_url(request, payment.order),
             "account_number": settings.BANK_TRANSFER_ACCOUNT_NUMBER,
             "account_name": settings.BANK_TRANSFER_ACCOUNT_NAME,
             "payment_status_url": reverse(

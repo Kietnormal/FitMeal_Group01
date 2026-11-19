@@ -610,3 +610,20 @@ class BankTransferContentPrefixTests(TestCase):
                 self.assertEqual(response.status_code, 200)
                 payment.refresh_from_db()
                 self.assertEqual(payment.status, PaymentTransaction.Status.PAID)
+
+    def test_instructions_show_waiting_spinner_then_success_panel(self):
+        payment = self.create_payment()
+        url = reverse("payments:bank_transfer_instructions", args=[payment.transaction_ref])
+
+        pending = Client().get(url)
+        self.assertContains(pending, 'class="payment-spinner"')
+        self.assertContains(pending, "data-payment-success hidden")
+        self.assertContains(pending, f'href="{reverse("core:tracking")}?token={payment.order.tracking_token}"')
+
+        payment.status = PaymentTransaction.Status.PAID
+        payment.save(update_fields=["status"])
+        paid = Client().get(url)
+        self.assertContains(paid, "Thanh toán thành công!")
+        self.assertContains(paid, 'class="payment-success-mark"')
+        self.assertNotContains(paid, "data-payment-success hidden")
+        self.assertNotContains(paid, 'class="payment-spinner"')

@@ -94,7 +94,7 @@
 </div>
 <section class="checkout-success" data-checkout-success hidden aria-live="polite">
   <h2>Bạn đã đặt đơn thành công!</h2>
-  <span class="checkout-success-icon" aria-hidden="true">✓</span>
+  <span class="checkout-success-icon" aria-hidden="true">{% include "payments/_payment_success_mark.html" %}</span>
   <a class="solid-button" data-order-history-link href="#">Xem đơn hàng của bạn tại đây <span>→</span></a>
 </section>
 {% endblock %}

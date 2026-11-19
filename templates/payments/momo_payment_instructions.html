@@ -31,7 +31,7 @@
 
           {% if payment.status == "paid" %}
             <div class="momo-payment-final-state is-paid">
-              <span class="checkout-success-icon" aria-hidden="true">✓</span>
+              <span class="checkout-success-icon" aria-hidden="true">{% include "payments/_payment_success_mark.html" %}</span>
               <h1>Thanh toán thành công</h1>
               <p>FitMeal đã xác nhận thanh toán cho đơn {{ payment.order.order_number }}.</p>
             </div>

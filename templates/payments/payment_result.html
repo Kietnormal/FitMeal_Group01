@@ -16,7 +16,7 @@
       <h1>Không tìm thấy giao dịch.</h1>
       <p>Thông tin giao dịch không khớp với đơn hàng FitMeal.</p>
     {% elif payment.status == "paid" %}
-      <span class="checkout-success-icon" aria-hidden="true">✓</span>
+      <span class="checkout-success-icon" aria-hidden="true">{% include "payments/_payment_success_mark.html" %}</span>
       <h1>Thanh toán thành công.</h1>
       <p>Đã nhận thanh toán cho đơn {{ payment.order.order_number }}. Cửa hàng sẽ tiếp tục xử lý đơn.</p>
     {% elif gateway_succeeded and payment.status == "pending" %}

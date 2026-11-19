@@ -1,0 +1,11 @@
+{% load fitmeal %}
+<div class="payment-success" data-payment-success{% if hidden %} hidden{% endif %}>
+  {% include "payments/_payment_success_mark.html" %}
+  <h2 tabindex="-1" data-payment-success-heading>Thanh toán thành công!</h2>
+  <p>FitMeal đã nhận <strong>{{ payment.amount|vnd }}</strong> cho đơn <strong>{{ payment.order.order_number }}</strong>.</p>
+  <p class="payment-success-note">Nhân viên FitMeal sẽ xử lý đơn của bạn ngay. Bạn có thể theo dõi tiến độ đơn bất cứ lúc nào.</p>
+  <div class="payment-success-actions">
+    <a class="solid-button" href="{{ order_url }}">Xem đơn hàng</a>
+    <a class="payment-success-secondary" href="{% url 'core:shop' %}">Tiếp tục mua sắm</a>
+  </div>
+</div>
