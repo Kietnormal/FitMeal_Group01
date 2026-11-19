@@ -1633,18 +1633,8 @@ function initializeBankTransferStatus() {
   const liveText = liveStatus.querySelector("[data-payment-live-text]") || liveStatus;
   const heading = page.querySelector("[data-payment-heading]");
 
-  const showPaid = () => {
-    page.querySelector("[data-bank-transfer-pending]")?.setAttribute("hidden", "");
-    page.querySelector("[data-payment-intro]")?.setAttribute("hidden", "");
-    page.querySelector("[data-payment-home-link]")?.setAttribute("hidden", "");
-    if (heading) heading.textContent = "Đã nhận được thanh toán.";
-    const success = page.querySelector("[data-payment-success]");
-    if (success) {
-      success.hidden = false;
-      success.querySelector("[data-payment-success-heading]")?.focus({ preventScroll: true });
-      success.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-  };
+  // The server renders the full "Thanh toán thành công" page for paid payments.
+  const showPaid = () => window.location.reload();
 
   const showExpired = () => {
     page.querySelector("[data-bank-transfer-pending]")?.setAttribute("hidden", "");
@@ -1678,6 +1668,21 @@ function initializeBankTransferStatus() {
     }
   };
   window.setTimeout(checkStatus, 4000);
+}
+
+function initializeCopyButtons() {
+  document.querySelectorAll("[data-copy-text]").forEach((button) => {
+    const label = button.textContent;
+    button.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(button.dataset.copyText);
+        button.textContent = "Đã chép";
+      } catch {
+        button.textContent = "Không chép được";
+      }
+      window.setTimeout(() => { button.textContent = label; }, 1800);
+    });
+  });
 }
 
 function initializeMomoPaymentStatus() {
@@ -1878,6 +1883,7 @@ initializeEmployeeWorkspaceRefresh();
 initializeEmployeeAvailabilityToggles();
 initializeBankTransferStatus();
 initializeMomoPaymentStatus();
+initializeCopyButtons();
 initializeProductCreateForm();
 initializeAdmin();
 initializeAnnouncementBanner();

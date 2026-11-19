@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
-{% block extra_css %}<link rel="stylesheet" href="{% static 'css/storefront.css' %}?v=20261118-redesign-1">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/storefront.css' %}?v=20261120-type-scale-1">{% endblock %}
 {% block content %}
 <div class="store-shell{% if active_page == 'checkout' %} checkout-shell{% endif %}" data-food-images="{% static 'img/food/' %}" data-shipping-fees="{% if shipping_fees_enabled %}on{% else %}off{% endif %}">
   <a class="fm-skip" href="#noi-dung">Bỏ qua điều hướng</a>

@@ -4,9 +4,7 @@
 {% block store_content %}
   <section class="page-heading compact-heading bank-transfer-page" data-bank-transfer-status data-status-url="{{ payment_status_url }}">
     <span class="store-kicker">Chuyển khoản ngân hàng</span>
-    {% if payment.status == "paid" %}
-      <h1 data-payment-heading>Đã nhận được thanh toán.</h1>
-    {% elif payment.status == "expired" %}
+    {% if payment.status == "expired" %}
       <h1 data-payment-heading>Mã thanh toán đã hết hạn.</h1>
       <p>Vui lòng liên hệ cửa hàng để kiểm tra trước khi chuyển khoản.</p>
     {% else %}
@@ -29,13 +27,8 @@
           <p>Mã này có hiệu lực trong 24 giờ. Vui lòng chuyển đúng số tiền và nội dung để hệ thống tự đối soát.</p>
         </div>
       </div>
-      {% include "payments/_payment_success.html" with hidden=True %}
-    {% elif payment.status == "paid" %}
-      {% include "payments/_payment_success.html" %}
     {% endif %}
     <p class="bank-transfer-status-line">Trạng thái thanh toán: <strong data-payment-status>{{ payment.get_status_display }}</strong></p>
-    {% if payment.status != "paid" %}
-      <a class="solid-button" href="{% url 'core:home' %}" data-payment-home-link>Quay về cửa hàng →</a>
-    {% endif %}
+    <a class="solid-button" href="{% url 'core:home' %}" data-payment-home-link>Quay về cửa hàng →</a>
   </section>
 {% endblock %}

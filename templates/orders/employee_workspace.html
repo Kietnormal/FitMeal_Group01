@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static fitmeal %}
 {% block title %}{{ workspace_title }} — FitMeal{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{% static 'css/storefront.css' %}?v=20261117-report-chart-4">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/storefront.css' %}?v=20261120-type-scale-1">{% endblock %}
 {% block content %}
 <div class="employee-workspace-shell{% if active_workspace == 'reports' %} is-report-workspace{% endif %}" {% if active_workspace == "work" or active_workspace == "orders" or active_workspace == "menu" or active_workspace == "inventory" %}data-auto-refresh{% endif %}>
   <aside class="employee-workspace-sidebar">

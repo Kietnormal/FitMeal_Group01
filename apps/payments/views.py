@@ -28,6 +28,7 @@ from .gateway import (
     verify_sepay_api_key,
     verify_vnpay_signature,
 )
+from .completion import order_complete_context
 from .models import PaymentTransaction
 
 
@@ -42,6 +43,18 @@ def _order_followup_url(request, order):
     if request.user.is_authenticated and order.customer_id == request.user.pk:
         return f"{reverse('core:account')}?tab=orders#orders"
     return f"{reverse('core:tracking')}?token={order.tracking_token}"
+
+
+def _render_order_complete(request, payment):
+    return render(
+        request,
+        "payments/order_complete.html",
+        order_complete_context(
+            request,
+            payment,
+            order_url=_order_followup_url(request, payment.order),
+        ),
+    )
 
 
 @require_GET
@@ -271,6 +284,8 @@ def momo_return(request):
                             "updated_at",
                         ]
                     )
+    if payment and payment.status == PaymentTransaction.Status.PAID:
+        return _render_order_complete(request, payment)
     return render(
         request,
         "payments/payment_result.html",
@@ -313,6 +328,8 @@ def momo_payment_instructions(request, transaction_ref):
         transaction_ref=transaction_ref,
         provider=PaymentTransaction.Provider.MOMO,
     )
+    if payment.status == PaymentTransaction.Status.PAID:
+        return _render_order_complete(request, payment)
     gateway_payment_url = request.session.get(
         momo_payment_session_key(payment.transaction_ref),
         "",
@@ -447,6 +464,8 @@ def bank_transfer_instructions(request, transaction_ref):
         transaction_ref=transaction_ref,
         provider=PaymentTransaction.Provider.BANK_TRANSFER,
     )
+    if payment.status == PaymentTransaction.Status.PAID:
+        return _render_order_complete(request, payment)
     return render(
         request,
         "payments/bank_transfer_instructions.html",

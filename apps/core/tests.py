@@ -51,8 +51,8 @@ class CoreViewsTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "data-product-grid")
-        self.assertContains(response, "storefront.js?v=20261120-free-shipping-1")
-        self.assertContains(response, "storefront.css?v=20261118-redesign-1")
+        self.assertContains(response, "storefront.js?v=20261120-order-complete-1")
+        self.assertContains(response, "storefront.css?v=20261120-type-scale-1")
         self.assertNotContains(response, "Banana Whey")
         self.assertNotContains(response, "Granola Crunch")
 

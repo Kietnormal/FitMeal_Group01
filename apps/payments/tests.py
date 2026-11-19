@@ -312,8 +312,9 @@ class NewPaymentMethodTests(TestCase):
         self.assertEqual(payment.status, PaymentTransaction.Status.PENDING)
 
         return_response = client.get(reverse("payments:momo_return"), data=params)
-        self.assertContains(return_response, 'class="checkout-success-icon"')
-        self.assertContains(return_response, "Thanh toán thành công.")
+        self.assertContains(return_response, "data-order-complete")
+        self.assertContains(return_response, "Thanh toán thành công")
+        self.assertContains(return_response, order.order_number)
         self.assertContains(
             return_response,
             f'href="{reverse("core:tracking")}?token={order.tracking_token}"',
@@ -611,19 +612,49 @@ class BankTransferContentPrefixTests(TestCase):
                 payment.refresh_from_db()
                 self.assertEqual(payment.status, PaymentTransaction.Status.PAID)
 
-    def test_instructions_show_waiting_spinner_then_success_panel(self):
+    def test_instructions_show_spinner_then_the_order_complete_page(self):
         payment = self.create_payment()
+        OrderItem.objects.create(
+            order=payment.order,
+            product_sku="FM-TRA",
+            product_name="Nước trà",
+            product_category=Product.Category.DRINK,
+            unit_price=Decimal("60000.00"),
+            quantity=1,
+            line_total=Decimal("60000.00"),
+        )
         url = reverse("payments:bank_transfer_instructions", args=[payment.transaction_ref])
 
         pending = Client().get(url)
         self.assertContains(pending, 'class="payment-spinner"')
-        self.assertContains(pending, "data-payment-success hidden")
-        self.assertContains(pending, f'href="{reverse("core:tracking")}?token={payment.order.tracking_token}"')
+        self.assertNotContains(pending, "data-order-complete")
 
         payment.status = PaymentTransaction.Status.PAID
-        payment.save(update_fields=["status"])
+        payment.paid_at = timezone.now()
+        payment.save(update_fields=["status", "paid_at"])
         paid = Client().get(url)
-        self.assertContains(paid, "Thanh toán thành công!")
+        self.assertContains(paid, "data-order-complete")
+        self.assertContains(paid, "Thanh toán thành công")
         self.assertContains(paid, 'class="payment-success-mark"')
-        self.assertNotContains(paid, "data-payment-success hidden")
+        self.assertContains(paid, payment.order.order_number)
+        self.assertContains(paid, "Nước trà")
+        self.assertContains(paid, "Đồ tươi · SL 1")
+        for title in ("Đã thanh toán", "Cửa hàng xác nhận", "Đang chuẩn bị", "Đang giao"):
+            self.assertContains(paid, title)
+        self.assertContains(paid, 'class="is-done"')
+        self.assertContains(paid, 'class="is-current" aria-current="step"')
+        self.assertContains(paid, f'href="{reverse("core:tracking")}?token={payment.order.tracking_token}"')
         self.assertNotContains(paid, 'class="payment-spinner"')
+
+    def test_order_complete_steps_follow_the_order_status(self):
+        payment = self.create_payment()
+        payment.status = PaymentTransaction.Status.PAID
+        payment.paid_at = timezone.now()
+        payment.save(update_fields=["status", "paid_at"])
+        payment.order.status = Order.Status.PREPARING
+        payment.order.save(update_fields=["status"])
+
+        response = Client().get(reverse("payments:bank_transfer_instructions", args=[payment.transaction_ref]))
+
+        steps = response.context["steps"]
+        self.assertEqual([step["state"] for step in steps], ["done", "done", "current", "upcoming"])
