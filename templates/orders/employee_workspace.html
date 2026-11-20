@@ -12,7 +12,7 @@
     <span class="employee-workspace-nav-label">Vận hành</span>
     <nav class="employee-workspace-nav" aria-label="Công việc">
       <a class="{% if active_workspace == 'work' %}is-active{% endif %}" href="?workspace=work"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M5 4h3v16H5zM10 6h4v12h-4zM16 8h3v8h-3z"/></svg></span>Ca làm hôm nay{% if pending_count %}<b>{{ pending_count }}</b>{% endif %}</a>
-      <a class="{% if active_workspace == 'orders' %}is-active{% endif %}" href="?workspace=orders{% if is_manager %}&view=cancellations{% endif %}"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M6 3.5h12v17l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5-2 1.5z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span>{% if is_manager %}Đơn hàng & xử lý{% else %}Tra cứu đơn hàng{% endif %}{% if is_manager %}{% with cancellation_badge_count=pending_cancellation_count|add:contact_cancellation_count|add:pending_delivery_failure_count|add:pending_customer_complaint_count|add:pending_customer_care_count %}{% if cancellation_badge_count %}<b>{{ cancellation_badge_count }}</b>{% endif %}{% endwith %}{% elif contact_cancellation_count %}<b>{{ contact_cancellation_count }}</b>{% endif %}</a>
+      <a class="{% if active_workspace == 'orders' %}is-active{% endif %}" href="?workspace=orders{% if is_manager %}&view=cancellations{% endif %}"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M6 3.5h12v17l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5-2 1.5z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span>{% if is_manager %}Đơn hàng & xử lý{% else %}Tra cứu đơn hàng{% endif %}{% if is_manager %}{% with cancellation_badge_count=pending_cancellation_count|add:pending_delivery_failure_count|add:pending_customer_complaint_count|add:pending_customer_care_count %}{% if cancellation_badge_count %}<b>{{ cancellation_badge_count }}</b>{% endif %}{% endwith %}{% elif contact_cancellation_count %}<b>{{ contact_cancellation_count }}</b>{% endif %}</a>
       <a class="{% if active_workspace == 'customers' %}is-active{% endif %}" href="?workspace=customers"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="9" cy="8" r="3"/><path d="M3.5 20v-1.5a5.5 5.5 0 0 1 11 0V20zM16 5.5a3 3 0 0 1 0 5.8M18 14a4.5 4.5 0 0 1 2.5 4v2"/></svg></span>Khách hàng</a>
     </nav>
     {% if is_manager %}
@@ -65,7 +65,7 @@
         <article><span>Đã hoàn tất hôm nay</span><strong class="is-green">{{ completed_today_count }}</strong></article>
       </section>
       {% include "orders/_inventory_restock_alerts.html" %}
-      {% include "orders/_employee_cancellation_contact_queue.html" %}
+      {% if not is_manager %}{% include "orders/_employee_cancellation_contact_queue.html" %}{% endif %}
       <section class="employee-order-board" aria-label="Đơn hàng cần xử lý">
         <div class="employee-order-lane lane-pending">
           <h2><i></i>Chờ xác nhận <b>{{ pending_count }}</b></h2>
@@ -97,7 +97,7 @@
       <header class="employee-workspace-heading">
         <div><span class="store-kicker">Vận hành bán hàng</span><h1>{% if is_manager %}Đơn hàng &amp; xử lý{% else %}Tra cứu đơn hàng{% endif %}</h1><p>{% if is_manager and orders_view == "cancellations" %}Duyệt hoặc từ chối các yêu cầu đang chờ.{% elif is_manager and orders_view == "delivery_failures" %}Theo dõi đơn giao không thành công và ghi nhận hướng xử lý.{% elif is_manager and orders_view == "delivery_issues" %}Tiếp nhận và xử lý phản hồi của khách về việc giao hàng.{% elif is_manager and orders_view == "customer_care" %}Xử lý khiếu nại và yêu cầu đổi/trả trong thời hạn chính sách.{% else %}Tìm theo mã đơn, tên hoặc số điện thoại người nhận.{% endif %}</p></div>
       </header>
-      {% include "orders/_employee_cancellation_contact_queue.html" %}
+      {% if not is_manager %}{% include "orders/_employee_cancellation_contact_queue.html" %}{% endif %}
       {% if is_manager %}
         <nav class="employee-cancellation-tabs" aria-label="Đơn hàng và các yêu cầu xử lý">
           <a href="?workspace=orders&view=orders" {% if orders_view == "orders" %}aria-current="page"{% endif %}>Đơn hàng</a>

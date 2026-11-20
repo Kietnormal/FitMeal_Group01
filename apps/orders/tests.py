@@ -2151,6 +2151,69 @@ class StaffOrderDashboardTests(TestCase):
                     reverse("staff_orders:record_cancellation_contact", args=[cancellation.pk]),
                 )
 
+    def test_manager_only_sees_cancellations_after_staff_forwards_them(self):
+        customer = User.objects.create_user(
+            username="forward-customer",
+            email="forward-customer@example.com",
+            password="Customer-Strong-2026!",
+        )
+        order = self.create_order(
+            status=Order.Status.PREPARING,
+            total=Decimal("120000.00"),
+            customer=customer,
+        )
+        employee = User.objects.create_user(
+            username="forward-employee",
+            email="forward-employee@example.com",
+            password="Employee-Strong-2026!",
+            is_staff=True,
+            staff_role=User.StaffRole.SALES,
+        )
+        manager = User.objects.create_user(
+            username="forward-manager",
+            email="forward-manager@example.com",
+            password="Employee-Strong-2026!",
+            is_staff=True,
+            staff_role=User.StaffRole.MANAGER,
+        )
+        self.client.force_login(customer)
+        self.client.post(
+            reverse("orders:customer_cancel", args=[order.pk]),
+            {"reason": "không muốn uống nữa"},
+        )
+        cancellation = OrderCancellationRequest.objects.get(order=order)
+        contact_url = reverse("staff_orders:record_cancellation_contact", args=[cancellation.pk])
+
+        self.client.force_login(manager)
+        for workspace in ("work", "orders"):
+            with self.subTest(stage="before forwarding", workspace=workspace):
+                response = self.client.get(reverse("staff_orders:dashboard"), {"workspace": workspace})
+                self.assertNotContains(response, "Yêu cầu hủy cần gọi lại")
+                self.assertNotContains(response, contact_url)
+                self.assertNotContains(response, "Chuyển Quản lý duyệt")
+                self.assertEqual(response.context["pending_cancellation_count"], 0)
+                # Sidebar link without a notification badge.
+                self.assertContains(response, "Đơn hàng & xử lý</a>")
+
+        self.client.force_login(employee)
+        self.client.post(contact_url, {"outcome": "still_wants_cancel", "note": "Khách vẫn muốn hủy"})
+        cancellation.refresh_from_db()
+        self.assertEqual(cancellation.status, OrderCancellationRequest.Status.MANAGER_REVIEW)
+
+        self.client.force_login(manager)
+        work = self.client.get(reverse("staff_orders:dashboard"), {"workspace": "work"})
+        self.assertEqual(work.context["pending_cancellation_count"], 1)
+        self.assertContains(work, 'href="?workspace=orders&view=cancellations"')
+        self.assertContains(work, "Đơn hàng & xử lý<b>1</b></a>")
+        review = self.client.get(
+            reverse("staff_orders:dashboard"),
+            {"workspace": "orders", "view": "cancellations"},
+        )
+        self.assertContains(review, order.order_number)
+        self.assertContains(review, "không muốn uống nữa")
+        self.assertContains(review, reverse("staff_orders:resolve_cancellation", args=[cancellation.pk]))
+        self.assertNotContains(review, "Chuyển Quản lý duyệt")
+
     def test_customer_request_is_escalated_after_two_unanswered_calls(self):
         customer = User.objects.create_user(
             username="cancellation-customer",
