@@ -51,8 +51,8 @@ class CoreViewsTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "data-product-grid")
-        self.assertContains(response, "storefront.js?v=20261120-order-complete-1")
-        self.assertContains(response, "storefront.css?v=20261120-type-scale-1")
+        self.assertContains(response, "storefront.js?v=20261120-no-momo-1")
+        self.assertContains(response, "storefront.css?v=20261120-no-momo-1")
         self.assertNotContains(response, "Banana Whey")
         self.assertNotContains(response, "Granola Crunch")
 
@@ -161,10 +161,11 @@ class CoreViewsTests(TestCase):
         response = self.client.get("/demo-admin/")
         self.assertEqual(response.status_code, 404)
 
-    def test_checkout_offers_momo_bank_transfer_and_cod(self):
+    def test_checkout_offers_bank_transfer_and_cod_only(self):
         response = self.client.get(reverse("core:checkout"))
 
-        self.assertContains(response, 'name="payment" value="momo"')
+        self.assertNotContains(response, 'name="payment" value="momo"')
+        self.assertNotContains(response, "MoMo")
         self.assertContains(response, 'name="payment" value="bank_transfer"')
         self.assertContains(response, 'name="payment" value="cod"')
         self.assertNotContains(response, 'name="payment" value="vnpay"')

@@ -11,7 +11,7 @@ toán, rồi mới chuyển production.
 - Chỉ mở cổng công khai **22/80/443** (giới hạn SSH theo IP nếu có thể). **Không mở cổng MySQL 3306 ra Internet**.
 - Có bản sao lưu đã kiểm tra khôi phục; không sao chép `db.sqlite3`, `.locust-test.sqlite3` hoặc database thử nghiệm Locust sang production.
 - Quyết định rõ bắt đầu database production trống hay có kế hoạch chuyển dữ liệu đã kiểm tra riêng; không đưa tài khoản, đơn hàng, media hoặc thông tin cá nhân thật lên VPS nếu chưa có kế hoạch bảo vệ/chuyển dữ liệu.
-- Chuẩn bị tài khoản email SMTP thật và xác nhận chính sách giao hàng/đổi trả. Ban đầu để trống credentials thanh toán hoặc dùng sandbox; chỉ bật MoMo/SePay production sau khi kiểm thử callback HTTPS và đối soát.
+- Chuẩn bị tài khoản email SMTP thật và xác nhận chính sách giao hàng/đổi trả. Ban đầu để trống credentials thanh toán hoặc dùng sandbox; chỉ bật SePay production sau khi kiểm thử webhook HTTPS và đối soát.
 - Tạo `SECRET_KEY`, mật khẩu database, SMTP, OAuth và payment credentials riêng cho máy chủ. Không gửi hoặc commit các giá trị này.
 
 ## 1. Chuẩn bị MySQL
@@ -89,7 +89,7 @@ sudo chmod 640 /etc/fitmeal/fitmeal.env
 
 `SECURE_SSL_REDIRECT` và `USE_PROXY_SSL_HEADER` chỉ bật như trên khi Nginx đã proxy HTTPS. Chỉ đưa domain thật vào `ALLOWED_HOSTS` và `CSRF_TRUSTED_ORIGINS`. Chỉ đặt `SECURE_HSTS_INCLUDE_SUBDOMAINS=True` nếu mọi subdomain đều luôn dùng HTTPS; chỉ bật `SECURE_HSTS_PRELOAD=True` khi đã chủ ý đáp ứng yêu cầu preload của trình duyệt. Cấu hình SMTP trước khi cần gửi email; không để credentials mặc định hoặc secrets của sandbox trong production.
 
-Các cổng thanh toán vẫn tắt khi không có credentials. Chỉ bật MoMo sau khi cấu hình credentials và URL production riêng (`MOMO_CREATE_PAYMENT_URL`), đặt `MOMO_PUBLIC_BASE_URL=https://<domain>` và đăng ký callback HTTPS với nhà cung cấp. Chuyển khoản tự đối soát chỉ bật khi đủ cấu hình ngân hàng và `SEPAY_API_KEY`. Không sao chép secrets từ máy phát triển hoặc Locust.
+Thanh toán chuyển khoản vẫn tắt khi không có credentials. Chuyển khoản tự đối soát chỉ bật khi đủ cấu hình ngân hàng và `SEPAY_API_KEY`. Không sao chép secrets từ máy phát triển hoặc Locust.
 
 Tạo thêm `/etc/fitmeal/fitmeal-migrate.env` với cùng cấu hình cần thiết nhưng dùng URL database của user `fitmeal_migrator`. Giữ cả hai file ở quyền `root:fitmeal`, mode `640`. Service Gunicorn chỉ đọc `fitmeal.env`; file migrate chỉ dùng cho lệnh migration và không được cấu hình vào service.
 

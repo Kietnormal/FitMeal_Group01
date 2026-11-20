@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
-{% block extra_css %}<link rel="stylesheet" href="{% static 'css/storefront.css' %}?v=20261120-type-scale-1">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/storefront.css' %}?v=20261120-no-momo-1">{% endblock %}
 {% block content %}
 <div class="store-shell{% if active_page == 'checkout' %} checkout-shell{% endif %}" data-food-images="{% static 'img/food/' %}" data-shipping-fees="{% if shipping_fees_enabled %}on{% else %}off{% endif %}">
   <a class="fm-skip" href="#noi-dung">Bỏ qua điều hướng</a>
@@ -76,7 +76,7 @@
         <div class="fm-footer-about">
           <a class="fm-brand" href="{% url 'core:home' %}"><span class="fm-brand-mark" aria-hidden="true"><svg class="fm-i"><use href="#fm-leaf"/></svg></span><span class="fm-brand-name">FitMeal</span></a>
           <p>Thực phẩm giàu protein cho người tập luyện và người bận rộn. Ăn đủ chất mà không cần tự nấu.</p>
-          <ul class="fm-pay" aria-label="Phương thức thanh toán"><li>COD</li><li>MoMo</li><li>Chuyển khoản</li></ul>
+          <ul class="fm-pay" aria-label="Phương thức thanh toán"><li>COD</li><li>Chuyển khoản</li></ul>
         </div>
         <nav aria-label="Mua sắm">
           <h2>Mua sắm</h2>

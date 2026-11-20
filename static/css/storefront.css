@@ -2794,67 +2794,7 @@ body {
 .bank-transfer-instructions img { display: block; width: 100%; max-width: 260px; margin: auto; }
 .bank-transfer-instructions p { margin: 0 0 10px; color: #566057; font-size: 14px; line-height: 1.5; }
 .bank-transfer-instructions p strong { color: #28372b; }
-.momo-payment-instructions .solid-button { display: inline-flex; min-height: 42px; align-items: center; justify-content: center; padding: 0 14px; border-radius: 8px; background: #405a36; color: #fff; font-size: 14px; font-weight: 700; text-decoration: none; }
 .bank-transfer-live-status { color: #4a7446 !important; font-weight: 700; }
-.momo-payment-shell { display: flex; min-height: 100vh; flex-direction: column; background: #faf9f5; color: #181c19; }
-.momo-payment-topline { height: 8px; flex: 0 0 8px; background: #111713; }
-.momo-payment-main { width: min(1120px,calc(100% - 48px)); flex: 0 0 auto; margin: 20px auto 32px; }
-.momo-payment-layout { display: grid; grid-template-columns: minmax(0,1.83fr) minmax(340px,1fr); align-items: start; gap: 20px; }
-.momo-payment-card,.momo-order-card { border: 1px solid #e8e5dc; border-radius: 16px; background: #fff; box-shadow: 0 2px 8px rgba(34,38,33,.025); }
-.momo-payment-card { min-width: 0; padding: 26px; }
-.momo-payment-card-header,.momo-payment-brand,.momo-payment-expiry,.momo-order-header,.momo-order-header > div { display: flex; align-items: center; }
-.momo-payment-card-header { justify-content: space-between; gap: 14px; margin-bottom: 8px; }
-.momo-payment-brand { gap: 8px; color: #b50073; font-size: 14px; font-weight: 800; letter-spacing: 1px; }
-.momo-payment-brand-mark { display: grid; width: 20px; height: 20px; place-items: center; border-radius: 5px; background: #c00079; color: #fff; font-size: 14px; font-weight: 800; letter-spacing: 0; }
-.momo-payment-expiry { min-width: 86px; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 11px; border-radius: 9px; background: #f7f6f1; }
-.momo-payment-expiry span { color: #656a65; font-size: 14px; }
-.momo-payment-expiry strong { color: #181c19; font-size: 20px; line-height: 1; font-variant-numeric: tabular-nums; }
-.momo-payment-heading h1,.momo-payment-final-state h1 { margin: 0; color: #171b18; font-size: 30px; font-weight: 800; letter-spacing: -.7px; line-height: 1.2; }
-.momo-payment-heading > p,.momo-payment-final-state > p { margin: 8px 0 20px; color: #656b65; font-size: 15px; line-height: 1.5; }
-.momo-payment-content { display: grid; grid-template-columns: 240px minmax(0,1fr); align-items: center; gap: 26px; margin: 10px 0 19px; }
-.momo-payment-qr-frame { display: grid; width: 240px; height: 240px; place-items: center; padding: 8px; border: 1px solid #f2bfda; border-radius: 14px; background: #fff; }
-.momo-payment-qr-frame img { display: block; width: 100%; height: 100%; }
-.momo-payment-steps { display: grid; gap: 16px; margin: 0; padding: 0; list-style: none; }
-.momo-payment-steps li { display: grid; grid-template-columns: 28px minmax(0,1fr); align-items: start; gap: 11px; }
-.momo-payment-steps li > span { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 50%; background: #f9e8f1; color: #b50073; font-size: 15px; font-weight: 800; }
-.momo-payment-steps p { margin: 3px 0 0; color: #333a34; font-size: 15px; line-height: 1.5; }
-.momo-payment-steps p strong { color: #171b18; font-weight: 750; }
-.momo-payment-waiting { display: flex; min-height: 46px; align-items: center; gap: 11px; padding: 9px 13px; border-radius: 10px; background: #f6f5f0; }
-.momo-payment-waiting > strong { flex: 1; color: #202720; font-size: 15px; font-weight: 700; }
-.momo-payment-spinner { width: 18px; height: 18px; flex: 0 0 auto; border: 2px solid #deded5; border-top-color: #506947; border-radius: 50%; animation: momo-payment-spin .8s linear infinite; }
-@keyframes momo-payment-spin { to { transform: rotate(360deg); } }
-.momo-payment-safe-note { margin: 11px 0 0; color: #777d76; font-size: 14px; line-height: 1.5; }
-.momo-payment-actions { display: flex; gap: 18px; margin-top: 17px; padding-top: 13px; border-top: 1px solid #efeee8; }
-.momo-payment-actions a { color: #37473b; font-size: 14px; text-decoration: underline; text-underline-offset: 2px; }
-.momo-payment-actions a:last-child { color: #a92c31; }
-.momo-payment-side { min-width: 0; }
-.momo-order-card { padding: 18px 19px 17px; }
-.momo-order-header { justify-content: space-between; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid #efeee9; }
-.momo-order-header > div { min-width: 0; flex-wrap: wrap; gap: 5px; font-size: 15px; font-weight: 700; }
-.momo-order-header > div strong { overflow-wrap: anywhere; }
-.momo-order-status { flex: 0 0 auto; max-width: 112px; padding: 6px 9px; border-radius: 99px; background: #fff1d9; color: #81500a; font-size: 13px; font-weight: 750; line-height: 1.2; }
-.momo-order-status.is-paid { background: #e7f2e3; color: #3d7745; }
-.momo-order-status.is-failed { background: #fae7e5; color: #9a302c; }
-.momo-order-items { display: grid; gap: 10px; margin: 12px 0; padding: 0; list-style: none; }
-.momo-order-items li,.momo-order-totals p { display: flex; justify-content: space-between; gap: 10px; margin: 0; color: #606760; font-size: 14px; line-height: 1.4; }
-.momo-order-items li > span { min-width: 0; }
-.momo-order-items li > strong,.momo-order-totals p > span:last-child { flex: 0 0 auto; color: #303630; font-weight: 500; white-space: nowrap; }
-.momo-order-totals { display: grid; gap: 7px; padding: 10px 0; border-top: 1px solid #efeee9; }
-.momo-order-total { align-items: center; margin-top: 4px !important; padding-top: 9px; border-top: 1px solid #efeee9; color: #202620 !important; }
-.momo-order-total strong:first-child { font-size: 15px; }
-.momo-order-total strong:last-child { color: #171b18; font-size: 24px; font-weight: 800; white-space: nowrap; }
-.momo-order-delivery { display: grid; gap: 5px; padding-top: 4px; }
-.momo-order-delivery strong { color: #3f4740; font-size: 14px; font-weight: 650; }
-.momo-order-delivery span { color: #6b716b; font-size: 14px; line-height: 1.45; }
-.momo-payment-help { margin: 12px 0 0; color: #656b65; font-size: 14px; line-height: 1.5; }
-.momo-payment-help a { color: #354c3b; font-weight: 700; }
-.momo-payment-final-state { display: grid; min-height: 320px; align-content: center; justify-items: start; gap: 12px; }
-.momo-payment-final-state .checkout-success-icon { width: 64px; height: 64px; font-size: 32px; }
-.momo-payment-final-state .momo-payment-state-mark { display: grid; width: 60px; height: 60px; place-items: center; border-radius: 50%; background: #f7eee2; color: #8a5a17; font-size: 30px; font-weight: 800; }
-.momo-payment-final-state > p { margin: 0; }
-.momo-payment-footer { display: flex; width: min(1120px,calc(100% - 48px)); justify-content: space-between; gap: 20px; margin: 0 auto; padding: 16px 0 24px; border-top: 1px solid #eeece5; color: #686e68; font-size: 14px; }
-.momo-payment-footer nav { display: flex; flex: 0 0 auto; gap: 16px; }
-.momo-payment-footer a { color: #39483d; text-decoration: underline; text-underline-offset: 2px; }
 .manager-report-cancellations { display: flex; flex-direction: column; }
 .manager-report-cancellations .manager-report-card-note { margin-top: auto; padding-top: 14px; }
 .manager-report-breakdown-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 14px; }
@@ -2877,10 +2817,6 @@ body {
   .manager-report-breakdown-grid { gap: 10px; }
 }
 
-@media (max-width: 900px) {
-  .momo-payment-layout { grid-template-columns: minmax(0,1fr); }
-  .momo-payment-side { order: -1; }
-}
 
 @media (max-width: 760px) {
   .manager-catalog-layout,.manager-inventory-layout { grid-template-columns: minmax(0,1fr); }
@@ -2888,8 +2824,6 @@ body {
   .manager-product-stats { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .manager-product-editor { order: -1; }
   .manager-report-main-grid,.manager-report-breakdown-grid { grid-template-columns: minmax(0,1fr); }
-  .momo-payment-layout { grid-template-columns: minmax(0,1fr); }
-  .momo-payment-side { order: -1; }
 }
 
 @media (max-width: 560px) {
@@ -2904,16 +2838,6 @@ body {
   .manager-report-card { padding: 12px; }
   .bank-transfer-instructions { grid-template-columns: minmax(0,1fr); gap: 12px; padding: 12px; }
   .bank-transfer-instructions img { max-width: 220px; }
-  .momo-payment-main { width: min(calc(100% - 24px),560px); margin-top: 14px; }
-  .momo-payment-layout { gap: 12px; }
-  .momo-payment-card { padding: 18px; border-radius: 14px; }
-  .momo-payment-content { grid-template-columns: minmax(0,1fr); justify-items: center; gap: 14px; }
-  .momo-payment-steps { width: 100%; }
-  .momo-payment-heading h1,.momo-payment-final-state h1 { font-size: 25px; }
-  .momo-payment-qr-frame { width: min(240px,100%); height: auto; aspect-ratio: 1; }
-  .momo-payment-waiting { flex-wrap: wrap; }
-  .momo-payment-waiting > strong { min-width: calc(100% - 40px); }
-  .momo-payment-footer { width: calc(100% - 24px); flex-direction: column; gap: 7px; font-size: 14px; }
   .manager-report-breakdown-row { grid-template-columns: 9px minmax(0,1fr); padding: 5px 0; }
   .manager-report-breakdown-row strong { grid-column: 2; }
   .manager-catalog-filters { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 3px; }

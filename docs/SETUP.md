@@ -81,8 +81,8 @@ Mở http://127.0.0.1:8000 (trang chủ) và http://127.0.0.1:8000/admin (quản
   chạy nhanh, hoặc `npm run test:e2e:ui` để mở giao diện Playwright và xem/chạy lại từng bước. E2E tự
   khởi động Django trên `127.0.0.1:8765`, dùng SQLite riêng `.playwright-e2e.sqlite3` (được tạo lại
   mỗi lần) và dữ liệu món giả lập. Đơn COD chỉ nằm trong SQLite kiểm thử, không ghi vào MySQL; không
-  gửi giao dịch hoặc gọi cổng thanh toán thật. Các giao dịch MoMo/thẻ ATM cần dùng sandbox; không
-  thực hiện kiểm thử tải hoặc thanh toán thử trên production.
+  gửi giao dịch hoặc gọi cổng thanh toán thật. Không thực hiện kiểm thử tải hoặc thanh toán thử trên
+  production.
 
 ### Kiểm thử tải đặt hàng cục bộ bằng Locust
 
@@ -134,56 +134,7 @@ cổng thanh toán. Đây là kiểm thử API/backend, không mở nhiều cử
 Dừng Locust rồi máy chủ bằng `Ctrl+C`. Không chạy bài thử này trên production hoặc trên hệ thống
 thanh toán thật.
 
-### Demo MoMo sandbox qua HTTPS tạm thời
-
-Luồng này dành cho demo MoMo khi máy chủ đang chạy trên localhost. Nó dùng SQLite và thư mục media
-riêng, `DEBUG=False`, chỉ cho phép endpoint MoMo sandbox; không dùng database MySQL chính. Cần có
-`cloudflared` và credentials MoMo sandbox trong `.env`. Quick Tunnel là địa chỉ tạm, công khai trong
-thời gian chạy; chỉ dùng dữ liệu giả và gửi link cho người cần xem.
-
-1. Ở Terminal 1, tại thư mục dự án, mở tunnel đến cổng demo riêng:
-
-   ```powershell
-   cloudflared tunnel --url http://127.0.0.1:8001
-   ```
-
-   Sao chép hostname HTTPS do lệnh in ra, ví dụ `https://random-name.trycloudflare.com`. Không nhập
-   placeholder có dấu `<...>`.
-
-2. Ở Terminal 2, đặt cấu hình bằng hostname vừa nhận rồi tạo database mới:
-
-   ```powershell
-   $publicUrl = 'https://random-name.trycloudflare.com'
-   $publicHost = ([uri]$publicUrl).Host
-   $env:MOMO_DEMO_DIR = Join-Path $env:LOCALAPPDATA ('FitMealMomoDemo-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
-   New-Item -ItemType Directory -Path $env:MOMO_DEMO_DIR | Out-Null
-   $dbPath = Join-Path $env:MOMO_DEMO_DIR 'db.sqlite3'
-   $dbUrl = 'sqlite:///' + ($dbPath -replace '\\', '/')
-   $env:DEBUG = 'False'
-   $env:SECRET_KEY = (& python -c "import secrets; print(secrets.token_urlsafe(64))")
-   $env:MOMO_DEMO_SECRET_KEY = (& python -c "import secrets; print(secrets.token_urlsafe(64))")
-   $env:DATABASE_URL = $dbUrl
-   $env:MOMO_DEMO_DATABASE_URL = $dbUrl
-   $env:MOMO_DEMO_ALLOWED_HOSTS = $publicHost
-   $env:MOMO_DEMO_CSRF_TRUSTED_ORIGINS = $publicUrl
-   $env:MOMO_DEMO_PUBLIC_BASE_URL = $publicUrl
-   python manage.py migrate --noinput --settings=config.momo_demo_settings
-   python manage.py loaddata playwright_catalog --settings=config.momo_demo_settings
-   python manage.py collectstatic --noinput --settings=config.momo_demo_settings
-   python manage.py runserver 127.0.0.1:8001 --noreload --settings=config.momo_demo_settings
-   ```
-
-3. Mở đúng `https://random-name.trycloudflare.com` trong một trình duyệt, thêm món kiểm thử vào giỏ
-   rồi đặt đơn MoMo. Giữ nguyên tunnel, server và cùng phiên trình duyệt đến khi hoàn tất; QR thanh
-   toán gắn với phiên đã tạo đơn. Dừng cả hai tiến trình bằng `Ctrl+C` sau khi demo.
-
-Settings từ chối khởi động nếu database không phải SQLite nằm trong thư mục demo riêng, hostname HTTPS
-không khớp cấu hình host/CSRF, MoMo chưa bật hoặc endpoint không phải sandbox. Không dùng tunnel này
-để public cổng 8000, database MySQL hoặc dữ liệu người dùng thật.
-
-Dashboard `/demo-admin/` đã được gỡ. Không dùng trang demo để xử lý dữ liệu. Checkout có ba phương thức: MoMo ATM sandbox, chuyển khoản ngân hàng và thanh toán khi nhận hàng (COD). Cấu hình `MOMO_PARTNER_CODE`, `MOMO_ACCESS_KEY`, `MOMO_SECRET_KEY` để bật MoMo; checkout tạo QR nội bộ từ `payUrl`, IPN đã xác thực hoặc `redirectUrl` có chữ ký hợp lệ đều có thể xác nhận thanh toán. Để callback hoạt động khi mở checkout bằng `localhost`, cấu hình `MOMO_PUBLIC_BASE_URL` thành origin HTTPS công khai của staging/tunnel; hostname đó phải được khai báo trong `ALLOWED_HOSTS` và đăng ký IPN URL `/payments/momo/ipn/` trong MoMo. Khi chạy sau reverse proxy HTTPS đáng tin cậy, đặt `DEBUG=False`, dùng `SECRET_KEY` riêng, bật `USE_PROXY_SSL_HEADER=True`, và chỉ đưa hostname của phiên demo vào `ALLOWED_HOSTS`. Không đưa máy chủ `DEBUG=True` hoặc dữ liệu khách hàng thật ra Internet; ưu tiên staging riêng. Để tự đối soát chuyển khoản, cấu hình `BANK_TRANSFER_BANK_CODE`, `BANK_TRANSFER_ACCOUNT_NUMBER`, `BANK_TRANSFER_ACCOUNT_NAME`, `SEPAY_API_KEY` và webhook SePay tại URL công khai `/payments/bank/sepay-webhook/` với xác thực API Key (`Authorization: Apikey ...`) và sự kiện tiền vào. Dùng sandbox credentials trước khi bật production. Chạy `manage.py expire_pending_payments` mỗi phút để hủy giao dịch quá hạn. Tích hợp hãng vận chuyển tự động chưa được cấu hình.
-
-Với MoMo, `redirectUrl` chỉ cập nhật đơn khi chữ ký, đối tác, mã đơn, số tiền và mã giao dịch hợp lệ; IPN vẫn được xử lý idempotent nếu đến sau. Giữ trang QR mở trên máy tính để trang tự kiểm tra trạng thái và hiển thị dấu tích xanh sau khi điện thoại tự quay về trang FitMeal.
+Dashboard `/demo-admin/` đã được gỡ. Không dùng trang demo để xử lý dữ liệu. Checkout có hai phương thức: chuyển khoản ngân hàng (VietQR, tự đối soát qua SePay) và thanh toán khi nhận hàng (COD). Khi chạy sau reverse proxy HTTPS đáng tin cậy, đặt `DEBUG=False`, dùng `SECRET_KEY` riêng, bật `USE_PROXY_SSL_HEADER=True`, và chỉ đưa hostname của phiên demo vào `ALLOWED_HOSTS`. Không đưa máy chủ `DEBUG=True` hoặc dữ liệu khách hàng thật ra Internet; ưu tiên staging riêng. Để tự đối soát chuyển khoản, cấu hình `BANK_TRANSFER_BANK_CODE`, `BANK_TRANSFER_ACCOUNT_NUMBER`, `BANK_TRANSFER_ACCOUNT_NAME`, `SEPAY_API_KEY` và webhook SePay tại URL công khai `/payments/bank/sepay-webhook/` với xác thực API Key (`Authorization: Apikey ...`) và sự kiện tiền vào. Dùng sandbox credentials trước khi bật production. Chạy `manage.py expire_pending_payments` mỗi phút để hủy giao dịch quá hạn. Tích hợp hãng vận chuyển tự động chưa được cấu hình.
 
 Các trang prototype đã có bố cục responsive và hộp thoại hỗ trợ bàn phím cơ bản (giữ tiêu điểm trong hộp thoại, đóng bằng Escape, trả tiêu điểm về nút đã mở). Cần kiểm thử lại trên thiết bị và trình đọc màn hình thực tế trước khi triển khai.
 

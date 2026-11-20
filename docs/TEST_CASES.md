@@ -22,9 +22,9 @@ if ($null -eq $previousDatabaseUrl) {
 }
 ```
 
-Kết quả chạy trên máy phát triển ngày 17/11/2026: **167 test Django đạt** bằng SQLite in-memory. Các test cổng thanh toán dùng mock; chưa thay cho kiểm thử MoMo sandbox hoặc UAT thủ công.
+Kết quả chạy trên máy phát triển ngày 20/11/2026: **183 test Django đạt** bằng SQLite in-memory. Các test cổng thanh toán dùng mock; chưa thay cho UAT thủ công.
 
-Các test cổng thanh toán tự động dùng dữ liệu giả lập/mock, không gửi giao dịch thật đến MoMo, VNPay hoặc ngân hàng. Các dòng ghi “Chưa chạy” là kiểm thử thủ công, cần staging và tài khoản sandbox. Không dùng thẻ thật hoặc dữ liệu khách hàng thật. Mục kiểm thử đăng nhập ngoài giờ ca đang bị chặn vì ứng dụng chưa có chức năng/lịch ca.
+Các test cổng thanh toán tự động dùng dữ liệu giả lập/mock, không gửi giao dịch thật đến VNPay hoặc ngân hàng. Các dòng ghi “Chưa chạy” là kiểm thử thủ công, cần staging và tài khoản sandbox. Không dùng thẻ thật hoặc dữ liệu khách hàng thật. Mục kiểm thử đăng nhập ngoài giờ ca đang bị chặn vì ứng dụng chưa có chức năng/lịch ca.
 
 ### Kiểm thử giao diện bằng Playwright
 
@@ -55,14 +55,14 @@ Lệnh trên mở Chromium và làm chậm khoảng 700 ms giữa các thao tác
 | TC-013 | Giới hạn món tươi | Đặt món tươi đến ngoài TP.HCM | Checkout từ chối đơn và không lưu đơn | Có test từ chối khu vực ngoài phạm vi | Đạt tự động |
 | TC-014 | Đơn gắn tài khoản | Khách đăng nhập rồi đặt hàng | Đơn được liên kết đúng tài khoản khách | Có test checkout đã đăng nhập | Đạt tự động |
 | TC-015 | Thanh toán COD | Chọn COD và đặt đơn | Đơn được lưu; không tạo giao dịch online | Có test COD không tạo payment transaction | Đạt tự động |
-| TC-016 | Khởi tạo MoMo | Chọn MoMo ở checkout | Yêu cầu ký đúng và hiển thị QR/trang sandbox | Có test dùng response giả lập; chưa thử sandbox thật | Đạt tự động · staging còn chờ |
-| TC-017 | MoMo thẻ ATM sandbox 1 | Dùng thẻ test thứ nhất theo tài liệu MoMo sandbox | Trạng thái thanh toán/đơn đúng với kết quả sandbox | Chưa chạy với MoMo sandbox | Chưa chạy · staging |
-| TC-018 | MoMo thẻ ATM sandbox 2 | Dùng thẻ test thứ hai theo tài liệu MoMo sandbox | Trạng thái thanh toán/đơn đúng với kết quả sandbox | Chưa chạy với MoMo sandbox | Chưa chạy · staging |
-| TC-019 | MoMo thẻ ATM sandbox 3 | Dùng thẻ test thứ ba theo tài liệu MoMo sandbox | Trạng thái thanh toán/đơn đúng với kết quả sandbox | Chưa chạy với MoMo sandbox | Chưa chạy · staging |
-| TC-020 | MoMo thẻ ATM sandbox 4 | Dùng thẻ test thứ tư theo tài liệu MoMo sandbox | Trạng thái thanh toán/đơn đúng với kết quả sandbox | Chưa chạy với MoMo sandbox | Chưa chạy · staging |
-| TC-021 | MoMo sai chữ ký IPN | Gửi IPN có chữ ký không hợp lệ | Không đánh dấu đã thanh toán; trả lỗi xác thực | Có test chữ ký sai giữ giao dịch pending | Đạt tự động |
-| TC-022 | MoMo sai số tiền | Gửi IPN có số tiền khác giao dịch | Không cập nhật thanh toán hoặc trạng thái đơn | Có test sai số tiền | Đạt tự động |
-| TC-023 | IPN MoMo gửi lặp | Gửi cùng IPN hợp lệ hai lần | Xử lý idempotent; chỉ một giao dịch được ghi nhận đã trả | Có test gửi IPN lặp | Đạt tự động |
+| TC-016 | Mã QR chuyển khoản | Đặt đơn, chọn chuyển khoản | Hiện VietQR đúng ngân hàng, số tài khoản, số tiền; nội dung có tiền tố ngân hàng yêu cầu (`SEVQR FM...`) | Có test trang hướng dẫn và URL VietQR | Đạt tự động |
+| TC-017 | Webhook có tiền tố ngân hàng | SePay gửi nội dung `SEVQR FM...` (có hoặc không có dấu cách) | Mã đơn vẫn được nhận ra; giao dịch chuyển sang đã thanh toán | Có test hai dạng nội dung | Đạt tự động |
+| TC-018 | Trang thanh toán thành công | Thanh toán chuyển khoản được xác nhận | Trang chờ tự chuyển sang trang hoàn tất: mã đơn, số tiền, tóm tắt đơn, 4 bước tiếp theo | Có test trang chờ (vòng xoay) và trang hoàn tất | Đạt tự động |
+| TC-019 | Tiến trình đơn sau thanh toán | Nhân viên chuyển đơn sang "Đang chuẩn bị" rồi mở lại trang hoàn tất | Bước 1–2 hoàn tất, bước 3 là bước hiện tại | Có test trạng thái từng bước | Đạt tự động |
+| TC-020 | Chuyển khoản thật qua SePay | Quét VietQR bằng app ngân hàng trên bản deploy, chuyển đúng số tiền và nội dung | Đơn tự chuyển sang đã thanh toán, không cần thao tác tay | Đã chạy thủ công trên web ngày 20/11/2026 với VietinBank | Đạt thủ công |
+| TC-021 | Phương thức thanh toán đã gỡ | Gửi đơn với phương thức `momo` | Bị từ chối; không tạo đơn hay giao dịch | Có test từ chối phương thức không hỗ trợ | Đạt tự động |
+| TC-022 | Quên mật khẩu bằng OTP | Nhập email, nhận mã 6 số, nhập mã và mật khẩu mới | Đổi mật khẩu thành công; mã hết hạn sau 10 phút, dùng một lần, khoá sau 5 lần sai; email không đăng ký nhận cùng phản hồi | Có test Django và Playwright cho luồng đầy đủ | Đạt tự động |
+| TC-023 | Miễn phí giao hàng | Tắt `SHIPPING_FEES_ENABLED` rồi đặt đơn đồ tươi và đồ khô | Phí giao bằng 0, tổng bằng tạm tính; giỏ hàng hiện "Miễn phí" | Có test API đặt hàng và giao diện | Đạt tự động |
 | TC-024 | IPN VNPay lặp/sai dữ liệu | Gửi sai số tiền rồi gửi IPN hợp lệ hai lần | Sai dữ liệu bị từ chối; IPN hợp lệ lặp không nhân đôi thanh toán | Có test VNPay sai số tiền và lặp IPN | Đạt tự động |
 | TC-025 | Webhook chuyển khoản | Gửi thiếu API key, sai số tiền, rồi sự kiện đúng | Thiếu/sai bị từ chối; sự kiện hợp lệ khớp mã, tài khoản và tiền | Có test SePay cả ba trường hợp | Đạt tự động |
 | TC-026 | Thanh toán quá hạn | Cho giao dịch online hết hạn rồi chạy tác vụ | Giao dịch hết hạn, đơn hủy, kho được hoàn nếu đã trừ | Có test hết hạn và hoàn kho | Đạt tự động |
@@ -85,7 +85,7 @@ Lệnh trên mở Chromium và làm chậm khoảng 700 ms giữa các thao tác
 | TC-043 | CSV chống công thức | Xuất báo cáo có chuỗi bắt đầu bằng `=`, `+`, `-`, `@` | Giá trị được escape, không chạy công thức trong spreadsheet | Có test escape dữ liệu CSV | Đạt tự động |
 | TC-044 | Đăng ký và đặt đơn COD trên giao diện | Tạo tài khoản mới, thêm món, nhập địa chỉ, đồng ý chính sách và đặt COD | Tài khoản được đăng nhập; đơn pending gắn đúng tài khoản và hiện trong lịch sử | Playwright tạo đơn trả HTTP 201, phương thức COD và xác nhận mã đơn trong lịch sử tài khoản | Đạt tự động |
 | UAT-001 | Người dùng thử 1 | Tự tìm món, thêm giỏ, sửa số lượng, đặt COD trên staging | Hoàn tất không cần hỗ trợ; ghi lại điểm vướng | Chưa có người thử | Chưa chạy · cần người thử |
-| UAT-002 | Người dùng thử 2 | Đặt đơn MoMo sandbox và quay lại trang đơn hàng | Thanh toán/điều hướng dễ hiểu; trạng thái nhất quán | Chưa có người thử | Chưa chạy · cần người thử |
+| UAT-002 | Người dùng thử 2 | Đặt đơn chuyển khoản bằng mã VietQR và quay lại trang đơn hàng | Thanh toán/điều hướng dễ hiểu; trạng thái nhất quán | Chưa có người thử | Chưa chạy · cần người thử |
 | UAT-003 | Người dùng thử 3 | Xem lịch sử, gửi khiếu nại hoặc yêu cầu đổi/trả | Tìm được chức năng; hiểu rõ hạn 7 ngày và trạng thái | Chưa có người thử | Chưa chạy · cần người thử |
 | UAT-004 | Người dùng thử 4 | Dùng điện thoại đặt hàng và theo dõi đơn | Không lỗi bố cục/điều khiển trên màn hình nhỏ | Chưa có người thử | Chưa chạy · cần người thử |
 | UAT-005 | Người dùng thử 5 | Tự hoàn tất các tác vụ trên; không được hướng dẫn | Ghi thời gian, lỗi gặp và đề xuất cải thiện | Chưa có người thử | Chưa chạy · cần người thử |

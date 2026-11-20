@@ -511,57 +511,10 @@ class OrderApiTests(TestCase):
         self.assertFalse(PaymentTransaction.objects.filter(order=order).exists())
         self.assertNotIn("payment_url", response.json())
 
-    @override_settings(
-        MOMO_ENABLED=True,
-        MOMO_PARTNER_CODE="MOMO123",
-        MOMO_ACCESS_KEY="momo-access",
-        MOMO_SECRET_KEY="momo-secret",
-        MOMO_CREATE_PAYMENT_URL="https://sandbox.example/momo",
-        MOMO_PUBLIC_BASE_URL="https://fitmeal-demo.example",
-    )
-    @patch("apps.payments.gateway.urlopen")
-    def test_momo_checkout_redirects_to_local_qr_instructions(self, urlopen):
-        response = urlopen.return_value.__enter__.return_value
-        response.read.return_value = json.dumps(
-            {"resultCode": 0, "payUrl": "https://sandbox.example/pay?token=sample"}
-        ).encode()
+    def test_removed_momo_payment_method_is_rejected(self):
+        response = self.post_order({**self.payload, "payment": "momo"})
 
-        order_response = self.post_order(
-            {**self.payload, "payment": Order.PaymentMethod.MOMO}
-        )
-
-        self.assertEqual(order_response.status_code, 201)
-        payment = PaymentTransaction.objects.get(
-            order__order_number=order_response.json()["order_number"]
-        )
-        self.assertIn(
-            reverse(
-                "payments:momo_payment_instructions",
-                args=[payment.transaction_ref],
-            ),
-            order_response.json()["payment_url"],
-        )
-        instructions_response = self.client.get(order_response.json()["payment_url"])
-        self.assertEqual(instructions_response.status_code, 200)
-        self.assertContains(instructions_response, "data:image/svg+xml;base64,")
-        self.assertContains(instructions_response, "Tóm tắt đơn hàng")
-        self.assertContains(instructions_response, "2 × Whey")
-        self.assertContains(instructions_response, "Cần thanh toán")
-        self.assertNotContains(instructions_response, "Chỉ trong bản vẽ")
-
-    @override_settings(
-        MOMO_ENABLED=True,
-        MOMO_PARTNER_CODE="MOMO123",
-        MOMO_ACCESS_KEY="momo-access",
-        MOMO_SECRET_KEY="momo-secret",
-        MOMO_CREATE_PAYMENT_URL="https://sandbox.example/momo",
-        MOMO_PUBLIC_BASE_URL="https://fitmeal-demo.example",
-    )
-    @patch("apps.payments.gateway.urlopen", side_effect=TimeoutError)
-    def test_momo_gateway_timeout_rolls_back_order_and_inventory(self, _urlopen):
-        response = self.post_order({**self.payload, "payment": Order.PaymentMethod.MOMO})
-
-        self.assertEqual(response.status_code, 502)
+        self.assertEqual(response.status_code, 400)
         self.assertEqual(Order.objects.count(), 0)
         self.assertEqual(PaymentTransaction.objects.count(), 0)
 
@@ -2070,12 +2023,12 @@ class StaffOrderDashboardTests(TestCase):
     @patch("apps.orders.views.send_mail", return_value=1)
     def test_manager_approval_cancels_pending_payment_with_valid_response_code(self, _send_mail):
         order = self.create_order(status=Order.Status.CONFIRMED, total=Decimal("120000.00"))
-        order.payment_method = Order.PaymentMethod.MOMO
+        order.payment_method = Order.PaymentMethod.BANK_TRANSFER
         order.save(update_fields=["payment_method"])
         payment = PaymentTransaction.objects.create(
             order=order,
-            provider=PaymentTransaction.Provider.MOMO,
-            transaction_ref="cancel-momo-reference",
+            provider=PaymentTransaction.Provider.BANK_TRANSFER,
+            transaction_ref="cancel-bank-reference",
             amount=order.total,
             expires_at=timezone.now() + timedelta(minutes=15),
         )

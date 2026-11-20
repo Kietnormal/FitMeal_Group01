@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static l10n fitmeal %}
 {% block title %}Quản trị FitMeal — {{ section_title }}{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{% static 'css/storefront.css' %}?v=20261120-type-scale-1">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/storefront.css' %}?v=20261120-no-momo-1">{% endblock %}
 {% block content %}
 <div class="admin-layout admin-dashboard-shell">
   <aside class="admin-sidebar">
@@ -382,8 +382,8 @@
           <article><span>GIÁ TRỊ ĐÃ HOÀN TẤT</span><strong>{{ completed_revenue|vnd }}</strong><small>Giá trị đơn có trạng thái hoàn tất</small></article>
           <article><span>GIÁ TRỊ ĐANG XỬ LÝ</span><strong>{{ outstanding_order_value|vnd }}</strong><small>Đơn chưa hoàn tất hoặc hủy</small></article>
         </div>
-        <p class="admin-footnote">Thanh toán chuyển khoản được đối soát qua webhook SePay.</p>
-      </section>
+        <h3>Giao dịch thanh toán</h3>
+        <div class="payment-summary-cards">
           {% for payment in payment_transaction_summaries %}
             <article><span>{{ payment.label }}</span><strong>{{ payment.transaction_value|default:0|vnd }}</strong><small>{{ payment.transaction_count }} giao dịch</small></article>
           {% empty %}
@@ -402,7 +402,7 @@
             </tbody>
           </table>
         </div>
-        <p class="admin-footnote">Thanh toán MoMo được xác nhận qua IPN; chuyển khoản ngân hàng được đối soát qua webhook SePay.</p>
+        <p class="admin-footnote">Chuyển khoản ngân hàng được đối soát tự động qua webhook SePay.</p>
       </section>
 
     {% elif active_section == "shipping" %}

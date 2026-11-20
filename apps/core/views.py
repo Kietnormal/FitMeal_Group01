@@ -74,7 +74,6 @@ def checkout(request):
             "dry_goods_max_delivery_date": latest_dry_goods_delivery_date(today=today),
             "saved_addresses": saved_addresses,
             "default_address": default_address,
-            "momo_enabled": settings.MOMO_ENABLED,
             "bank_transfer_enabled": settings.BANK_TRANSFER_ENABLED,
         },
     )

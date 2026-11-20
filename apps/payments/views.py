@@ -1,10 +1,7 @@
-import base64
 import json
 import re
-from io import BytesIO
 from decimal import Decimal, InvalidOperation
 
-import qrcode
 from django.conf import settings
 from django.db import transaction
 from django.http import JsonResponse
@@ -13,9 +10,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
-from qrcode.image.svg import SvgPathImage
 
-from apps.orders.inventory import restore_order_inventory
 from apps.orders.models import Order
 
 from .completion import order_complete_context
@@ -24,6 +19,7 @@ from .gateway import (
     bank_transfer_content,
     bank_transfer_qr_url,
     expire_pending_payments,
+    verify_sepay_api_key,
     verify_vnpay_signature,
 )
 from .models import PaymentTransaction
@@ -255,12 +251,4 @@ def payment_status(request, transaction_ref):
             "status_display": payment.get_status_display(),
             "paid": payment.status == PaymentTransaction.Status.PAID,
         }
-    )
-
-
-def verify_sepay_api_key(request):
-    authorization = request.headers.get("Authorization", "")
-    expected = f"Apikey {settings.SEPAY_API_KEY}"
-    return bool(settings.SEPAY_API_KEY) and constant_time_compare(
-        authorization, expected
     )

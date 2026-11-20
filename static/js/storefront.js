@@ -1685,50 +1685,6 @@ function initializeCopyButtons() {
   });
 }
 
-function initializeMomoPaymentStatus() {
-  const page = document.querySelector("[data-momo-payment-status]");
-  const liveStatus = page && page.querySelector("[data-payment-live-status]");
-  if (!page || !liveStatus) return;
-
-  const expiration = page.querySelector("[data-momo-expiration]");
-  if (expiration) {
-    const expiresAt = Date.parse(expiration.dataset.expiresAt);
-    if (Number.isFinite(expiresAt)) {
-      const updateExpiration = () => {
-        const remainingSeconds = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
-        const minutes = String(Math.floor(remainingSeconds / 60)).padStart(2, "0");
-        const seconds = String(remainingSeconds % 60).padStart(2, "0");
-        expiration.textContent = `${minutes}:${seconds}`;
-      };
-      updateExpiration();
-      window.setInterval(updateExpiration, 1000);
-    }
-  }
-
-  const checkStatus = async () => {
-    try {
-      const response = await fetch(page.dataset.statusUrl, {
-        headers: { Accept: "application/json" },
-        cache: "no-store",
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Không kiểm tra được trạng thái MoMo.");
-      const status = page.querySelector("[data-payment-status]");
-      status.textContent = result.status_display;
-      if (result.status !== "pending") {
-        window.location.reload();
-        return;
-      }
-      liveStatus.textContent = "Đang chờ MoMo xác nhận; FitMeal tự kiểm tra lại sau 2 giây.";
-      window.setTimeout(checkStatus, 2000);
-    } catch (error) {
-      liveStatus.textContent = `${error.message} Trang sẽ tự kiểm tra lại.`;
-      window.setTimeout(checkStatus, 5000);
-    }
-  };
-  window.setTimeout(checkStatus, 2000);
-}
-
 function initializeProductCreateForm() {
   const form = document.querySelector("[data-product-create-form]");
   if (!form) return;
@@ -1882,7 +1838,6 @@ initializePasswordVisibility();
 initializeEmployeeWorkspaceRefresh();
 initializeEmployeeAvailabilityToggles();
 initializeBankTransferStatus();
-initializeMomoPaymentStatus();
 initializeCopyButtons();
 initializeProductCreateForm();
 initializeAdmin();

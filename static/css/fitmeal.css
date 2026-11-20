@@ -638,7 +638,7 @@ button { cursor: pointer; }
 .customer-sidebar-home, .customer-profile-logout { font-size: 15px; }
 
 /* Payment result + instructions */
-.payment-result, .bank-transfer-panel, .momo-payment-panel { border-radius: var(--fm-r-md); }
+.payment-result, .bank-transfer-panel { border-radius: var(--fm-r-md); }
 
 @media (max-width: 860px) {
   .account-intro { min-height: 320px; padding: 32px 24px; }

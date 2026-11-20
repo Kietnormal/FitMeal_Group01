@@ -18,10 +18,8 @@ from .gateway import (
     PaymentGatewayError,
     bank_transfer_qr_url,
     create_bank_transfer_payment,
-    create_momo_payment,
     create_vnpay_payment,
     expire_pending_payments,
-    momo_payment_session_key,
     verify_vnpay_signature,
 )
 from .models import PaymentTransaction
@@ -155,6 +153,103 @@ class VnpayGatewayTests(TestCase):
         self.assertFalse(OrderItem.objects.get(order=order).inventory_deducted)
 
 
+
+
+class SepayWebhookTests(TestCase):
+    def create_order(self, payment_method):
+        return Order.objects.create(
+            customer_name="Nguyễn Văn A",
+            customer_email="customer@example.com",
+            customer_phone="0901234567",
+            address="12 Đường X",
+            district="Phường Bến Thành",
+            city="TP Hồ Chí Minh",
+            delivery_date=timezone.localdate() + timedelta(days=1),
+            delivery_slot=Order.DeliverySlot.MORNING,
+            payment_method=payment_method,
+            subtotal=Decimal("100000.00"),
+            shipping_fee=Decimal("20000.00"),
+            total=Decimal("120000.00"),
+        )
+
+    @override_settings(
+        BANK_TRANSFER_ENABLED=True,
+        BANK_TRANSFER_BANK_CODE="VCB",
+        BANK_TRANSFER_ACCOUNT_NUMBER="123456789",
+        BANK_TRANSFER_ACCOUNT_NAME="FITMEAL",
+        SEPAY_API_KEY="test-sepay-key",
+    )
+    def test_sepay_webhook_matches_reference_account_and_exact_amount(self):
+        order = self.create_order(Order.PaymentMethod.BANK_TRANSFER)
+        payment, payment_url = create_bank_transfer_payment(
+            order,
+            RequestFactory().get("/checkout/"),
+        )
+        self.assertIn(
+            reverse(
+                "payments:bank_transfer_instructions",
+                args=[payment.transaction_ref],
+            ),
+            payment_url,
+        )
+        instructions_response = Client().get(
+            reverse(
+                "payments:bank_transfer_instructions",
+                args=[payment.transaction_ref],
+            )
+        )
+        self.assertEqual(instructions_response.status_code, 200)
+        self.assertContains(instructions_response, payment.bank_transfer_code)
+        self.assertContains(instructions_response, "Quét mã để thanh toán")
+        event = {
+            "id": 92704,
+            "accountNumber": "123456789",
+            "content": f"Thanh toan {payment.bank_transfer_code}",
+            "transferType": "in",
+            "transferAmount": 120000,
+        }
+        client = Client()
+
+        unauthorized = client.post(
+            reverse("payments:sepay_webhook"),
+            data=json.dumps(event),
+            content_type="application/json",
+        )
+        self.assertEqual(unauthorized.status_code, 401)
+
+        invalid = client.post(
+            reverse("payments:sepay_webhook"),
+            data=json.dumps({**event, "transferAmount": 120001}),
+            content_type="application/json",
+            HTTP_AUTHORIZATION="Apikey test-sepay-key",
+        )
+        self.assertEqual(invalid.status_code, 400)
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, PaymentTransaction.Status.PENDING)
+
+        response = client.post(
+            reverse("payments:sepay_webhook"),
+            data=json.dumps(event),
+            content_type="application/json",
+            HTTP_AUTHORIZATION="Apikey test-sepay-key",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["success"])
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(payment.gateway_transaction_no, "92704")
+
+        duplicate = client.post(
+            reverse("payments:sepay_webhook"),
+            data=json.dumps(event),
+            content_type="application/json",
+            HTTP_AUTHORIZATION="Apikey test-sepay-key",
+        )
+        self.assertTrue(duplicate.json()["success"])
+        self.assertEqual(
+            PaymentTransaction.objects.filter(status=PaymentTransaction.Status.PAID).count(),
+            1,
+        )
 
 
 @override_settings(

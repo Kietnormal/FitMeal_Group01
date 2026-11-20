@@ -21,6 +21,7 @@ from apps.orders.inventory import restore_order_inventory
 from .models import PaymentTransaction
 
 
+PAYMENT_TIMEOUT = timedelta(minutes=15)
 BANK_TRANSFER_TIMEOUT = timedelta(hours=24)
 
 
@@ -104,6 +105,14 @@ def create_bank_transfer_payment(order, request):
 def bank_display_name(bank_code=None):
     code = (bank_code if bank_code is not None else settings.BANK_TRANSFER_BANK_CODE).strip()
     return BANK_DISPLAY_NAMES.get(code.upper(), code)
+
+
+def verify_sepay_api_key(request):
+    authorization = request.headers.get("Authorization", "")
+    expected = f"Apikey {settings.SEPAY_API_KEY}"
+    return bool(settings.SEPAY_API_KEY) and constant_time_compare(
+        authorization, expected
+    )
 
 
 BANK_DISPLAY_NAMES = {
