@@ -13,7 +13,7 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.accounts.models import PointsTransaction, User
+from apps.accounts.models import OrderReview, PointsTransaction, User
 from apps.products.forms import ProductCreateForm
 from apps.products.models import InventoryRestockRequest, Product, ProductActivity
 from apps.payments.models import PaymentTransaction
@@ -3353,3 +3353,86 @@ class OrderCarePrivacyTests(TestCase):
         order.refresh_from_db()
         self.assertEqual(order.district, "Quan 1")
         self.assertEqual(order.city, "TP Ho Chi Minh")
+
+
+class PurgeOrdersCommandTests(TestCase):
+    def setUp(self):
+        self.customer = User.objects.create_user(username="khach-purge", email="kp@example.com", password="x")
+        self.dry = Product.objects.create(
+            sku="FM-PURGE-DRY",
+            slug="purge-dry",
+            name="Hạnh nhân",
+            category=Product.Category.DRY_GOODS,
+            description="Đồ khô",
+            price=Decimal("50000.00"),
+            stock_quantity=7,
+            shipping_weight_grams=500,
+        )
+
+    def make_order(self, status, *, deducted_quantity=0):
+        order = Order.objects.create(
+            customer=self.customer,
+            customer_name="Khách",
+            customer_email="kp@example.com",
+            customer_phone="0901234567",
+            address="1 A",
+            district="Quận 1",
+            city="TP Hồ Chí Minh",
+            delivery_date=timezone.localdate() + timedelta(days=1),
+            delivery_slot=Order.DeliverySlot.COURIER,
+            payment_method=Order.PaymentMethod.COD,
+            status=status,
+            subtotal=Decimal("150000.00"),
+            shipping_fee=Decimal("0.00"),
+            total=Decimal("150000.00"),
+        )
+        OrderItem.objects.create(
+            order=order,
+            product=self.dry,
+            product_sku=self.dry.sku,
+            product_name=self.dry.name,
+            product_category=self.dry.category,
+            unit_price=self.dry.price,
+            quantity=deducted_quantity or 1,
+            line_total=Decimal("150000.00"),
+            inventory_deducted=bool(deducted_quantity),
+        )
+        return order
+
+    def test_dry_run_changes_nothing_and_yes_purges_orders_but_keeps_accounts(self):
+        pending = self.make_order(Order.Status.PENDING, deducted_quantity=3)
+        delivered = self.make_order(Order.Status.DELIVERED, deducted_quantity=2)
+        PaymentTransaction.objects.create(
+            order=pending,
+            provider=PaymentTransaction.Provider.BANK_TRANSFER,
+            transaction_ref="purge-ref",
+            amount=Decimal("150000.00"),
+            expires_at=timezone.now() + timedelta(hours=1),
+        )
+        OrderReview.objects.create(order=delivered, rating=5, comment="Ngon")
+        PointsTransaction.objects.get_or_create(
+            user=self.customer, order=delivered, kind=PointsTransaction.Kind.EARNED,
+            defaults={"points": 15},
+        )
+        points_before = PointsTransaction.objects.count()
+
+        from io import StringIO
+        from django.core.management import call_command
+
+        call_command("purge_orders", stdout=StringIO())
+        self.assertEqual(Order.objects.count(), 2)
+        self.assertEqual(PointsTransaction.objects.count(), points_before)
+        self.dry.refresh_from_db()
+        self.assertEqual(self.dry.stock_quantity, 7)
+
+        call_command("purge_orders", "--yes", stdout=StringIO())
+
+        self.assertFalse(Order.objects.exists())
+        self.assertFalse(OrderItem.objects.exists())
+        self.assertFalse(PaymentTransaction.objects.exists())
+        self.assertFalse(OrderReview.objects.exists())
+        self.assertFalse(PointsTransaction.objects.exists())
+        self.assertTrue(User.objects.filter(pk=self.customer.pk).exists())
+        self.dry.refresh_from_db()
+        # Only the undelivered order's 3 units go back to stock; delivered goods really left.
+        self.assertEqual(self.dry.stock_quantity, 10)
