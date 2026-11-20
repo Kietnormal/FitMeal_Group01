@@ -4,7 +4,6 @@ from django.db import models
 class PaymentTransaction(models.Model):
     class Provider(models.TextChoices):
         VNPAY = "vnpay", "VNPay (đơn cũ)"
-        MOMO = "momo", "MoMo"
         BANK_TRANSFER = "bank_transfer", "Chuyển khoản ngân hàng"
 
     class Status(models.TextChoices):

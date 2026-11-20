@@ -21,66 +21,6 @@ from apps.orders.inventory import restore_order_inventory
 from .models import PaymentTransaction
 
 
-def momo_payment_session_key(transaction_ref):
-    return f"momo_payment_url_{transaction_ref}"
-
-
-def _momo_callback_url(request, route_name):
-    public_base_url = settings.MOMO_PUBLIC_BASE_URL.strip().rstrip("/")
-    callback_path = reverse(route_name)
-    if not public_base_url:
-        callback_url = request.build_absolute_uri(callback_path)
-        try:
-            parsed_url = urlsplit(callback_url)
-        except ValueError as error:
-            raise PaymentGatewayError(
-                "MoMo cần URL callback HTTPS công khai; hãy cấu hình MOMO_PUBLIC_BASE_URL."
-            ) from error
-    else:
-        try:
-            parsed_url = urlsplit(public_base_url)
-        except ValueError as error:
-            raise PaymentGatewayError(
-                "MOMO_PUBLIC_BASE_URL phải là hostname HTTPS công khai hợp lệ."
-            ) from error
-
-    try:
-        port = parsed_url.port
-    except ValueError as error:
-        raise PaymentGatewayError(
-            "MOMO_PUBLIC_BASE_URL phải là hostname HTTPS công khai hợp lệ."
-        ) from error
-    hostname = (parsed_url.hostname or "").rstrip(".").casefold()
-    try:
-        address = ipaddress.ip_address(hostname)
-    except ValueError:
-        address = None
-    if (
-        parsed_url.scheme != "https"
-        or not hostname
-        or (address is None and "." not in hostname)
-        or hostname == "localhost"
-        or hostname.endswith(".localhost")
-        or hostname.endswith(".local")
-        or (address is not None and not address.is_global)
-        or parsed_url.username
-        or parsed_url.password
-        or port not in (None, 443)
-        or parsed_url.path not in ("", "/")
-        or parsed_url.query
-        or parsed_url.fragment
-    ):
-        raise PaymentGatewayError(
-            "MoMo cần URL callback HTTPS công khai; hãy cấu hình MOMO_PUBLIC_BASE_URL."
-        )
-    return (
-        f"{public_base_url}{callback_path}"
-        if public_base_url
-        else callback_url
-    )
-
-
-PAYMENT_TIMEOUT = timedelta(minutes=15)
 BANK_TRANSFER_TIMEOUT = timedelta(hours=24)
 
 
@@ -143,91 +83,6 @@ def create_vnpay_payment(order, request):
     return payment, f"{settings.VNPAY_PAYMENT_URL}?{query}&vnp_SecureHash={signature}"
 
 
-def create_momo_payment(order, request):
-    if not settings.MOMO_ENABLED:
-        raise ImproperlyConfigured("MoMo chưa được cấu hình.")
-
-    redirect_url = _momo_callback_url(request, "payments:momo_return")
-    ipn_url = _momo_callback_url(request, "payments:momo_ipn")
-    now = timezone.localtime()
-    payment = PaymentTransaction.objects.create(
-        order=order,
-        provider=PaymentTransaction.Provider.MOMO,
-        transaction_ref=uuid.uuid4().hex,
-        amount=order.total,
-        expires_at=now + PAYMENT_TIMEOUT,
-    )
-    params = {
-        "partnerCode": settings.MOMO_PARTNER_CODE,
-        "requestId": payment.transaction_ref,
-        "amount": str(int(payment.amount)),
-        "orderId": payment.transaction_ref,
-        "orderInfo": f"Thanh toan don hang {order.order_number}",
-        "redirectUrl": redirect_url,
-        "ipnUrl": ipn_url,
-        "requestType": "payWithATM",
-        "extraData": "",
-        "lang": "vi",
-    }
-    signed_fields = (
-        "accessKey",
-        "amount",
-        "extraData",
-        "ipnUrl",
-        "orderId",
-        "orderInfo",
-        "partnerCode",
-        "redirectUrl",
-        "requestId",
-        "requestType",
-    )
-    raw_signature = "&".join(
-        f"{key}={settings.MOMO_ACCESS_KEY if key == 'accessKey' else params[key]}"
-        for key in signed_fields
-    )
-    params["signature"] = hmac.new(
-        settings.MOMO_SECRET_KEY.encode("utf-8"),
-        raw_signature.encode("utf-8"),
-        hashlib.sha256,
-    ).hexdigest()
-    http_request = Request(
-        settings.MOMO_CREATE_PAYMENT_URL,
-        data=json.dumps(params).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with urlopen(http_request, timeout=10) as response:
-            result = json.loads(response.read().decode("utf-8"))
-    except (OSError, ValueError, TimeoutError) as error:
-        raise PaymentGatewayError("Không thể kết nối cổng thanh toán MoMo.") from error
-    if not isinstance(result, dict):
-        raise PaymentGatewayError("MoMo trả về phản hồi thanh toán không hợp lệ.")
-    returned_url = result.get("payUrl")
-    expected_host = urlsplit(settings.MOMO_CREATE_PAYMENT_URL).hostname
-    try:
-        parsed_returned_url = (
-            urlsplit(returned_url) if isinstance(returned_url, str) else None
-        )
-        returned_port = parsed_returned_url.port if parsed_returned_url else None
-    except ValueError:
-        parsed_returned_url = None
-        returned_port = None
-    if (
-        str(result.get("resultCode")) != "0"
-        or parsed_returned_url is None
-        or parsed_returned_url.scheme != "https"
-        or parsed_returned_url.hostname != expected_host
-        or parsed_returned_url.username
-        or parsed_returned_url.password
-        or returned_port not in (None, 443)
-    ):
-        raise PaymentGatewayError(
-            "MoMo chưa tạo được liên kết thanh toán hợp lệ. Vui lòng thử lại."
-        )
-    return payment, returned_url
-
-
 def create_bank_transfer_payment(order, request):
     if not settings.BANK_TRANSFER_ENABLED:
         raise ImproperlyConfigured("Chuyển khoản ngân hàng chưa được cấu hình.")
@@ -246,43 +101,9 @@ def create_bank_transfer_payment(order, request):
     )
 
 
-def verify_momo_signature(params):
-    received = params.get("signature", "")
-    if not received or not settings.MOMO_SECRET_KEY or not settings.MOMO_ACCESS_KEY:
-        return False
-    signed_fields = (
-        "accessKey",
-        "amount",
-        "extraData",
-        "message",
-        "orderId",
-        "orderInfo",
-        "orderType",
-        "partnerCode",
-        "payType",
-        "requestId",
-        "responseTime",
-        "resultCode",
-        "transId",
-    )
-    raw_signature = "&".join(
-        f"{key}={settings.MOMO_ACCESS_KEY if key == 'accessKey' else params.get(key, '')}"
-        for key in signed_fields
-    )
-    expected = hmac.new(
-        settings.MOMO_SECRET_KEY.encode("utf-8"),
-        raw_signature.encode("utf-8"),
-        hashlib.sha256,
-    ).hexdigest()
-    return hmac.compare_digest(expected, received.lower())
-
-
-def verify_sepay_api_key(request):
-    authorization = request.headers.get("Authorization", "")
-    expected = f"Apikey {settings.SEPAY_API_KEY}"
-    return bool(settings.SEPAY_API_KEY) and constant_time_compare(
-        authorization, expected
-    )
+def bank_display_name(bank_code=None):
+    code = (bank_code if bank_code is not None else settings.BANK_TRANSFER_BANK_CODE).strip()
+    return BANK_DISPLAY_NAMES.get(code.upper(), code)
 
 
 BANK_DISPLAY_NAMES = {
@@ -297,11 +118,6 @@ BANK_DISPLAY_NAMES = {
     "VCB": "Vietcombank",
     "VPB": "VPBank",
 }
-
-
-def bank_display_name(bank_code=None):
-    code = (bank_code if bank_code is not None else settings.BANK_TRANSFER_BANK_CODE).strip()
-    return BANK_DISPLAY_NAMES.get(code.upper(), code)
 
 
 def bank_transfer_content(payment):

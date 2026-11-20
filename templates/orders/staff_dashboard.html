@@ -83,7 +83,7 @@
           </a>
           <div class="dashboard-attention-item dashboard-attention-static">
             <span class="dashboard-attention-icon attention-green">₫</span>
-            <span><strong>MoMo · Ngân hàng</strong><b>Thanh toán trực tuyến</b><small>Tự xác nhận qua callback và webhook</small></span>
+            <span><strong>Ngân hàng</strong><b>Thanh toán trực tuyến</b><small>Tự xác nhận qua webhook SePay</small></span>
           </div>
         </div>
       </section>
@@ -184,7 +184,7 @@
           <ul>
             <li><span class="system-dot is-ok"></span><span>Cơ sở dữ liệu</span><strong>Đang hoạt động</strong></li>
             <li><span class="system-dot is-ok"></span><span>Tồn kho</span><strong>Chỉ theo dõi đồ khô</strong></li>
-            <li><span class="system-dot is-warning"></span><span>Cổng thanh toán</span><strong>MoMo · Chuyển khoản</strong></li>
+            <li><span class="system-dot is-warning"></span><span>Cổng thanh toán</span><strong>Chuyển khoản</strong></li>
             <li><span class="system-dot is-muted"></span><span>Sao lưu tự động</span><strong>Chưa cấu hình</strong></li>
           </ul>
         </section>
@@ -372,18 +372,18 @@
 
     {% elif active_section == "payments" %}
       <section class="admin-panel full-admin-panel live-admin-panel">
-        <div class="admin-panel-heading"><div><span class="store-kicker">MoMo và chuyển khoản</span><h2>Tổng hợp thanh toán</h2><p>Giá trị đơn theo phương thức và trạng thái giao dịch được lấy trực tiếp từ cơ sở dữ liệu.</p></div></div>
+        <div class="admin-panel-heading"><div><span class="store-kicker">Thanh toán</span><h2>Tổng hợp thanh toán</h2><p>Giá trị đơn theo phương thức và trạng thái giao dịch được lấy trực tiếp từ cơ sở dữ liệu.</p></div></div>
         <div class="payment-summary-cards">
           {% for payment in payment_summaries %}
-            <article><span>{% if payment.payment_method == "momo" %}MOMO{% elif payment.payment_method == "bank_transfer" %}CHUYỂN KHOẢN NGÂN HÀNG{% elif payment.payment_method == "cod" %}COD (ĐƠN CŨ){% elif payment.payment_method == "vnpay" %}VNPAY (ĐƠN CŨ){% else %}{{ payment.payment_method }}{% endif %}</span><strong>{{ payment.order_value|default:0|vnd }}</strong><small>{{ payment.order_count }} đơn trong database</small></article>
+            <article><span>{% if payment.payment_method == "bank_transfer" %}CHUYỂN KHOẢN NGÂN HÀNG{% elif payment.payment_method == "cod" %}COD (ĐƠN CŨ){% elif payment.payment_method == "vnpay" %}VNPAY (ĐƠN CŨ){% else %}{{ payment.payment_method }}{% endif %}</span><strong>{{ payment.order_value|default:0|vnd }}</strong><small>{{ payment.order_count }} đơn trong database</small></article>
           {% empty %}
             <article><span>CHƯA CÓ THANH TOÁN</span><strong>0₫</strong><small>Chưa có đơn hàng</small></article>
           {% endfor %}
           <article><span>GIÁ TRỊ ĐÃ HOÀN TẤT</span><strong>{{ completed_revenue|vnd }}</strong><small>Giá trị đơn có trạng thái hoàn tất</small></article>
           <article><span>GIÁ TRỊ ĐANG XỬ LÝ</span><strong>{{ outstanding_order_value|vnd }}</strong><small>Đơn chưa hoàn tất hoặc hủy</small></article>
         </div>
-        <h3>Giao dịch thanh toán</h3>
-        <div class="payment-summary-cards">
+        <p class="admin-footnote">Thanh toán chuyển khoản được đối soát qua webhook SePay.</p>
+      </section>
           {% for payment in payment_transaction_summaries %}
             <article><span>{{ payment.label }}</span><strong>{{ payment.transaction_value|default:0|vnd }}</strong><small>{{ payment.transaction_count }} giao dịch</small></article>
           {% empty %}
@@ -512,7 +512,6 @@
             <article><span class="system-check-icon is-pending">i</span><span><strong>CPU và bộ nhớ RAM</strong><small>Chưa cài bộ thu thập chỉ số hệ điều hành; không hiển thị số liệu giả.</small></span><b>CHƯA ĐO</b></article>
             <article><span class="system-check-icon is-pending">i</span><span><strong>Lỗi HTTP 5xx</strong><small>Chưa cấu hình nơi tập trung log ứng dụng để thống kê lỗi.</small></span><b>CHƯA THU THẬP</b></article>
             <article><span class="system-check-icon {% if disk_available and disk_percent < 80 %}is-passed{% else %}is-pending{% endif %}">i</span><span><strong>Ổ đĩa</strong><small>{% if disk_available %}{{ disk_percent }}% đã sử dụng; cảnh báo ở ngưỡng 80%.{% else %}{{ disk_error }}{% endif %}</small></span><b>{% if disk_available and disk_percent < 80 %}BÌNH THƯỜNG{% else %}KIỂM TRA{% endif %}</b></article>
-            <article><span class="system-check-icon {% if momo_configured %}is-passed{% else %}is-pending{% endif %}">{% if momo_configured %}✓{% else %}!{% endif %}</span><span><strong>Thanh toán MoMo</strong><small>{% if momo_configured %}Đã khai báo thông tin kết nối MoMo.{% else %}Chưa khai báo MOMO_PARTNER_CODE, MOMO_ACCESS_KEY và MOMO_SECRET_KEY.{% endif %}</small></span><b>{% if momo_configured %}ĐÃ CẤU HÌNH{% else %}CHƯA CẤU HÌNH{% endif %}</b></article>
             <article><span class="system-check-icon {% if bank_transfer_configured %}is-passed{% else %}is-pending{% endif %}">{% if bank_transfer_configured %}✓{% else %}!{% endif %}</span><span><strong>Chuyển khoản ngân hàng</strong><small>{% if bank_transfer_configured %}Đã khai báo tài khoản nhận và khóa webhook SePay.{% else %}Chưa khai báo tài khoản ngân hàng và SEPAY_API_KEY.{% endif %}</small></span><b>{% if bank_transfer_configured %}ĐÃ CẤU HÌNH{% else %}CHƯA CẤU HÌNH{% endif %}</b></article>
           </div>
         </section>

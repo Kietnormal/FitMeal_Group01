@@ -7,18 +7,6 @@ app_name = "payments"
 urlpatterns = [
     path("vnpay/return/", views.vnpay_return, name="vnpay_return"),
     path("vnpay/ipn/", views.vnpay_ipn, name="vnpay_ipn"),
-    path("momo/return/", views.momo_return, name="momo_return"),
-    path("momo/ipn/", views.momo_ipn, name="momo_ipn"),
-    path(
-        "momo/payment/<str:transaction_ref>/",
-        views.momo_payment_instructions,
-        name="momo_payment_instructions",
-    ),
-    path(
-        "momo/status/<str:transaction_ref>/",
-        views.momo_payment_status,
-        name="momo_payment_status",
-    ),
     path("bank/sepay-webhook/", views.sepay_webhook, name="sepay_webhook"),
     path(
         "bank/transfer/<str:transaction_ref>/",
