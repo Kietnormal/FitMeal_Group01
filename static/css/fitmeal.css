@@ -879,3 +879,13 @@ button { cursor: pointer; }
   .product-detail-modal .nutrition-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 16px; }
   .product-detail-modal h2 { font-size: 24px; }
 }
+
+/* Bank transfer page: centred column */
+.bank-transfer-page { max-width: 920px; margin-left: auto; margin-right: auto; text-align: center; }
+.bank-transfer-page > p { margin-left: auto; margin-right: auto; }
+.bank-transfer-page .bank-transfer-instructions { width: 100%; margin: 24px auto; text-align: left; }
+.bank-transfer-page .bank-transfer-status-line { margin-bottom: 18px; }
+@media (max-width: 640px) {
+  .bank-transfer-page .bank-transfer-instructions { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+  .bank-transfer-page .bank-transfer-instructions > div { width: 100%; }
+}
