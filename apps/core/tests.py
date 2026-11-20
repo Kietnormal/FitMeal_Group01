@@ -83,7 +83,6 @@ class CoreViewsTests(TestCase):
 
         self.assertContains(response, reverse("staff_orders:dashboard"))
         self.assertContains(response, "Quản trị đơn hàng")
-        self.assertContains(response, "Quản trị demo")
 
     def test_cart_does_not_duplicate_order_history(self):
         response = self.client.get(reverse("core:cart"))
@@ -129,7 +128,7 @@ class CoreViewsTests(TestCase):
             with self.subTest(page=page_name):
                 response = self.client.get(reverse(f"core:{page_name}"))
                 self.assertEqual(response.status_code, 200)
-                self.assertContains(response, "FITMEAL.VN")
+                self.assertContains(response, '<footer class="fm-footer">')
 
     def test_policies_page_discloses_demo_status_and_support_sections(self):
         response = self.client.get(reverse("core:policies"))
@@ -154,10 +153,9 @@ class CoreViewsTests(TestCase):
         self.assertContains(response, reverse("core:policies"))
         self.assertContains(response, 'href="mailto:hello@fitmeal.vn"')
         self.assertContains(response, 'data-catalog-status role="status"')
-        self.assertContains(
-            response,
-            f'href="{reverse("staff_orders:dashboard")}">Quản trị demo</a>',
-        )
+        self.assertNotContains(response, "Quản trị demo")
+        self.assertNotContains(response, "Dự án học tập của Nhóm 1")
+        self.assertNotContains(response, 'data-language="en"')
 
     def test_demo_admin_route_is_removed(self):
         response = self.client.get("/demo-admin/")
