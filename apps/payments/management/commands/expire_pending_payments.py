@@ -4,7 +4,7 @@ from apps.payments.gateway import expire_pending_payments
 
 
 class Command(BaseCommand):
-    help = "Cancel orders with MoMo or bank transfer payments that have expired."
+    help = "Cancel orders whose bank transfer payments have expired."
 
     def handle(self, *args, **options):
         expired = expire_pending_payments()

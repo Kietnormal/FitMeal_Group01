@@ -1,0 +1,99 @@
+{% extends "core/store_base.html" %}
+{% load fitmeal %}
+{% block title %}Thanh toán thành công — FitMeal{% endblock %}
+{% block store_content %}
+<div class="order-complete" data-order-complete>
+  <nav class="order-complete-crumbs" aria-label="Tiến trình đặt hàng">
+    <ol>
+      <li><a href="{{ cart_url }}">Giỏ hàng</a></li>
+      <li>Thông tin giao</li>
+      <li>Thanh toán</li>
+      <li aria-current="step">Hoàn tất</li>
+    </ol>
+  </nav>
+
+  <div class="order-complete-layout">
+    <section class="order-complete-main" aria-labelledby="order-complete-title">
+      <header class="order-complete-hero">
+        {% include "payments/_payment_success_mark.html" %}
+        <div>
+          <p class="order-complete-kicker">{{ provider_label }} · Đã xác nhận</p>
+          <h1 id="order-complete-title">Thanh toán thành công</h1>
+          <p>FitMeal đã nhận <strong>{{ payment.amount|vnd }}</strong> cho đơn <strong>{{ order.order_number }}</strong>.
+            {% if order_cancelled %}Đơn này đã được hủy; cửa hàng sẽ liên hệ để hoàn tiền.{% else %}Cửa hàng sẽ xác nhận và chuẩn bị đơn ngay.{% endif %}</p>
+        </div>
+      </header>
+
+      <div class="order-complete-body">
+        <dl class="order-complete-facts">
+          <div>
+            <dt>Mã đơn</dt>
+            <dd>{{ order.order_number }}</dd>
+            <button class="order-complete-copy" type="button" data-copy-text="{{ order.order_number }}">Chép mã</button>
+          </div>
+          <div>
+            <dt>Đã thanh toán</dt>
+            <dd>{{ payment.amount|vnd }}</dd>
+          </div>
+          <div>
+            <dt>Thời gian thanh toán</dt>
+            <dd>{{ paid_at|date:"H:i" }} · {{ paid_at|date:"d/m/Y" }}</dd>
+          </div>
+        </dl>
+
+        {% if not order_cancelled %}
+          <h2 class="order-complete-subtitle">Tiếp theo</h2>
+          <ol class="order-complete-steps">
+            {% for step in steps %}
+              <li class="is-{{ step.state }}"{% if step.state == "current" %} aria-current="step"{% endif %}>
+                <span class="order-complete-step-dot" aria-hidden="true">{% if step.state == "done" %}<svg class="fm-i"><use href="#fm-check"/></svg>{% else %}{{ step.number }}{% endif %}</span>
+                <strong>{{ step.title }}</strong>
+                <span>{{ step.detail }}</span>
+              </li>
+            {% endfor %}
+          </ol>
+        {% endif %}
+
+        <div class="order-complete-actions">
+          <a class="solid-button" href="{{ order_url }}">Xem đơn hàng</a>
+          <a class="order-complete-secondary" href="{% url 'core:shop' %}">Tiếp tục mua sắm</a>
+        </div>
+      </div>
+    </section>
+
+    <aside class="order-complete-side">
+      <section class="order-complete-card" aria-labelledby="order-summary-title">
+        <div class="order-complete-card-head">
+          <h2 id="order-summary-title">Tóm tắt đơn hàng</h2>
+          <span class="order-complete-pill">{{ payment.get_status_display }}</span>
+        </div>
+        <ul class="order-complete-lines">
+          {% for line in lines %}
+            <li>
+              <span class="order-complete-thumb" aria-hidden="true">
+                {% if line.image_url %}<img src="{{ line.image_url }}" alt="">{% else %}<svg class="fm-i"><use href="#{{ line.icon }}"/></svg>{% endif %}
+              </span>
+              <span class="order-complete-line-text"><strong>{{ line.name }}</strong><small>{{ line.meta }}</small></span>
+              <span class="order-complete-line-price">{{ line.line_total|vnd }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+        <dl class="order-complete-totals">
+          <div><dt>Tạm tính</dt><dd>{{ order.subtotal|vnd }}</dd></div>
+          <div><dt>Phí giao hàng</dt><dd>{% if order.shipping_fee %}{{ order.shipping_fee|vnd }}{% else %}Miễn phí{% endif %}</dd></div>
+          <div class="is-total"><dt>Tổng cộng</dt><dd>{{ order.total|vnd }}</dd></div>
+        </dl>
+        <dl class="order-complete-delivery">
+          <div><dt>Thanh toán</dt><dd>{{ order.get_payment_method_display }}</dd></div>
+          <div><dt>Giao tới</dt><dd>{{ address }}</dd></div>
+          <div><dt>Khung giờ</dt><dd>{{ delivery_text }}</dd></div>
+        </dl>
+      </section>
+
+      <section class="order-complete-card order-complete-help">
+        <p><strong>Cần đổi hoặc hủy đơn?</strong> Vào <a href="{{ order_url }}">Xem đơn hàng</a> và bấm Yêu cầu hủy trước khi cửa hàng xác nhận, hoặc liên hệ <a href="mailto:{{ store_contact_email }}">{{ store_contact_email }}</a>.</p>
+      </section>
+    </aside>
+  </div>
+</div>
+{% endblock %}

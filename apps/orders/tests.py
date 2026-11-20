@@ -1,6 +1,7 @@
 import json
+import re
 from importlib import import_module
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone as dt_timezone
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -12,7 +13,7 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.accounts.models import PointsTransaction, User
+from apps.accounts.models import OrderReview, PointsTransaction, User
 from apps.products.forms import ProductCreateForm
 from apps.products.models import InventoryRestockRequest, Product, ProductActivity
 from apps.payments.models import PaymentTransaction
@@ -36,6 +37,7 @@ from .privacy import purge_expired_order_pii
     BANK_TRANSFER_ACCOUNT_NUMBER="123456789",
     BANK_TRANSFER_ACCOUNT_NAME="FITMEAL",
     SEPAY_API_KEY="test-sepay-key",
+    SHIPPING_FEES_ENABLED=True,
 )
 class OrderApiTests(TestCase):
     def setUp(self):
@@ -250,6 +252,23 @@ class OrderApiTests(TestCase):
         self.assertEqual(product.stock_quantity, 0)
         send_mail.assert_called_once()
 
+    @override_settings(SHIPPING_FEES_ENABLED=False)
+    def test_shipping_is_free_for_every_order_while_fees_are_disabled(self):
+        dry_product = self.create_dry_product(slug="dry-free-ship", stock_quantity=10)
+        fresh = self.post_order()
+        dry = self.post_order({
+            **self.payload,
+            "city": "Hà Nội",
+            "delivery_slot": Order.DeliverySlot.COURIER,
+            "items": [{"id": dry_product.slug, "quantity": 3}],
+        })
+
+        self.assertEqual(fresh.status_code, 201, fresh.content)
+        self.assertEqual(dry.status_code, 201, dry.content)
+        for order in Order.objects.all():
+            self.assertEqual(order.shipping_fee, Decimal("0.00"))
+            self.assertEqual(order.total, order.subtotal)
+
     def test_create_order_ignores_client_price_and_applies_free_shipping_threshold(self):
         self.product.price = Decimal("150000.00")
         self.product.save(update_fields=["price"])
@@ -442,6 +461,31 @@ class OrderApiTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(Order.objects.count(), 0)
 
+    def test_checkout_delivery_dates_are_accepted_by_order_api_after_midnight_in_vietnam(self):
+        dry_product = self.create_dry_product(slug="dry-midnight", stock_quantity=10)
+        just_after_midnight_in_vietnam = datetime(2026, 11, 18, 17, 30, tzinfo=dt_timezone.utc)
+
+        with patch("django.utils.timezone.now", return_value=just_after_midnight_in_vietnam):
+            checkout = self.client.get(reverse("core:checkout")).content.decode()
+            min_date = re.search(r'data-min-date="([0-9-]+)"', checkout).group(1)
+            dry_max_date = re.search(r'data-dry-goods-max-date="([0-9-]+)"', checkout).group(1)
+
+            fresh_response = self.post_order({**self.payload, "delivery_date": min_date})
+            dry_response = self.post_order({
+                **self.payload,
+                "delivery_slot": Order.DeliverySlot.COURIER,
+                "delivery_date": dry_max_date,
+                "items": [{"id": dry_product.slug, "quantity": 1}],
+            })
+            too_early_response = self.post_order({**self.payload, "delivery_date": "2026-11-19"})
+
+        self.assertEqual(fresh_response.status_code, 201, fresh_response.content)
+        self.assertEqual(fresh_response.json()["delivery_date"], "2026-11-20")
+        self.assertEqual(dry_response.status_code, 201, dry_response.content)
+        self.assertEqual(dry_response.json()["delivery_date"], "2026-11-24")
+        self.assertEqual(too_early_response.status_code, 400)
+        self.assertIn("Ngày giao phải từ ngày mai trở đi.", too_early_response.json()["error"])
+
     def test_invalid_order_data_is_rejected(self):
         invalid_payloads = [
             {**self.payload, "email": "not-an-email"},
@@ -467,57 +511,10 @@ class OrderApiTests(TestCase):
         self.assertFalse(PaymentTransaction.objects.filter(order=order).exists())
         self.assertNotIn("payment_url", response.json())
 
-    @override_settings(
-        MOMO_ENABLED=True,
-        MOMO_PARTNER_CODE="MOMO123",
-        MOMO_ACCESS_KEY="momo-access",
-        MOMO_SECRET_KEY="momo-secret",
-        MOMO_CREATE_PAYMENT_URL="https://sandbox.example/momo",
-        MOMO_PUBLIC_BASE_URL="https://fitmeal-demo.example",
-    )
-    @patch("apps.payments.gateway.urlopen")
-    def test_momo_checkout_redirects_to_local_qr_instructions(self, urlopen):
-        response = urlopen.return_value.__enter__.return_value
-        response.read.return_value = json.dumps(
-            {"resultCode": 0, "payUrl": "https://sandbox.example/pay?token=sample"}
-        ).encode()
+    def test_removed_momo_payment_method_is_rejected(self):
+        response = self.post_order({**self.payload, "payment": "momo"})
 
-        order_response = self.post_order(
-            {**self.payload, "payment": Order.PaymentMethod.MOMO}
-        )
-
-        self.assertEqual(order_response.status_code, 201)
-        payment = PaymentTransaction.objects.get(
-            order__order_number=order_response.json()["order_number"]
-        )
-        self.assertIn(
-            reverse(
-                "payments:momo_payment_instructions",
-                args=[payment.transaction_ref],
-            ),
-            order_response.json()["payment_url"],
-        )
-        instructions_response = self.client.get(order_response.json()["payment_url"])
-        self.assertEqual(instructions_response.status_code, 200)
-        self.assertContains(instructions_response, "data:image/svg+xml;base64,")
-        self.assertContains(instructions_response, "Tóm tắt đơn hàng")
-        self.assertContains(instructions_response, "2 × Whey")
-        self.assertContains(instructions_response, "Cần thanh toán")
-        self.assertNotContains(instructions_response, "Chỉ trong bản vẽ")
-
-    @override_settings(
-        MOMO_ENABLED=True,
-        MOMO_PARTNER_CODE="MOMO123",
-        MOMO_ACCESS_KEY="momo-access",
-        MOMO_SECRET_KEY="momo-secret",
-        MOMO_CREATE_PAYMENT_URL="https://sandbox.example/momo",
-        MOMO_PUBLIC_BASE_URL="https://fitmeal-demo.example",
-    )
-    @patch("apps.payments.gateway.urlopen", side_effect=TimeoutError)
-    def test_momo_gateway_timeout_rolls_back_order_and_inventory(self, _urlopen):
-        response = self.post_order({**self.payload, "payment": Order.PaymentMethod.MOMO})
-
-        self.assertEqual(response.status_code, 502)
+        self.assertEqual(response.status_code, 400)
         self.assertEqual(Order.objects.count(), 0)
         self.assertEqual(PaymentTransaction.objects.count(), 0)
 
@@ -2026,12 +2023,12 @@ class StaffOrderDashboardTests(TestCase):
     @patch("apps.orders.views.send_mail", return_value=1)
     def test_manager_approval_cancels_pending_payment_with_valid_response_code(self, _send_mail):
         order = self.create_order(status=Order.Status.CONFIRMED, total=Decimal("120000.00"))
-        order.payment_method = Order.PaymentMethod.MOMO
+        order.payment_method = Order.PaymentMethod.BANK_TRANSFER
         order.save(update_fields=["payment_method"])
         payment = PaymentTransaction.objects.create(
             order=order,
-            provider=PaymentTransaction.Provider.MOMO,
-            transaction_ref="cancel-momo-reference",
+            provider=PaymentTransaction.Provider.BANK_TRANSFER,
+            transaction_ref="cancel-bank-reference",
             amount=order.total,
             expires_at=timezone.now() + timedelta(minutes=15),
         )
@@ -2106,6 +2103,69 @@ class StaffOrderDashboardTests(TestCase):
                     response,
                     reverse("staff_orders:record_cancellation_contact", args=[cancellation.pk]),
                 )
+
+    def test_manager_only_sees_cancellations_after_staff_forwards_them(self):
+        customer = User.objects.create_user(
+            username="forward-customer",
+            email="forward-customer@example.com",
+            password="Customer-Strong-2026!",
+        )
+        order = self.create_order(
+            status=Order.Status.PREPARING,
+            total=Decimal("120000.00"),
+            customer=customer,
+        )
+        employee = User.objects.create_user(
+            username="forward-employee",
+            email="forward-employee@example.com",
+            password="Employee-Strong-2026!",
+            is_staff=True,
+            staff_role=User.StaffRole.SALES,
+        )
+        manager = User.objects.create_user(
+            username="forward-manager",
+            email="forward-manager@example.com",
+            password="Employee-Strong-2026!",
+            is_staff=True,
+            staff_role=User.StaffRole.MANAGER,
+        )
+        self.client.force_login(customer)
+        self.client.post(
+            reverse("orders:customer_cancel", args=[order.pk]),
+            {"reason": "không muốn uống nữa"},
+        )
+        cancellation = OrderCancellationRequest.objects.get(order=order)
+        contact_url = reverse("staff_orders:record_cancellation_contact", args=[cancellation.pk])
+
+        self.client.force_login(manager)
+        for workspace in ("work", "orders"):
+            with self.subTest(stage="before forwarding", workspace=workspace):
+                response = self.client.get(reverse("staff_orders:dashboard"), {"workspace": workspace})
+                self.assertNotContains(response, "Yêu cầu hủy cần gọi lại")
+                self.assertNotContains(response, contact_url)
+                self.assertNotContains(response, "Chuyển Quản lý duyệt")
+                self.assertEqual(response.context["pending_cancellation_count"], 0)
+                # Sidebar link without a notification badge.
+                self.assertContains(response, "Đơn hàng & xử lý</a>")
+
+        self.client.force_login(employee)
+        self.client.post(contact_url, {"outcome": "still_wants_cancel", "note": "Khách vẫn muốn hủy"})
+        cancellation.refresh_from_db()
+        self.assertEqual(cancellation.status, OrderCancellationRequest.Status.MANAGER_REVIEW)
+
+        self.client.force_login(manager)
+        work = self.client.get(reverse("staff_orders:dashboard"), {"workspace": "work"})
+        self.assertEqual(work.context["pending_cancellation_count"], 1)
+        self.assertContains(work, 'href="?workspace=orders&view=cancellations"')
+        self.assertContains(work, "Đơn hàng & xử lý<b>1</b></a>")
+        review = self.client.get(
+            reverse("staff_orders:dashboard"),
+            {"workspace": "orders", "view": "cancellations"},
+        )
+        self.assertContains(review, order.order_number)
+        self.assertContains(review, "không muốn uống nữa")
+        self.assertContains(review, reverse("staff_orders:resolve_cancellation", args=[cancellation.pk]))
+        self.assertNotContains(review, "Chuyển Quản lý duyệt")
 
     def test_customer_request_is_escalated_after_two_unanswered_calls(self):
         customer = User.objects.create_user(
@@ -3309,3 +3369,86 @@ class OrderCarePrivacyTests(TestCase):
         order.refresh_from_db()
         self.assertEqual(order.district, "Quan 1")
         self.assertEqual(order.city, "TP Ho Chi Minh")
+
+
+class PurgeOrdersCommandTests(TestCase):
+    def setUp(self):
+        self.customer = User.objects.create_user(username="khach-purge", email="kp@example.com", password="x")
+        self.dry = Product.objects.create(
+            sku="FM-PURGE-DRY",
+            slug="purge-dry",
+            name="Hạnh nhân",
+            category=Product.Category.DRY_GOODS,
+            description="Đồ khô",
+            price=Decimal("50000.00"),
+            stock_quantity=7,
+            shipping_weight_grams=500,
+        )
+
+    def make_order(self, status, *, deducted_quantity=0):
+        order = Order.objects.create(
+            customer=self.customer,
+            customer_name="Khách",
+            customer_email="kp@example.com",
+            customer_phone="0901234567",
+            address="1 A",
+            district="Quận 1",
+            city="TP Hồ Chí Minh",
+            delivery_date=timezone.localdate() + timedelta(days=1),
+            delivery_slot=Order.DeliverySlot.COURIER,
+            payment_method=Order.PaymentMethod.COD,
+            status=status,
+            subtotal=Decimal("150000.00"),
+            shipping_fee=Decimal("0.00"),
+            total=Decimal("150000.00"),
+        )
+        OrderItem.objects.create(
+            order=order,
+            product=self.dry,
+            product_sku=self.dry.sku,
+            product_name=self.dry.name,
+            product_category=self.dry.category,
+            unit_price=self.dry.price,
+            quantity=deducted_quantity or 1,
+            line_total=Decimal("150000.00"),
+            inventory_deducted=bool(deducted_quantity),
+        )
+        return order
+
+    def test_dry_run_changes_nothing_and_yes_purges_orders_but_keeps_accounts(self):
+        pending = self.make_order(Order.Status.PENDING, deducted_quantity=3)
+        delivered = self.make_order(Order.Status.DELIVERED, deducted_quantity=2)
+        PaymentTransaction.objects.create(
+            order=pending,
+            provider=PaymentTransaction.Provider.BANK_TRANSFER,
+            transaction_ref="purge-ref",
+            amount=Decimal("150000.00"),
+            expires_at=timezone.now() + timedelta(hours=1),
+        )
+        OrderReview.objects.create(order=delivered, rating=5, comment="Ngon")
+        PointsTransaction.objects.get_or_create(
+            user=self.customer, order=delivered, kind=PointsTransaction.Kind.EARNED,
+            defaults={"points": 15},
+        )
+        points_before = PointsTransaction.objects.count()
+
+        from io import StringIO
+        from django.core.management import call_command
+
+        call_command("purge_orders", stdout=StringIO())
+        self.assertEqual(Order.objects.count(), 2)
+        self.assertEqual(PointsTransaction.objects.count(), points_before)
+        self.dry.refresh_from_db()
+        self.assertEqual(self.dry.stock_quantity, 7)
+
+        call_command("purge_orders", "--yes", stdout=StringIO())
+
+        self.assertFalse(Order.objects.exists())
+        self.assertFalse(OrderItem.objects.exists())
+        self.assertFalse(PaymentTransaction.objects.exists())
+        self.assertFalse(OrderReview.objects.exists())
+        self.assertFalse(PointsTransaction.objects.exists())
+        self.assertTrue(User.objects.filter(pk=self.customer.pk).exists())
+        self.dry.refresh_from_db()
+        # Only the undelivered order's 3 units go back to stock; delivered goods really left.
+        self.assertEqual(self.dry.stock_quantity, 10)

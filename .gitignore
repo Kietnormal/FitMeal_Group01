@@ -28,6 +28,7 @@ htmlcov/
 node_modules/
 /test-results/
 /playwright-report/
+/.playwright-emails/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/

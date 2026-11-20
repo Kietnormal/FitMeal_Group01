@@ -1,10 +1,7 @@
-import base64
 import json
 import re
-from io import BytesIO
 from decimal import Decimal, InvalidOperation
 
-import qrcode
 from django.conf import settings
 from django.db import transaction
 from django.http import JsonResponse
@@ -13,16 +10,15 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
-from qrcode.image.svg import SvgPathImage
 
-from apps.orders.inventory import restore_order_inventory
 from apps.orders.models import Order
 
+from .completion import order_complete_context
 from .gateway import (
+    bank_display_name,
+    bank_transfer_content,
     bank_transfer_qr_url,
     expire_pending_payments,
-    momo_payment_session_key,
-    verify_momo_signature,
     verify_sepay_api_key,
     verify_vnpay_signature,
 )
@@ -40,6 +36,18 @@ def _order_followup_url(request, order):
     if request.user.is_authenticated and order.customer_id == request.user.pk:
         return f"{reverse('core:account')}?tab=orders#orders"
     return f"{reverse('core:tracking')}?token={order.tracking_token}"
+
+
+def _render_order_complete(request, payment):
+    return render(
+        request,
+        "payments/order_complete.html",
+        order_complete_context(
+            request,
+            payment,
+            order_url=_order_followup_url(request, payment.order),
+        ),
+    )
 
 
 @require_GET
@@ -118,244 +126,6 @@ def vnpay_ipn(request):
             ]
         )
     return JsonResponse({"RspCode": "00", "Message": "Confirm Success"})
-
-
-def _momo_callback_result(code, message):
-    return JsonResponse({"resultCode": code, "message": message})
-
-
-@csrf_exempt
-@require_POST
-def momo_ipn(request):
-    if not request.content_type.startswith("application/json"):
-        return _momo_callback_result(1, "Invalid content type")
-    try:
-        params = json.loads(request.body)
-    except (json.JSONDecodeError, UnicodeDecodeError):
-        return _momo_callback_result(1, "Invalid JSON")
-    if not isinstance(params, dict) or not verify_momo_signature(params):
-        return _momo_callback_result(1, "Invalid signature")
-    if params.get("partnerCode") != settings.MOMO_PARTNER_CODE:
-        return _momo_callback_result(1, "Invalid partner")
-
-    with transaction.atomic():
-        payment = (
-            PaymentTransaction.objects.select_for_update()
-            .select_related("order")
-            .filter(
-                transaction_ref=params.get("orderId", ""),
-                provider=PaymentTransaction.Provider.MOMO,
-            )
-            .first()
-        )
-        if payment is None or params.get("requestId") != payment.transaction_ref:
-            return _momo_callback_result(1, "Payment not found")
-        try:
-            callback_amount = Decimal(str(params.get("amount", "")))
-        except InvalidOperation:
-            return _momo_callback_result(1, "Invalid amount")
-        if callback_amount != payment.amount:
-            return _momo_callback_result(1, "Amount mismatch")
-        if payment.status == PaymentTransaction.Status.PAID:
-            return _momo_callback_result(0, "Success")
-        if (
-            payment.status != PaymentTransaction.Status.PENDING
-            or payment.expires_at <= timezone.now()
-            or payment.order.status == Order.Status.CANCELLED
-        ):
-            return _momo_callback_result(1, "Payment is no longer pending")
-
-        payment.response_code = str(params.get("resultCode", ""))[:10]
-        payment.gateway_transaction_no = str(params.get("transId", ""))[:64]
-        if str(params.get("resultCode")) == "0":
-            if PaymentTransaction.objects.filter(
-                provider=PaymentTransaction.Provider.MOMO,
-                gateway_transaction_no=payment.gateway_transaction_no,
-                status=PaymentTransaction.Status.PAID,
-            ).exists():
-                return _momo_callback_result(1, "Duplicate transaction")
-            payment.status = PaymentTransaction.Status.PAID
-            payment.paid_at = timezone.now()
-        else:
-            payment.status = PaymentTransaction.Status.FAILED
-        payment.save(
-            update_fields=[
-                "status",
-                "response_code",
-                "gateway_transaction_no",
-                "paid_at",
-                "updated_at",
-            ]
-        )
-        if (
-            payment.status == PaymentTransaction.Status.FAILED
-            and payment.order.status == Order.Status.PENDING
-        ):
-            order = payment.order
-            order.status = Order.Status.CANCELLED
-            order.cancelled_at = timezone.now()
-            order.cancellation_reason = "Tự động hủy do giao dịch MoMo thất bại."
-            order.cancellation_reason_category = (
-                Order.CancellationReasonCategory.PAYMENT_EXPIRED
-            )
-            order.refund_status = Order.RefundStatus.NOT_REQUIRED
-            order.save(
-                update_fields=[
-                    "status",
-                    "cancelled_at",
-                    "cancellation_reason",
-                    "cancellation_reason_category",
-                    "refund_status",
-                    "updated_at",
-                ]
-            )
-            restore_order_inventory(order)
-    return _momo_callback_result(0, "Success")
-
-
-@require_GET
-def momo_return(request):
-    expire_pending_payments()
-    params = request.GET.dict()
-    valid_signature = verify_momo_signature(params)
-    payment = None
-    if valid_signature:
-        payment = (
-            PaymentTransaction.objects.select_related("order")
-            .filter(
-                transaction_ref=params.get("orderId", ""),
-                provider=PaymentTransaction.Provider.MOMO,
-            )
-            .first()
-        )
-        if payment and str(params.get("amount", "")) != str(int(payment.amount)):
-            payment = None
-        if (
-            payment
-            and params.get("partnerCode") == settings.MOMO_PARTNER_CODE
-            and params.get("requestId") == payment.transaction_ref
-            and str(params.get("resultCode")) == "0"
-            and params.get("transId")
-        ):
-            gateway_transaction_no = str(params["transId"])[:64]
-            with transaction.atomic():
-                payment = (
-                    PaymentTransaction.objects.select_for_update()
-                    .select_related("order")
-                    .get(pk=payment.pk)
-                )
-                if (
-                    payment.status == PaymentTransaction.Status.PENDING
-                    and payment.expires_at > timezone.now()
-                    and payment.order.status != Order.Status.CANCELLED
-                    and not PaymentTransaction.objects.filter(
-                        provider=PaymentTransaction.Provider.MOMO,
-                        gateway_transaction_no=gateway_transaction_no,
-                        status=PaymentTransaction.Status.PAID,
-                    )
-                    .exclude(pk=payment.pk)
-                    .exists()
-                ):
-                    payment.status = PaymentTransaction.Status.PAID
-                    payment.paid_at = timezone.now()
-                    payment.response_code = str(params.get("resultCode", ""))[:10]
-                    payment.gateway_transaction_no = gateway_transaction_no
-                    payment.save(
-                        update_fields=[
-                            "status",
-                            "paid_at",
-                            "response_code",
-                            "gateway_transaction_no",
-                            "updated_at",
-                        ]
-                    )
-    return render(
-        request,
-        "payments/payment_result.html",
-        {
-            "payment": payment,
-            "signature_valid": valid_signature,
-            "gateway_succeeded": str(params.get("resultCode")) == "0",
-            "payment_provider": "MoMo",
-            "payment_status_url": (
-                reverse("payments:momo_payment_status", args=[payment.transaction_ref])
-                if payment
-                else ""
-            ),
-            "order_url": (
-                _order_followup_url(request, payment.order)
-                if payment
-                else reverse("core:home")
-            ),
-        },
-    )
-
-
-def _momo_qr_data_url(payment_url):
-    qr = qrcode.QRCode(box_size=8, border=4)
-    qr.add_data(payment_url)
-    qr.make(fit=True)
-    image = qr.make_image(image_factory=SvgPathImage)
-    buffer = BytesIO()
-    image.save(buffer)
-    return "data:image/svg+xml;base64," + base64.b64encode(buffer.getvalue()).decode(
-        "ascii"
-    )
-
-
-@require_GET
-def momo_payment_instructions(request, transaction_ref):
-    expire_pending_payments()
-    payment = get_object_or_404(
-        PaymentTransaction.objects.select_related("order"),
-        transaction_ref=transaction_ref,
-        provider=PaymentTransaction.Provider.MOMO,
-    )
-    gateway_payment_url = request.session.get(
-        momo_payment_session_key(payment.transaction_ref),
-        "",
-    )
-    qr_data_url = (
-        _momo_qr_data_url(gateway_payment_url)
-        if gateway_payment_url and payment.status == PaymentTransaction.Status.PENDING
-        else ""
-    )
-    response = render(
-        request,
-        "payments/momo_payment_instructions.html",
-        {
-            "payment": payment,
-            "qr_data_url": qr_data_url,
-            "payment_status_url": reverse(
-                "payments:momo_payment_status",
-                args=[payment.transaction_ref],
-            ),
-            "order_url": _order_followup_url(request, payment.order),
-        },
-    )
-    response["Cache-Control"] = "no-store"
-    return response
-
-
-@require_GET
-def momo_payment_status(request, transaction_ref):
-    expire_pending_payments()
-    payment = get_object_or_404(
-        PaymentTransaction,
-        transaction_ref=transaction_ref,
-        provider=PaymentTransaction.Provider.MOMO,
-    )
-    if payment.status != PaymentTransaction.Status.PENDING:
-        request.session.pop(momo_payment_session_key(payment.transaction_ref), None)
-    response = JsonResponse(
-        {
-            "status": payment.status,
-            "status_display": payment.get_status_display(),
-            "paid": payment.status == PaymentTransaction.Status.PAID,
-        }
-    )
-    response["Cache-Control"] = "no-store"
-    return response
 
 
 @csrf_exempt
@@ -445,6 +215,8 @@ def bank_transfer_instructions(request, transaction_ref):
         transaction_ref=transaction_ref,
         provider=PaymentTransaction.Provider.BANK_TRANSFER,
     )
+    if payment.status == PaymentTransaction.Status.PAID:
+        return _render_order_complete(request, payment)
     return render(
         request,
         "payments/bank_transfer_instructions.html",
@@ -452,6 +224,9 @@ def bank_transfer_instructions(request, transaction_ref):
             "payment": payment,
             "bank_qr_url": bank_transfer_qr_url(payment),
             "bank_code": settings.BANK_TRANSFER_BANK_CODE,
+            "bank_name": bank_display_name(),
+            "transfer_content": bank_transfer_content(payment),
+            "order_url": _order_followup_url(request, payment.order),
             "account_number": settings.BANK_TRANSFER_ACCOUNT_NUMBER,
             "account_name": settings.BANK_TRANSFER_ACCOUNT_NAME,
             "payment_status_url": reverse(

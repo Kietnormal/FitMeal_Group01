@@ -1,6 +1,8 @@
 import base64
 import hashlib
+from datetime import datetime, timezone as dt_timezone
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from cryptography.fernet import Fernet
 from django.contrib.auth import get_user_model
@@ -49,8 +51,8 @@ class CoreViewsTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "data-product-grid")
-        self.assertContains(response, "storefront.js?v=20261118-redesign-1")
-        self.assertContains(response, "storefront.css?v=20261118-redesign-1")
+        self.assertContains(response, "storefront.js?v=20261120-no-momo-1")
+        self.assertContains(response, "storefront.css?v=20261120-no-momo-1")
         self.assertNotContains(response, "Banana Whey")
         self.assertNotContains(response, "Granola Crunch")
 
@@ -81,7 +83,6 @@ class CoreViewsTests(TestCase):
 
         self.assertContains(response, reverse("staff_orders:dashboard"))
         self.assertContains(response, "Quản trị đơn hàng")
-        self.assertContains(response, "Quản trị demo")
 
     def test_cart_does_not_duplicate_order_history(self):
         response = self.client.get(reverse("core:cart"))
@@ -127,7 +128,7 @@ class CoreViewsTests(TestCase):
             with self.subTest(page=page_name):
                 response = self.client.get(reverse(f"core:{page_name}"))
                 self.assertEqual(response.status_code, 200)
-                self.assertContains(response, "FITMEAL.VN")
+                self.assertContains(response, '<footer class="fm-footer">')
 
     def test_policies_page_discloses_demo_status_and_support_sections(self):
         response = self.client.get(reverse("core:policies"))
@@ -152,24 +153,48 @@ class CoreViewsTests(TestCase):
         self.assertContains(response, reverse("core:policies"))
         self.assertContains(response, 'href="mailto:hello@fitmeal.vn"')
         self.assertContains(response, 'data-catalog-status role="status"')
-        self.assertContains(
-            response,
-            f'href="{reverse("staff_orders:dashboard")}">Quản trị demo</a>',
-        )
+        self.assertNotContains(response, "Quản trị demo")
+        self.assertNotContains(response, "Dự án học tập của Nhóm 1")
+        self.assertNotContains(response, 'data-language="en"')
 
     def test_demo_admin_route_is_removed(self):
         response = self.client.get("/demo-admin/")
         self.assertEqual(response.status_code, 404)
 
-    def test_checkout_offers_momo_bank_transfer_and_cod(self):
+    def test_checkout_offers_bank_transfer_and_cod_only(self):
         response = self.client.get(reverse("core:checkout"))
 
-        self.assertContains(response, 'name="payment" value="momo"')
+        self.assertNotContains(response, 'name="payment" value="momo"')
+        self.assertNotContains(response, "MoMo")
         self.assertContains(response, 'name="payment" value="bank_transfer"')
         self.assertContains(response, 'name="payment" value="cod"')
         self.assertNotContains(response, 'name="payment" value="vnpay"')
         self.assertNotContains(response, "VNPay")
         self.assertNotContains(response, 'class="solid-button submit-order" type="submit" disabled')
+
+    def test_storefront_announces_free_shipping_while_fees_are_disabled(self):
+        with override_settings(SHIPPING_FEES_ENABLED=False):
+            response = self.client.get(reverse("core:shop"))
+        self.assertContains(response, "Miễn phí giao hàng cho mọi đơn")
+        self.assertContains(response, 'data-shipping-fees="off"')
+
+        with override_settings(SHIPPING_FEES_ENABLED=True):
+            response = self.client.get(reverse("core:shop"))
+        self.assertContains(response, "Miễn phí giao đồ tươi cho đơn từ 300.000₫")
+        self.assertContains(response, 'data-shipping-fees="on"')
+
+    def test_checkout_renders_delivery_dates_in_shop_timezone(self):
+        # 17:30 UTC on Nov 18 is already 00:30 on Nov 19 in Asia/Ho_Chi_Minh, so
+        # "tomorrow" is Nov 20 regardless of the browser's timezone.
+        just_after_midnight_in_vietnam = datetime(2026, 11, 18, 17, 30, tzinfo=dt_timezone.utc)
+        with patch("django.utils.timezone.now", return_value=just_after_midnight_in_vietnam):
+            response = self.client.get(reverse("core:checkout"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'min="2026-11-20"')
+        self.assertContains(response, 'value="2026-11-20"')
+        self.assertContains(response, 'data-min-date="2026-11-20"')
+        self.assertContains(response, 'data-dry-goods-max-date="2026-11-24"')
 
     def test_customer_demo_has_shopping_account_and_order_controls(self):
         pages = {

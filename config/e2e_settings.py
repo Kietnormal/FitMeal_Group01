@@ -14,6 +14,8 @@ DATABASES = {
         "NAME": BASE_DIR / ".playwright-e2e.sqlite3",
     }
 }
-MOMO_ENABLED = False
 BANK_TRANSFER_ENABLED = False
 VNPAY_ENABLED = False
+# E-mails (e.g. password reset codes) are written to files so Playwright tests can read them.
+EMAIL_BACKEND = "django.core.mail.backends.filebased.EmailBackend"
+EMAIL_FILE_PATH = BASE_DIR / ".playwright-emails"

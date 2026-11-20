@@ -1,3 +1,5 @@
+import re
+from unittest.mock import patch
 from datetime import timedelta
 from decimal import Decimal
 
@@ -852,3 +854,180 @@ class StaffAccountManagementTests(TestCase):
         )
         employee.refresh_from_db()
         self.assertEqual(employee.phone, "0912345678")
+
+
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+class PasswordResetTests(TestCase):
+    old_password = "Mat-khau-cu-2026!"
+    new_password = "Mat-khau-moi-2026!"
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="quen-mat-khau",
+            email="quen@example.com",
+            password=self.old_password,
+            first_name="Lan",
+        )
+
+    def request_code(self, email="quen@example.com", client=None):
+        return (client or self.client).post(reverse("accounts:password_reset_request"), {"email": email})
+
+    def code_from_last_email(self):
+        match = re.search(r"\b(\d{6})\b", mail.outbox[-1].body)
+        self.assertIsNotNone(match)
+        return match.group(1)
+
+    def confirm(self, code, password1=None, password2=None, email="quen@example.com", client=None):
+        password1 = password1 or self.new_password
+        return (client or self.client).post(
+            reverse("accounts:password_reset_confirm"),
+            {
+                "email": email,
+                "code": code,
+                "new_password1": password1,
+                "new_password2": password2 or password1,
+            },
+        )
+
+    def test_login_page_links_to_forgot_password(self):
+        response = self.client.get(reverse("core:account"))
+
+        self.assertContains(response, reverse("accounts:password_reset_request"))
+        self.assertContains(response, "Quên mật khẩu?")
+        self.assertNotContains(response, "Vui lòng liên hệ quản trị viên để được hỗ trợ đặt lại")
+
+    def test_forgot_password_pages_render(self):
+        self.assertContains(self.client.get(reverse("accounts:password_reset_request")), 'name="email"')
+        response = self.client.get(reverse("accounts:password_reset_confirm"))
+        for field in ('name="code"', 'name="new_password1"', 'name="new_password2"'):
+            self.assertContains(response, field)
+
+    def test_full_flow_emails_code_and_sets_new_password(self):
+        response = self.request_code("  QUEN@example.com ")
+
+        self.assertRedirects(response, reverse("accounts:password_reset_confirm"))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["quen@example.com"])
+        code = self.code_from_last_email()
+        confirm_page = self.client.get(reverse("accounts:password_reset_confirm"))
+        self.assertContains(confirm_page, 'value="quen@example.com"')
+
+        response = self.confirm(code)
+
+        self.assertRedirects(response, f"{reverse('core:account')}#login", fetch_redirect_response=False)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password(self.new_password))
+        self.assertEqual(mail.outbox[-1].subject, "Mật khẩu FitMeal đã được thay đổi")
+        login = self.client.post(
+            reverse("accounts:login"),
+            {"login": "quen@example.com", "password": self.new_password},
+        )
+        self.assertRedirects(login, reverse("core:home"), fetch_redirect_response=False)
+
+    def test_code_is_stored_hashed_and_expires_after_ten_minutes(self):
+        self.request_code()
+        code = self.code_from_last_email()
+        reset = self.user.password_reset_codes.get()
+        self.assertNotIn(code, reset.code_hash)
+        self.assertEqual(reset.expires_at - reset.created_at, timedelta(minutes=10))
+
+        reset.expires_at = timezone.now() - timedelta(seconds=1)
+        reset.save(update_fields=["expires_at"])
+        response = self.confirm(code)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Mã xác nhận không đúng hoặc đã hết hạn.")
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password(self.old_password))
+
+    def test_code_cannot_be_reused(self):
+        self.request_code()
+        code = self.code_from_last_email()
+        self.confirm(code)
+
+        response = self.confirm(code, password1="Mat-khau-thu-ba-2026!")
+
+        self.assertContains(response, "Mã xác nhận không đúng hoặc đã hết hạn.")
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password(self.new_password))
+
+    def test_code_locks_after_five_wrong_attempts(self):
+        self.request_code()
+        code = self.code_from_last_email()
+        wrong_code = f"{(int(code) + 1) % 1_000_000:06d}"
+        for _ in range(5):
+            self.confirm(wrong_code)
+
+        response = self.confirm(code)
+
+        self.assertContains(response, "Mã xác nhận không đúng hoặc đã hết hạn.")
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password(self.old_password))
+
+    def test_password_mismatch_or_weak_password_does_not_spend_the_code(self):
+        self.request_code()
+        code = self.code_from_last_email()
+
+        mismatch = self.confirm(code, password1=self.new_password, password2="Khac-hoan-toan-2026!")
+        weak = self.confirm(code, password1="12345678")
+
+        self.assertContains(mismatch, "Mật khẩu nhập lại chưa khớp.")
+        self.assertEqual(weak.status_code, 200)
+        self.assertEqual(self.user.password_reset_codes.get().failed_attempts, 0)
+        self.assertRedirects(self.confirm(code), f"{reverse('core:account')}#login", fetch_redirect_response=False)
+
+    def test_unknown_email_gets_same_response_and_no_mail(self):
+        known = self.request_code(client=Client())
+        unknown = self.request_code("khong-ton-tai@example.com", client=Client())
+
+        self.assertEqual(known.status_code, unknown.status_code)
+        self.assertEqual(known["Location"], unknown["Location"])
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_resend_is_rate_limited_and_new_code_replaces_old_one(self):
+        self.request_code()
+        first_code = self.code_from_last_email()
+        self.request_code()
+        self.assertEqual(len(mail.outbox), 1)
+
+        first = self.user.password_reset_codes.get()
+        first.created_at = timezone.now() - timedelta(minutes=2)
+        first.save(update_fields=["created_at"])
+        self.request_code()
+        self.assertEqual(len(mail.outbox), 2)
+        second_code = self.code_from_last_email()
+
+        if first_code != second_code:
+            self.assertContains(self.confirm(first_code), "Mã xác nhận không đúng hoặc đã hết hạn.")
+        self.assertRedirects(self.confirm(second_code), f"{reverse('core:account')}#login", fetch_redirect_response=False)
+
+    def test_failed_email_send_lets_customer_retry_immediately(self):
+        with patch("apps.accounts.views.send_code_email", side_effect=OSError("smtp down")):
+            response = self.request_code()
+        self.assertContains(response, "Chưa gửi được email.")
+        self.assertFalse(self.user.password_reset_codes.exists())
+
+        self.request_code()
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertRedirects(self.confirm(self.code_from_last_email()), f"{reverse('core:account')}#login", fetch_redirect_response=False)
+
+    def test_reset_logs_out_existing_sessions(self):
+        other_device = Client()
+        other_device.force_login(self.user)
+        self.assertEqual(other_device.get(reverse("core:account")).context["user"], self.user)
+
+        self.request_code()
+        self.confirm(self.code_from_last_email())
+
+        self.assertFalse(other_device.get(reverse("core:account")).context["user"].is_authenticated)
+
+    def test_reset_clears_temporary_password_flag(self):
+        self.user.must_change_password = True
+        self.user.save(update_fields=["must_change_password"])
+
+        self.request_code()
+        self.confirm(self.code_from_last_email())
+
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.must_change_password)

@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 {% load static %}
-{% block extra_css %}<link rel="stylesheet" href="{% static 'css/storefront.css' %}?v=20261118-redesign-1">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/storefront.css' %}?v=20261120-no-momo-1">{% endblock %}
 {% block content %}
-<div class="store-shell{% if active_page == 'checkout' %} checkout-shell{% endif %}" data-food-images="{% static 'img/food/' %}">
+<div class="store-shell{% if active_page == 'checkout' %} checkout-shell{% endif %}" data-food-images="{% static 'img/food/' %}" data-shipping-fees="{% if shipping_fees_enabled %}on{% else %}off{% endif %}">
   <a class="fm-skip" href="#noi-dung">Bỏ qua điều hướng</a>
   <div class="fm-util" data-announcement-banner>
     <div class="fm-wrap fm-util-row">
       <p><svg class="fm-i" aria-hidden="true"><use href="#fm-clock"/></svg>Nhận đơn 6:00–21:00 mỗi ngày</p>
-      <p><svg class="fm-i" aria-hidden="true"><use href="#fm-truck"/></svg>Miễn phí giao đồ tươi cho đơn từ 300.000₫</p>
+      <p><svg class="fm-i" aria-hidden="true"><use href="#fm-truck"/></svg>{% if shipping_fees_enabled %}Miễn phí giao đồ tươi cho đơn từ 300.000₫{% else %}Miễn phí giao hàng cho mọi đơn{% endif %}</p>
       <p><svg class="fm-i" aria-hidden="true"><use href="#fm-box"/></svg>Đồ khô giao toàn quốc</p>
       <a href="{% url 'core:policies' %}#delivery">Xem khung giờ giao</a>
     </div>
@@ -76,7 +76,7 @@
         <div class="fm-footer-about">
           <a class="fm-brand" href="{% url 'core:home' %}"><span class="fm-brand-mark" aria-hidden="true"><svg class="fm-i"><use href="#fm-leaf"/></svg></span><span class="fm-brand-name">FitMeal</span></a>
           <p>Thực phẩm giàu protein cho người tập luyện và người bận rộn. Ăn đủ chất mà không cần tự nấu.</p>
-          <ul class="fm-pay" aria-label="Phương thức thanh toán"><li>COD</li><li>MoMo</li><li>Chuyển khoản</li></ul>
+          <ul class="fm-pay" aria-label="Phương thức thanh toán"><li>COD</li><li>Chuyển khoản</li></ul>
         </div>
         <nav aria-label="Mua sắm">
           <h2>Mua sắm</h2>
@@ -104,16 +104,6 @@
             <li>Nhận đơn 6:00–21:00</li>
             <li>TP. Hồ Chí Minh</li>
           </ul>
-        </div>
-      </div>
-      <div class="fm-footer-legal">
-        <p>© 2026 FITMEAL.VN. Dự án học tập của Nhóm 1, môn Thương mại điện tử.</p>
-        <div class="fm-footer-tools">
-          <div class="store-languages" aria-label="Ngôn ngữ giao diện">
-            <button type="button" aria-pressed="false" data-language="en">EN</button><span aria-hidden="true">/</span><button type="button" class="is-active" aria-pressed="true" data-language="vi">VI</button>
-            <span class="visually-hidden" role="status" data-language-status>Giao diện hiện hiển thị tiếng Việt.</span>
-          </div>
-          <a href="{% url 'staff_orders:dashboard' %}">Quản trị demo</a>
         </div>
       </div>
     </div>

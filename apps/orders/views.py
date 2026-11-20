@@ -65,14 +65,17 @@ from .models import (
     OrderItem,
     OrderPiiAccessLog,
 )
-from .delivery import begin_customer_delivery_confirmation, finalize_expired_delivery_confirmations
+from .delivery import (
+    begin_customer_delivery_confirmation,
+    earliest_delivery_date,
+    finalize_expired_delivery_confirmations,
+    latest_dry_goods_delivery_date,
+)
 from .privacy import decrypt_order_pii_snapshot, purge_expired_order_pii
 from apps.payments.gateway import (
     PaymentGatewayError,
     create_bank_transfer_payment,
-    create_momo_payment,
     expire_pending_payments,
-    momo_payment_session_key,
 )
 from apps.payments.models import PaymentTransaction
 
@@ -222,7 +225,6 @@ def _cancel_order(order, actor, reason):
         PaymentTransaction.objects.select_for_update().filter(order=order).first()
         if order.payment_method
         in {
-            Order.PaymentMethod.MOMO,
             Order.PaymentMethod.BANK_TRANSFER,
             Order.PaymentMethod.VNPAY,
         }
@@ -379,7 +381,8 @@ def create_order(request):
         delivery_date = date.fromisoformat(delivery_date_value)
     except ValueError:
         return _error("Ngày giao không đúng định dạng.")
-    if delivery_date < timezone.localdate() + timedelta(days=1):
+    today = timezone.localdate()
+    if delivery_date < earliest_delivery_date(today=today):
         return _error("Ngày giao phải từ ngày mai trở đi.")
 
     delivery_slot = payload.get("delivery_slot")
@@ -387,13 +390,10 @@ def create_order(request):
         return _error("Khung giờ giao không hợp lệ.")
     payment_method = payload.get("payment", Order.PaymentMethod.COD)
     if payment_method not in {
-        Order.PaymentMethod.MOMO,
         Order.PaymentMethod.BANK_TRANSFER,
         Order.PaymentMethod.COD,
     }:
         return _error("Phương thức thanh toán không hợp lệ.")
-    if payment_method == Order.PaymentMethod.MOMO and not settings.MOMO_ENABLED:
-        return _error("Thanh toán MoMo chưa được cấu hình.")
     if (
         payment_method == Order.PaymentMethod.BANK_TRANSFER
         and not settings.BANK_TRANSFER_ENABLED
@@ -453,7 +453,7 @@ def create_order(request):
         if not dry_goods_only and not is_ho_chi_minh_city(city):
             return _error("Đồ ăn và thức uống tươi chỉ giao trong khu vực TP. Hồ Chí Minh.")
         if dry_goods_only:
-            if delivery_date > timezone.localdate() + timedelta(days=5):
+            if delivery_date > latest_dry_goods_delivery_date(today=today):
                 return _error("Đồ khô có thời gian giao dự kiến từ 1 đến 5 ngày.")
             if delivery_slot != Order.DeliverySlot.COURIER:
                 return _error("Đồ khô được giao theo lịch của đơn vị vận chuyển.")
@@ -524,22 +524,7 @@ def create_order(request):
         OrderItem.objects.bulk_create(order_items)
         for product in inventory_shortages:
             update_inventory_shortage(product)
-        if payment_method == Order.PaymentMethod.MOMO:
-            try:
-                payment, gateway_payment_url = create_momo_payment(order, request)
-            except PaymentGatewayError as error:
-                transaction.set_rollback(True)
-                return _error(str(error), status=502)
-            request.session[momo_payment_session_key(payment.transaction_ref)] = (
-                gateway_payment_url
-            )
-            payment_url = request.build_absolute_uri(
-                reverse(
-                    "payments:momo_payment_instructions",
-                    args=[payment.transaction_ref],
-                )
-            )
-        elif payment_method == Order.PaymentMethod.BANK_TRANSFER:
+        if payment_method == Order.PaymentMethod.BANK_TRANSFER:
             _, payment_url = create_bank_transfer_payment(order, request)
 
     response_data = _serialize_order(order)
@@ -1025,7 +1010,6 @@ def admin_staff_dashboard(request):
     selected_status = "all"
     payment_filter = "all"
     payment_methods = (
-        (Order.PaymentMethod.MOMO, Order.PaymentMethod.MOMO.label),
         (
             Order.PaymentMethod.BANK_TRANSFER,
             Order.PaymentMethod.BANK_TRANSFER.label,
@@ -2411,7 +2395,6 @@ def staff_update_order_status(request, order_id):
             elif (
                 order.payment_method
                 in {
-                    Order.PaymentMethod.MOMO,
                     Order.PaymentMethod.BANK_TRANSFER,
                     Order.PaymentMethod.VNPAY,
                 }

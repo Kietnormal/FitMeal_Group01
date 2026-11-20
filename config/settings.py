@@ -71,6 +71,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "apps.core.context_processors.shop_settings",
             ],
         },
     },
@@ -147,25 +148,23 @@ EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
 
-MOMO_PARTNER_CODE = env("MOMO_PARTNER_CODE", default="")
-MOMO_ACCESS_KEY = env("MOMO_ACCESS_KEY", default="")
-MOMO_SECRET_KEY = env("MOMO_SECRET_KEY", default="")
-MOMO_CREATE_PAYMENT_URL = env(
-    "MOMO_CREATE_PAYMENT_URL",
-    default="https://test-payment.momo.vn/v2/gateway/api/create",
-)
-MOMO_PUBLIC_BASE_URL = env("MOMO_PUBLIC_BASE_URL", default="")
-MOMO_ENABLED = bool(MOMO_PARTNER_CODE and MOMO_ACCESS_KEY and MOMO_SECRET_KEY)
 BANK_TRANSFER_BANK_CODE = env("BANK_TRANSFER_BANK_CODE", default="")
 BANK_TRANSFER_ACCOUNT_NUMBER = env("BANK_TRANSFER_ACCOUNT_NUMBER", default="")
 BANK_TRANSFER_ACCOUNT_NAME = env("BANK_TRANSFER_ACCOUNT_NAME", default="")
+# Some banks only report incoming transfers to SePay when the transfer note starts with a
+# keyword (VietinBank requires "SEVQR"). It is prepended to the order's transfer code.
+BANK_TRANSFER_CONTENT_PREFIX = env("BANK_TRANSFER_CONTENT_PREFIX", default="").strip()
 SEPAY_API_KEY = env("SEPAY_API_KEY", default="")
+# Shipping fees are temporarily switched off: every order ships free. Set
+# SHIPPING_FEES_ENABLED=True in .env to charge the rates in apps/orders/shipping.py again.
+SHIPPING_FEES_ENABLED = env.bool("SHIPPING_FEES_ENABLED", default=False)
 BANK_TRANSFER_ENABLED = bool(
     BANK_TRANSFER_BANK_CODE
     and BANK_TRANSFER_ACCOUNT_NUMBER
     and BANK_TRANSFER_ACCOUNT_NAME
     and SEPAY_API_KEY
 )
+
 # Retained only to validate and display historical transactions.
 VNPAY_TMN_CODE = env("VNPAY_TMN_CODE", default="")
 VNPAY_HASH_SECRET = env("VNPAY_HASH_SECRET", default="")
@@ -173,7 +172,10 @@ VNPAY_PAYMENT_URL = env(
     "VNPAY_PAYMENT_URL",
     default="https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
 )
+
+# Disabled - VNPay legacy payments
 VNPAY_ENABLED = False
+
 STAFF_SESSION_IDLE_TIMEOUT_SECONDS = env.int(
     "STAFF_SESSION_IDLE_TIMEOUT_SECONDS",
     default=30 * 60,

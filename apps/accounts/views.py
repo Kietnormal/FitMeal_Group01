@@ -1,3 +1,5 @@
+import logging
+
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login, logout, update_session_auth_hash
@@ -24,10 +26,19 @@ from .forms import (
     EmployeeProfileForm,
     EmployeeRoleUpdateForm,
     OrderReviewForm,
+    PasswordResetConfirmForm,
+    PasswordResetRequestForm,
     SecurityPolicyForm,
     StaffMfaVerifyForm,
 )
 from .models import CustomerAddress, LoginThrottle, PendingEmailChange, SecurityPolicy
+from .password_reset import (
+    CODE_TTL,
+    find_user_for_reset,
+    issue_code,
+    send_code_email,
+    send_password_changed_email,
+)
 from .security import (
     is_ip_temporarily_blocked,
     record_blocked_login,
@@ -36,6 +47,8 @@ from .security import (
 from apps.orders.models import Order
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
+PASSWORD_RESET_SESSION_KEY = "password_reset_email"
 
 
 def _show_form_errors(request, form):
@@ -219,6 +232,73 @@ def register_view(request):
     login(request, user, backend="django.contrib.auth.backends.ModelBackend")
     messages.success(request, "Tạo tài khoản thành công. Bạn đã đăng nhập.")
     return redirect("core:home")
+
+
+@require_http_methods(["GET", "POST"])
+def password_reset_request(request):
+    form = PasswordResetRequestForm(request.POST or None)
+    if request.method == "POST":
+        if not form.is_valid():
+            _show_form_errors(request, form)
+            return render(request, "accounts/password_reset_request.html", {"form": form})
+        email = form.cleaned_data["email"]
+        user = find_user_for_reset(email)
+        code = issue_code(user) if user is not None else None
+        if code is not None:
+            try:
+                send_code_email(user, code)
+            except Exception:
+                logger.exception("Could not send password reset code to user %s", user.pk)
+                # The code never reached the customer: drop it so it neither works nor
+                # counts towards the resend cooldown, and the customer can retry right away.
+                user.password_reset_codes.filter(used_at__isnull=True).order_by("-created_at")[:1].get().delete()
+                messages.error(request, "Chưa gửi được email. Vui lòng thử lại sau ít phút.")
+                return render(request, "accounts/password_reset_request.html", {"form": form})
+        request.session[PASSWORD_RESET_SESSION_KEY] = email
+        # Same answer whether or not the e-mail is registered, so the form cannot be used
+        # to find out who has an account.
+        messages.success(
+            request,
+            "Nếu email này đã đăng ký tài khoản FitMeal, mã xác nhận đã được gửi đến hộp thư. "
+            "Có thể mất vài phút để email đến; nhớ kiểm tra cả mục Spam.",
+        )
+        return redirect("accounts:password_reset_confirm")
+    initial_email = request.session.get(PASSWORD_RESET_SESSION_KEY, "")
+    if initial_email:
+        form = PasswordResetRequestForm(initial={"email": initial_email})
+    return render(request, "accounts/password_reset_request.html", {"form": form})
+
+
+@require_http_methods(["GET", "POST"])
+def password_reset_confirm(request):
+    email = request.session.get(PASSWORD_RESET_SESSION_KEY, "")
+    form = PasswordResetConfirmForm(request.POST or None, initial={"email": email})
+    if request.method == "POST":
+        if form.is_valid():
+            user = form.user
+            with transaction.atomic():
+                user.set_password(form.cleaned_data["new_password1"])
+                user.must_change_password = False
+                user.save(update_fields=["password", "must_change_password"])
+                now = timezone.now()
+                form.reset_code.used_at = now
+                form.reset_code.save(update_fields=["used_at"])
+                user.password_reset_codes.filter(used_at__isnull=True).update(expires_at=now)
+            # Changing the password hash invalidates every existing session of this user.
+            send_password_changed_email(user)
+            request.session.pop(PASSWORD_RESET_SESSION_KEY, None)
+            messages.success(request, "Đặt lại mật khẩu thành công. Hãy đăng nhập bằng mật khẩu mới.")
+            return redirect(f"{reverse('core:account')}#login")
+        _show_form_errors(request, form)
+    return render(
+        request,
+        "accounts/password_reset_confirm.html",
+        {
+            "form": form,
+            "email": form["email"].value() or "",
+            "code_ttl_minutes": int(CODE_TTL.total_seconds() // 60),
+        },
+    )
 
 
 @require_POST

@@ -76,6 +76,7 @@ function dryGoodsOnly(cart) {
 }
 
 function shippingFeeFor(subtotal, cart = readCart(), city = "") {
+  if (document.querySelector("[data-shipping-fees]")?.dataset.shippingFees === "off") return 0;
   if (!subtotal || !cart.length) return 0;
   if (dryGoodsOnly(cart)) {
     const weight = cart.reduce((sum, item) =>
@@ -88,6 +89,31 @@ function shippingFeeFor(subtotal, cart = readCart(), city = "") {
   return subtotal >= 300000 ? 0 : 20000;
 }
 
+// Delivery dates are validated by the server in the shop's timezone (Django TIME_ZONE),
+// not the browser's. The checkout template renders the allowed range as data attributes;
+// the Intl-based fallback only exists for pages that lack them.
+const shopTimeZone = "Asia/Ho_Chi_Minh";
+
+function addDaysToIsoDate(isoDate, days) {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+function shopTodayIsoDate() {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", { timeZone: shopTimeZone, year: "numeric", month: "2-digit", day: "2-digit" })
+      .formatToParts(new Date())
+      .map((part) => [part.type, part.value]),
+  );
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function checkoutDeliveryDateBounds(dateInput) {
+  const min = dateInput.dataset.minDate || addDaysToIsoDate(shopTodayIsoDate(), 1);
+  const dryGoodsMax = dateInput.dataset.dryGoodsMaxDate || addDaysToIsoDate(min, 4);
+  return { min, dryGoodsMax };
+}
+
 function updateCheckoutDeliveryFields(cart = readCart()) {
   const form = document.querySelector("[data-checkout-form]");
   if (!form) return;
@@ -97,14 +123,10 @@ function updateCheckoutDeliveryFields(cart = readCart()) {
   const cityInput = form.elements.city;
   const note = document.querySelector("[data-delivery-mode]");
   const warning = document.querySelector("[data-delivery-area-warning]");
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const formatDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-  dateInput.min = formatDate(tomorrow);
+  const deliveryDates = checkoutDeliveryDateBounds(dateInput);
+  dateInput.min = deliveryDates.min;
   if (dryOnly) {
-    const latestDate = new Date(tomorrow);
-    latestDate.setDate(latestDate.getDate() + 4);
-    dateInput.max = formatDate(latestDate);
+    dateInput.max = deliveryDates.dryGoodsMax;
     if (!dateInput.value || dateInput.value < dateInput.min || dateInput.value > dateInput.max) {
       dateInput.value = dateInput.min;
     }
@@ -907,9 +929,7 @@ function initializeCheckout() {
   });
 
   const dateInput = form.elements["delivery-date"];
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  dateInput.min = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`;
+  dateInput.min = checkoutDeliveryDateBounds(dateInput).min;
   dateInput.value = dateInput.min;
 
   form.elements.city.addEventListener("input", () => {
@@ -1610,54 +1630,18 @@ function initializeBankTransferStatus() {
   const page = document.querySelector("[data-bank-transfer-status]");
   const liveStatus = page && page.querySelector("[data-payment-live-status]");
   if (!page || !liveStatus) return;
+  const liveText = liveStatus.querySelector("[data-payment-live-text]") || liveStatus;
+  const heading = page.querySelector("[data-payment-heading]");
 
-  const checkStatus = async () => {
-    try {
-      const response = await fetch(page.dataset.statusUrl, {
-        headers: { Accept: "application/json" },
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Không kiểm tra được trạng thái chuyển khoản.");
-      const status = page.querySelector("[data-payment-status]");
-      status.textContent = result.status_display;
-      if (result.paid) {
-        liveStatus.textContent = "FitMeal đã nhận được tiền và cập nhật trạng thái thanh toán.";
-        page.querySelector("h1").textContent = "Đã nhận được thanh toán.";
-        return;
-      }
-      if (result.status === "expired" || result.status === "failed") {
-        liveStatus.textContent = "Mã thanh toán không còn hiệu lực. Vui lòng liên hệ cửa hàng.";
-        page.querySelector("h1").textContent = "Mã thanh toán đã hết hạn.";
-        return;
-      }
-      window.setTimeout(checkStatus, 5000);
-    } catch (error) {
-      liveStatus.textContent = `${error.message} Trang sẽ tự kiểm tra lại.`;
-      window.setTimeout(checkStatus, 10000);
-    }
+  // The server renders the full "Thanh toán thành công" page for paid payments.
+  const showPaid = () => window.location.reload();
+
+  const showExpired = () => {
+    page.querySelector("[data-bank-transfer-pending]")?.setAttribute("hidden", "");
+    if (heading) heading.textContent = "Mã thanh toán đã hết hạn.";
+    const intro = page.querySelector("[data-payment-intro]");
+    if (intro) intro.textContent = "Mã thanh toán không còn hiệu lực. Vui lòng liên hệ cửa hàng trước khi chuyển khoản.";
   };
-  window.setTimeout(checkStatus, 5000);
-}
-
-function initializeMomoPaymentStatus() {
-  const page = document.querySelector("[data-momo-payment-status]");
-  const liveStatus = page && page.querySelector("[data-payment-live-status]");
-  if (!page || !liveStatus) return;
-
-  const expiration = page.querySelector("[data-momo-expiration]");
-  if (expiration) {
-    const expiresAt = Date.parse(expiration.dataset.expiresAt);
-    if (Number.isFinite(expiresAt)) {
-      const updateExpiration = () => {
-        const remainingSeconds = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
-        const minutes = String(Math.floor(remainingSeconds / 60)).padStart(2, "0");
-        const seconds = String(remainingSeconds % 60).padStart(2, "0");
-        expiration.textContent = `${minutes}:${seconds}`;
-      };
-      updateExpiration();
-      window.setInterval(updateExpiration, 1000);
-    }
-  }
 
   const checkStatus = async () => {
     try {
@@ -1666,21 +1650,39 @@ function initializeMomoPaymentStatus() {
         cache: "no-store",
       });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Không kiểm tra được trạng thái MoMo.");
+      if (!response.ok) throw new Error(result.error || "Không kiểm tra được trạng thái chuyển khoản.");
       const status = page.querySelector("[data-payment-status]");
-      status.textContent = result.status_display;
-      if (result.status !== "pending") {
-        window.location.reload();
+      if (status) status.textContent = result.status_display;
+      if (result.paid) {
+        showPaid();
         return;
       }
-      liveStatus.textContent = "Đang chờ MoMo xác nhận; FitMeal tự kiểm tra lại sau 2 giây.";
-      window.setTimeout(checkStatus, 2000);
+      if (result.status === "expired" || result.status === "failed") {
+        showExpired();
+        return;
+      }
+      window.setTimeout(checkStatus, 4000);
     } catch (error) {
-      liveStatus.textContent = `${error.message} Trang sẽ tự kiểm tra lại.`;
-      window.setTimeout(checkStatus, 5000);
+      liveText.textContent = `${error.message} Trang sẽ tự kiểm tra lại.`;
+      window.setTimeout(checkStatus, 10000);
     }
   };
-  window.setTimeout(checkStatus, 2000);
+  window.setTimeout(checkStatus, 4000);
+}
+
+function initializeCopyButtons() {
+  document.querySelectorAll("[data-copy-text]").forEach((button) => {
+    const label = button.textContent;
+    button.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(button.dataset.copyText);
+        button.textContent = "Đã chép";
+      } catch {
+        button.textContent = "Không chép được";
+      }
+      window.setTimeout(() => { button.textContent = label; }, 1800);
+    });
+  });
 }
 
 function initializeProductCreateForm() {
@@ -1836,7 +1838,7 @@ initializePasswordVisibility();
 initializeEmployeeWorkspaceRefresh();
 initializeEmployeeAvailabilityToggles();
 initializeBankTransferStatus();
-initializeMomoPaymentStatus();
+initializeCopyButtons();
 initializeProductCreateForm();
 initializeAdmin();
 initializeAnnouncementBanner();

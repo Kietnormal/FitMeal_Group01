@@ -61,7 +61,6 @@ class Order(models.Model):
         OTHER = "other", "Lý do khác"
 
     class PaymentMethod(models.TextChoices):
-        MOMO = "momo", "MoMo"
         BANK_TRANSFER = "bank_transfer", "Chuyển khoản ngân hàng"
         COD = "cod", "Thanh toán khi nhận hàng (COD)"
         VNPAY = "vnpay", "VNPay (đơn cũ)"
